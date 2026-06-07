@@ -31,6 +31,7 @@ const navigation = [
   { name: "Pedidos", href: "/pedidos", icon: ClipboardList },
   { name: "Inventario", href: "/inventario", icon: Warehouse },
   { name: "Compras", href: "/compras", icon: ShoppingCart },
+  { name: "Food Cost", href: "/food-cost", icon: ChefHat },
   { name: "Personal", href: "/personal", icon: Users },
   { name: "Finanzas", href: "/finanzas", icon: Wallet },
   { name: "Beneficio", href: "/profit", icon: PieChart },

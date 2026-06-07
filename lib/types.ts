@@ -343,3 +343,16 @@ export interface DeliveryStore {
   registros: RegistroDeliveryMes[];
   pedidos: PedidoDeliveryCenter[];
 }
+
+export interface RegistroFoodCost {
+  id: string;
+  mes: string;
+  ventas: number;
+  clientes: number;
+  compras: number;
+}
+
+export interface FoodCostStore {
+  objetivoFoodCostPct: number;
+  registros: RegistroFoodCost[];
+}
