@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bot,
   CalendarDays,
+  FileText,
   Pencil,
   Plus,
   Target,
@@ -20,18 +21,19 @@ import { StatCard } from "@/components/ui/StatCard";
 import {
   EMPTY_REGISTRO_FORM,
   computeMetrics,
+  computePeriodoResumen,
   genId,
   generarSugerenciasAI,
   getMejorPeorDia,
   getRegistrosMes,
   getTendenciaSemanal,
-  loadObjetivo,
+  loadRestosuite,
   parseRegistroForm,
   registroToForm,
-  saveObjetivo,
+  saveRestosuite,
   type RegistroForm,
 } from "@/lib/objetivo/helpers";
-import { RegistroDiario } from "@/lib/types";
+import { RegistroRestosuite } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type Tab = "registro" | "tendencias" | "ai";
@@ -136,7 +138,7 @@ function BarChart({
 
 export function ObjetivoPanel() {
   const [objetivoMensual, setObjetivoMensual] = useState(100_000);
-  const [registros, setRegistros] = useState<RegistroDiario[]>([]);
+  const [registros, setRegistros] = useState<RegistroRestosuite[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("registro");
   const [toast, setToast] = useState("");
@@ -152,7 +154,7 @@ export function ObjetivoPanel() {
 
   useEffect(() => {
     try {
-      const store = loadObjetivo();
+      const store = loadRestosuite();
       setObjetivoMensual(store.objetivoMensual);
       setRegistros(store.registros);
     } finally {
@@ -166,9 +168,9 @@ export function ObjetivoPanel() {
   }, []);
 
   const persist = useCallback(
-    (nextRegistros: RegistroDiario[]) => {
+    (nextRegistros: RegistroRestosuite[]) => {
       setRegistros(nextRegistros);
-      saveObjetivo({ objetivoMensual, registros: nextRegistros });
+      saveRestosuite({ objetivoMensual, registros: nextRegistros });
     },
     [objetivoMensual],
   );
@@ -192,6 +194,10 @@ export function ObjetivoPanel() {
     () => generarSugerenciasAI(metrics, registrosMes),
     [metrics, registrosMes],
   );
+  const periodoRestosuite = useMemo(
+    () => computePeriodoResumen(registros, "2026-05-07", "2026-06-06"),
+    [registros],
+  );
 
   const mesLabel = now.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
 
@@ -209,7 +215,7 @@ export function ObjetivoPanel() {
   const saveRegistro = () => {
     const parsed = parseRegistroForm(form);
     if (!parsed) {
-      showToast("Completa fecha y facturación");
+      showToast("Completa fecha y ventas");
       return;
     }
 
@@ -222,9 +228,7 @@ export function ObjetivoPanel() {
     }
 
     if (editId) {
-      persist(
-        registros.map((r) => (r.id === editId ? { ...r, ...parsed } : r)),
-      );
+      persist(registros.map((r) => (r.id === editId ? { ...r, ...parsed } : r)));
       showToast("Registro actualizado");
     } else {
       persist([...registros, { id: genId(), ...parsed }]);
@@ -251,11 +255,11 @@ export function ObjetivoPanel() {
   const updateForm = (field: keyof RegistroForm, value: string) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === "facturacion" || field === "clientes") {
-        const fact = parseFloat(field === "facturacion" ? value : prev.facturacion) || 0;
+      if (field === "ventas" || field === "clientes") {
+        const ventas = parseFloat(field === "ventas" ? value : prev.ventas) || 0;
         const cli = parseInt(field === "clientes" ? value : prev.clientes, 10) || 0;
-        if (fact > 0 && cli > 0 && !prev.ticketMedio) {
-          next.ticketMedio = (fact / cli).toFixed(2);
+        if (ventas > 0 && cli > 0 && !prev.ticketMedio) {
+          next.ticketMedio = (ventas / cli).toFixed(2);
         }
       }
       return next;
@@ -263,15 +267,17 @@ export function ObjetivoPanel() {
   };
 
   const chartMax = useMemo(
-    () => Math.max(...registrosMes.map((r) => r.facturacion), 1),
+    () => Math.max(...registrosMes.map((r) => r.ventas), 1),
     [registrosMes],
   );
+
+  const registrosVisibles = tab === "registro" ? [...registros].reverse().slice(0, 30) : registrosMes;
 
   return (
     <div>
       <PageHeader
         title="Objetivo 100K"
-        description={`Seguimiento mensual · ${mesLabel}`}
+        description={`Restosuite KPI · ${mesLabel}`}
       >
         <Button size="sm" className="gap-1.5" onClick={() => openRegistroModal("add")}>
           <Plus className="h-4 w-4" />
@@ -280,7 +286,37 @@ export function ObjetivoPanel() {
         </Button>
       </PageHeader>
 
-      {/* Progreso principal */}
+      {/* Restosuite periodo resumen */}
+      <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm sm:mb-6">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="rounded-md bg-indigo-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white sm:text-xs">
+            Restosuite
+          </span>
+          <p className="text-xs font-medium text-indigo-900 sm:text-sm">
+            Periodo 07/05 – 06/06/2026
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">Ventas</p>
+            <p className="font-bold text-indigo-950">{formatCurrency(periodoRestosuite.ventas)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">Clientes</p>
+            <p className="font-bold text-indigo-950">{periodoRestosuite.clientes.toLocaleString("es-ES")}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">Ticket medio</p>
+            <p className="font-bold text-indigo-950">{formatCurrency(periodoRestosuite.ticketMedio)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">Días registrados</p>
+            <p className="font-bold text-indigo-950">{periodoRestosuite.dias}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Objetivo mensual */}
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:mb-6 sm:p-5">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -304,37 +340,41 @@ export function ObjetivoPanel() {
             style={{ width: `${Math.min(100, metrics.porcentajeCompletado)}%` }}
           />
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
           <div>
-            <p className="text-xs text-gray-500">Facturación actual</p>
-            <p className="font-semibold text-gray-900">
-              {formatCurrency(metrics.facturacionActual)}
-            </p>
+            <p className="text-xs text-gray-500">Ventas actuales</p>
+            <p className="font-semibold text-gray-900">{formatCurrency(metrics.ventasActuales)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Clientes actuales</p>
+            <p className="font-semibold text-gray-900">{metrics.clientesActuales.toLocaleString("es-ES")}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Ticket medio real</p>
+            <p className="font-semibold text-gray-900">{formatCurrency(metrics.ticketMedioReal)}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Proyección mensual</p>
-            <p className="font-semibold text-gray-900">
-              {formatCurrency(metrics.proyeccionMensual)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Diferencia al objetivo</p>
-            <p
-              className={`font-semibold ${metrics.diferenciaObjetivo <= 0 ? "text-emerald-600" : "text-amber-700"}`}
-            >
-              {metrics.diferenciaObjetivo <= 0
-                ? `+${formatCurrency(Math.abs(metrics.diferenciaObjetivo))}`
-                : `-${formatCurrency(metrics.diferenciaObjetivo)}`}
-            </p>
+            <p className="font-semibold text-gray-900">{formatCurrency(metrics.proyeccionMensual)}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Probabilidad objetivo</p>
             <p className="font-semibold text-gray-900">{metrics.probabilidadObjetivo}%</p>
           </div>
         </div>
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-500">Diferencia hasta objetivo</p>
+          <p
+            className={`text-lg font-bold ${metrics.diferenciaObjetivo <= 0 ? "text-emerald-600" : "text-amber-700"}`}
+          >
+            {metrics.diferenciaObjetivo <= 0
+              ? `Superado en ${formatCurrency(Math.abs(metrics.diferenciaObjetivo))}`
+              : `Faltan ${formatCurrency(metrics.diferenciaObjetivo)}`}
+          </p>
+        </div>
       </div>
 
-      {/* KPIs calculados */}
+      {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-3 lg:grid-cols-6 sm:gap-4">
         <StatCard
           title="Promedio diario"
@@ -349,14 +389,8 @@ export function ObjetivoPanel() {
           iconColor="bg-blue-50 text-blue-600"
         />
         <StatCard
-          title="Ticket medio"
-          value={formatCurrency(metrics.ticketMedioGlobal)}
-          icon={TrendingUp}
-          iconColor="bg-emerald-50 text-emerald-600"
-        />
-        <StatCard
-          title="€/día necesarios"
-          value={formatCurrency(metrics.facturacionDiariaNecesaria)}
+          title="Ventas/día neces."
+          value={formatCurrency(metrics.ventasDiariasNecesarias)}
           subtitle={`${metrics.diasRestantes} días rest.`}
           icon={CalendarDays}
           iconColor="bg-amber-50 text-amber-600"
@@ -368,9 +402,16 @@ export function ObjetivoPanel() {
           iconColor="bg-purple-50 text-purple-600"
         />
         <StatCard
-          title="Bebidas"
+          title="Facturas/día"
+          value={String(metrics.promedioFacturasDia)}
+          subtitle={`${metrics.totalFacturas} total`}
+          icon={FileText}
+          iconColor="bg-slate-50 text-slate-600"
+        />
+        <StatCard
+          title="Ventas bebida"
           value={`${metrics.ratioBebidas}%`}
-          subtitle={formatCurrency(metrics.totalBebidas)}
+          subtitle={formatCurrency(metrics.totalVentasBebida)}
           icon={Wine}
           iconColor="bg-rose-50 text-rose-600"
         />
@@ -380,9 +421,9 @@ export function ObjetivoPanel() {
       <div className="mb-4 flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
         {(
           [
-            { id: "registro", label: "Registro", icon: CalendarDays },
+            { id: "registro", label: "Restosuite", icon: CalendarDays },
             { id: "tendencias", label: "Tendencias", icon: TrendingUp },
-            { id: "ai", label: "AI Gerente", icon: Bot },
+            { id: "ai", label: "AI Insights", icon: Bot },
           ] as const
         ).map(({ id, label, icon: Icon }) => (
           <button
@@ -401,17 +442,24 @@ export function ObjetivoPanel() {
 
       {tab === "registro" && (
         <>
+          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold text-gray-900">Datos Restosuite</h2>
+            <p className="text-xs text-gray-500">
+              Registro diario de ventas importado o introducido manualmente.
+            </p>
+          </div>
+
           {!loaded ? (
             <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
               Cargando datos…
             </div>
-          ) : registrosMes.length === 0 ? (
+          ) : registrosVisibles.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
-              Sin registros este mes. Pulsa Nuevo registro.
+              Sin registros. Pulsa Nuevo registro.
             </div>
           ) : (
             <div className="space-y-3">
-              {registrosMes.map((reg) => (
+              {registrosVisibles.map((reg) => (
                 <article
                   key={reg.id}
                   className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
@@ -424,24 +472,26 @@ export function ObjetivoPanel() {
                       )}
                     </div>
                     <p className="text-lg font-bold text-karuma-600">
-                      {formatCurrency(reg.facturacion)}
+                      {formatCurrency(reg.ventas)}
                     </p>
                   </div>
 
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-5">
                     <div>
                       <dt className="text-xs text-gray-500">Clientes</dt>
                       <dd className="font-medium text-gray-900">{reg.clientes}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-gray-500">Ticket medio</dt>
-                      <dd className="font-medium text-gray-900">
-                        {formatCurrency(reg.ticketMedio)}
-                      </dd>
+                      <dd className="font-medium text-gray-900">{formatCurrency(reg.ticketMedio)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-gray-500">Bebidas</dt>
-                      <dd className="font-medium text-gray-900">{formatCurrency(reg.bebidas)}</dd>
+                      <dt className="text-xs text-gray-500">Facturas</dt>
+                      <dd className="font-medium text-gray-900">{reg.facturas}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-gray-500">Ventas bebida</dt>
+                      <dd className="font-medium text-gray-900">{formatCurrency(reg.ventasBebida)}</dd>
                     </div>
                   </dl>
 
@@ -481,11 +531,9 @@ export function ObjetivoPanel() {
                   <TrendingUp className="h-4 w-4" />
                   <span className="text-sm font-semibold">Mejor día</span>
                 </div>
-                <p className="text-lg font-bold text-emerald-900">
-                  {formatCurrency(mejor.facturacion)}
-                </p>
+                <p className="text-lg font-bold text-emerald-900">{formatCurrency(mejor.ventas)}</p>
                 <p className="text-xs text-emerald-700">
-                  {formatDate(mejor.fecha)} · {mejor.clientes} clientes
+                  {formatDate(mejor.fecha)} · {mejor.clientes} clientes · {mejor.facturas} facturas
                 </p>
               </div>
             )}
@@ -495,24 +543,22 @@ export function ObjetivoPanel() {
                   <TrendingDown className="h-4 w-4" />
                   <span className="text-sm font-semibold">Peor día</span>
                 </div>
-                <p className="text-lg font-bold text-red-900">
-                  {formatCurrency(peor.facturacion)}
-                </p>
+                <p className="text-lg font-bold text-red-900">{formatCurrency(peor.ventas)}</p>
                 <p className="text-xs text-red-700">
-                  {formatDate(peor.fecha)} · {peor.clientes} clientes
+                  {formatDate(peor.fecha)} · {peor.clientes} clientes · {peor.facturas} facturas
                 </p>
               </div>
             )}
           </div>
 
-          <Card title="Historial diario">
+          <Card title="Historial diario (mes actual)">
             {registrosMes.length === 0 ? (
               <p className="text-sm text-gray-500">Sin datos para mostrar.</p>
             ) : (
               <BarChart
                 items={registrosMes.map((r) => ({
                   label: formatDate(r.fecha),
-                  value: r.facturacion,
+                  value: r.ventas,
                 }))}
                 maxValue={chartMax}
               />
@@ -523,8 +569,8 @@ export function ObjetivoPanel() {
             <BarChart
               items={tendenciaSemanal
                 .filter((s) => s.dias > 0)
-                .map((s) => ({ label: s.semana, value: s.facturacion }))}
-              maxValue={Math.max(...tendenciaSemanal.map((s) => s.facturacion), 1)}
+                .map((s) => ({ label: s.semana, value: s.ventas }))}
+              maxValue={Math.max(...tendenciaSemanal.map((s) => s.ventas), 1)}
             />
             {tendenciaSemanal.every((s) => s.dias === 0) && (
               <p className="text-sm text-gray-500">Aún no hay datos semanales.</p>
@@ -538,10 +584,10 @@ export function ObjetivoPanel() {
           <div className="rounded-xl border border-karuma-200 bg-karuma-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <Bot className="h-5 w-5 text-karuma-600" />
-              <h3 className="font-semibold text-karuma-900">Análisis AI Gerente</h3>
+              <h3 className="font-semibold text-karuma-900">AI Gerente Insights</h3>
             </div>
             <p className="text-sm text-karuma-800">
-              Recomendaciones basadas en los datos de facturación de {mesLabel}.
+              Análisis automático basado en datos Restosuite de {mesLabel}.
             </p>
           </div>
 
@@ -559,7 +605,7 @@ export function ObjetivoPanel() {
 
       <Modal
         open={modal === "registro"}
-        title={editId ? "Editar registro" : "Nuevo registro diario"}
+        title={editId ? "Editar registro Restosuite" : "Nuevo registro Restosuite"}
         onClose={() => setModal(null)}
       >
         <div className="space-y-4">
@@ -572,13 +618,13 @@ export function ObjetivoPanel() {
             />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Facturación €" required>
+            <Field label="Ventas €" required>
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.facturacion}
-                onChange={(e) => updateForm("facturacion", e.target.value)}
+                value={form.ventas}
+                onChange={(e) => updateForm("ventas", e.target.value)}
                 placeholder="3908.20"
                 className={inputClass}
               />
@@ -595,7 +641,7 @@ export function ObjetivoPanel() {
               />
             </Field>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Ticket medio €">
               <input
                 type="number"
@@ -603,17 +649,28 @@ export function ObjetivoPanel() {
                 step="0.01"
                 value={form.ticketMedio}
                 onChange={(e) => updateForm("ticketMedio", e.target.value)}
-                placeholder="Auto si vacío"
+                placeholder="Auto"
                 className={inputClass}
               />
             </Field>
-            <Field label="Bebidas €">
+            <Field label="Facturas">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.facturas}
+                onChange={(e) => updateForm("facturas", e.target.value)}
+                placeholder="64"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Ventas bebida €">
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.bebidas}
-                onChange={(e) => updateForm("bebidas", e.target.value)}
+                value={form.ventasBebida}
+                onChange={(e) => updateForm("ventasBebida", e.target.value)}
                 placeholder="586.23"
                 className={inputClass}
               />

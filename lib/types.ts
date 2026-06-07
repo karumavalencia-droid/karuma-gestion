@@ -245,17 +245,24 @@ export interface DatosRestaurante {
   horario: string;
 }
 
-export interface RegistroDiario {
+export interface RegistroRestosuite {
   id: string;
   fecha: string;
-  facturacion: number;
+  ventas: number;
   clientes: number;
   ticketMedio: number;
-  bebidas: number;
+  facturas: number;
+  ventasBebida: number;
   observaciones: string;
 }
 
-export interface ObjetivoStore {
+export interface RestosuiteStore {
   objetivoMensual: number;
-  registros: RegistroDiario[];
+  registros: RegistroRestosuite[];
 }
+
+/** @deprecated Usar RegistroRestosuite */
+export type RegistroDiario = RegistroRestosuite;
+
+/** @deprecated Usar RestosuiteStore */
+export type ObjetivoStore = RestosuiteStore;
