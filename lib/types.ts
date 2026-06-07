@@ -134,6 +134,39 @@ export interface Compra {
   fecha: string;
 }
 
+export type EstadoProveedor = "activo" | "inactivo";
+
+export interface Proveedor {
+  id: string;
+  nombre: string;
+  contacto: string;
+  telefono: string;
+  email: string;
+  categoria: string;
+  estado: EstadoProveedor;
+}
+
+export type EstadoPedidoCompra = "pendiente" | "enviado" | "recibido" | "cancelado";
+
+export interface PedidoCompra {
+  id: string;
+  numeroPedido: string;
+  fecha: string;
+  proveedorId: string;
+  proveedorNombre: string;
+  producto: string;
+  cantidad: number;
+  unidad: string;
+  coste: number;
+  estado: EstadoPedidoCompra;
+}
+
+export interface ComprasStore {
+  proveedores: Proveedor[];
+  pedidos: PedidoCompra[];
+  contadorPedido: number;
+}
+
 export interface ProductoVendido {
   nombre: string;
   cantidad: number;
@@ -210,4 +243,19 @@ export interface DatosRestaurante {
   cif: string;
   email: string;
   horario: string;
+}
+
+export interface RegistroDiario {
+  id: string;
+  fecha: string;
+  facturacion: number;
+  clientes: number;
+  ticketMedio: number;
+  bebidas: number;
+  observaciones: string;
+}
+
+export interface ObjetivoStore {
+  objetivoMensual: number;
+  registros: RegistroDiario[];
 }
