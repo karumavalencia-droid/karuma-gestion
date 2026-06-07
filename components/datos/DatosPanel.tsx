@@ -29,6 +29,7 @@ import {
   type ModuleInfo,
 } from "@/lib/datos/helpers";
 import { formatCurrency } from "@/lib/utils";
+import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
 
 const sugerenciaStyles = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-900",
@@ -194,6 +195,15 @@ export function DatosPanel() {
           <Download className="h-4 w-4" />
           Exportar resumen CSV
         </Button>
+      </div>
+
+      <div className="mb-4 sm:mb-6">
+        <RestosuiteCsvImporter
+          onImported={() => {
+            refresh();
+            showToast("Restosuite importado — métricas actualizadas");
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

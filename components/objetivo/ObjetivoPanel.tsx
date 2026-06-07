@@ -35,6 +35,7 @@ import {
 } from "@/lib/objetivo/helpers";
 import { RegistroRestosuite } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
 
 type Tab = "registro" | "tendencias" | "ai";
 type ModalKind = "registro" | "confirm" | null;
@@ -165,6 +166,12 @@ export function ObjetivoPanel() {
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
+  }, []);
+
+  const reloadFromStorage = useCallback(() => {
+    const store = loadRestosuite();
+    setObjetivoMensual(store.objetivoMensual);
+    setRegistros(store.registros);
   }, []);
 
   const persist = useCallback(
@@ -314,6 +321,16 @@ export function ObjetivoPanel() {
             <p className="font-bold text-indigo-950">{periodoRestosuite.dias}</p>
           </div>
         </div>
+      </div>
+
+      <div className="mb-4 sm:mb-6">
+        <RestosuiteCsvImporter
+          compact
+          onImported={() => {
+            reloadFromStorage();
+            showToast("CSV importado — Objetivo 100K actualizado");
+          }}
+        />
       </div>
 
       {/* Objetivo mensual */}
