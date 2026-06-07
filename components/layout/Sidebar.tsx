@@ -15,12 +15,14 @@ import {
   Settings,
   Bot,
   Target,
+  Database,
   X,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "AI Gerente", href: "/ai-gerente", icon: Bot },
+  { name: "Datos", href: "/datos", icon: Database },
   { name: "Objetivo 100K", href: "/objetivo", icon: Target },
   { name: "Pedidos", href: "/pedidos", icon: ClipboardList },
   { name: "Inventario", href: "/inventario", icon: Warehouse },

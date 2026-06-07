@@ -8,6 +8,7 @@ import { Header } from "./Header";
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/ai-gerente": "AI Gerente",
+  "/datos": "Datos",
   "/objetivo": "Objetivo 100K",
   "/pedidos": "Pedidos",
   "/inventario": "Inventario",
