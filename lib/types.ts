@@ -72,6 +72,32 @@ export interface Empleado {
   sueldoEstimado: number;
 }
 
+export type DiaSemana =
+  | "Lunes"
+  | "Martes"
+  | "Miércoles"
+  | "Jueves"
+  | "Viernes"
+  | "Sábado"
+  | "Domingo";
+
+export interface HorarioDia {
+  turnoComida: string;
+  turnoCena: string;
+  horas: number;
+}
+
+export interface EmpleadoPersonal {
+  id: string;
+  nombre: string;
+  cargo: string;
+  telefono: string;
+  fechaAlta: string;
+  salarioBase: number;
+  estado: EstadoEmpleado;
+  horario: Record<DiaSemana, HorarioDia>;
+}
+
 export interface Turno {
   id: string;
   empleado: string;
