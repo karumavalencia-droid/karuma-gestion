@@ -314,3 +314,32 @@ export interface ReviewsStore {
   registrosMensuales: RegistroMensualReviews[];
   resenas: ResenaReview[];
 }
+
+export type PlataformaDeliveryCenter = "Uber Eats" | "Glovo";
+
+export type EstadoPedidoDelivery = "entregado" | "en camino" | "preparando" | "cancelado";
+
+export interface PedidoDeliveryCenter {
+  id: string;
+  fecha: string;
+  plataforma: PlataformaDeliveryCenter;
+  importe: number;
+  estado: EstadoPedidoDelivery;
+}
+
+export interface RegistroDeliveryMes {
+  id: string;
+  mes: string;
+  ventasUber: number;
+  ventasGlovo: number;
+  pedidosUber: number;
+  pedidosGlovo: number;
+}
+
+export interface DeliveryStore {
+  comisionUberPct: number;
+  comisionGlovoPct: number;
+  costeComidaPct: number;
+  registros: RegistroDeliveryMes[];
+  pedidos: PedidoDeliveryCenter[];
+}

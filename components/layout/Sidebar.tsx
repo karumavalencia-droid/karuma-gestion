@@ -18,6 +18,7 @@ import {
   Database,
   Star,
   Crown,
+  Truck,
   X,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ const navigation = [
   { name: "Finanzas", href: "/finanzas", icon: Wallet },
   { name: "Beneficio", href: "/profit", icon: PieChart },
   { name: "Reviews", href: "/reviews", icon: Star },
+  { name: "Delivery Center", href: "/delivery-center", icon: Truck },
   { name: "Marketing", href: "/marketing", icon: Megaphone },
   { name: "Cocina", href: "/cocina", icon: ChefHat },
   { name: "Configuración", href: "/configuracion", icon: Settings },
