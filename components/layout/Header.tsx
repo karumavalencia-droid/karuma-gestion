@@ -1,6 +1,8 @@
 "use client";
 
 import { Menu, Bell } from "lucide-react";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -8,7 +10,9 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, title }: HeaderProps) {
-  const today = new Intl.DateTimeFormat("es-ES", {
+  const { locale, t } = useLanguage();
+
+  const today = new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "es-ES", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -20,7 +24,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         <button
           onClick={onMenuClick}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 lg:hidden"
-          aria-label="Abrir menú"
+          aria-label={t("header.openMenu")}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -30,10 +34,11 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <LanguageSwitcher />
         <button
-          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100"
-          aria-label="Notificaciones"
+          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 sm:flex"
+          aria-label={t("header.notifications")}
         >
           <Bell className="h-5 w-5" />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-karuma-500" />

@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { StatCard } from "@/components/ui/StatCard";
 import { loadCeoDashboard, type CeoDashboard, type PrioridadHoy } from "@/lib/ceo/helpers";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { formatCurrency } from "@/lib/utils";
 
 const urgenciaStyles = {
@@ -86,6 +87,7 @@ const prioridadIconos: Record<string, typeof TrendingUp> = {
 };
 
 export function CeoPanel() {
+  const { t, locale } = useLanguage();
   const [data, setData] = useState<CeoDashboard | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -101,12 +103,12 @@ export function CeoPanel() {
   if (!loaded || !data) {
     return (
       <div className="flex min-h-[240px] items-center justify-center text-sm text-gray-500">
-        Cargando CEO Dashboard…
+        {t("ceo.loading")}
       </div>
     );
   }
 
-  const fechaHoy = new Date().toLocaleDateString("es-ES", {
+  const fechaHoy = new Date().toLocaleDateString(locale === "zh" ? "zh-CN" : "es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -121,7 +123,7 @@ export function CeoPanel() {
             <div className="mb-2 flex items-center gap-2">
               <Crown className="h-5 w-5 text-amber-400" />
               <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">
-                CEO Dashboard
+                {t("ceo.badge")}
               </span>
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">Karuma Sushi & Grill</h1>
@@ -134,7 +136,7 @@ export function CeoPanel() {
             onClick={refresh}
           >
             <RefreshCw className="h-4 w-4" />
-            <span className="hidden sm:inline">Actualizar</span>
+            <span className="hidden sm:inline">{t("common.refresh")}</span>
           </Button>
         </div>
 
@@ -147,11 +149,11 @@ export function CeoPanel() {
             }`}
           >
             {data.usandoDatosReales
-              ? `Datos en vivo · ${data.fuentes.join(" · ")}`
-              : "Datos de ejemplo"}
+              ? `${t("ceo.liveData")} · ${data.fuentes.join(" · ")}`
+              : t("ceo.sampleData")}
           </span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium text-gray-300 sm:text-xs">
-            Objetivo {data.objetivo100k.toLocaleString("es-ES")} €
+            {t("ceo.objective")} {data.objetivo100k.toLocaleString("es-ES")} €
           </span>
         </div>
       </div>
@@ -159,49 +161,51 @@ export function CeoPanel() {
       {/* KPIs principales */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          KPIs principales
+          {t("ceo.kpisMain")}
         </h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           <StatCard
-            title="Ventas hoy"
+            title={t("ceo.ventasHoy")}
             value={formatCurrency(data.ventasHoy)}
             subtitle={
-              data.clientesHoy > 0 ? `${data.clientesHoy} clientes` : "Estimación diaria"
+              data.clientesHoy > 0
+                ? `${data.clientesHoy} ${t("common.clients")}`
+                : t("ceo.dailyEstimate")
             }
             icon={Euro}
             iconColor="bg-emerald-50 text-emerald-600"
           />
           <StatCard
-            title="Ventas mes"
+            title={t("ceo.ventasMes")}
             value={formatCurrency(data.ventasMes)}
-            subtitle={`${data.progreso100kPct}% del objetivo`}
+            subtitle={`${data.progreso100kPct}% ${t("ceo.ofObjective")}`}
             icon={TrendingUp}
             iconColor="bg-blue-50 text-blue-600"
           />
           <StatCard
-            title="Objetivo 100K"
+            title={t("ceo.objetivo100k")}
             value={`${data.progreso100kPct}%`}
             subtitle={
               data.falta100k > 0
-                ? `Faltan ${data.falta100k.toLocaleString("es-ES")} €`
-                : "¡Alcanzado!"
+                ? `${t("ceo.remaining")} ${data.falta100k.toLocaleString("es-ES")} €`
+                : t("ceo.reached")
             }
-            trend={data.falta100k > 0 ? undefined : "Superado"}
+            trend={data.falta100k > 0 ? undefined : t("ceo.exceeded")}
             trendUp={data.falta100k <= 0}
             icon={Target}
             iconColor="bg-karuma-50 text-karuma-600"
           />
           <StatCard
-            title="Proyección mensual"
+            title={t("ceo.proyeccionMensual")}
             value={formatCurrency(data.proyeccionMensual)}
-            subtitle="Al ritmo actual"
+            subtitle={t("ceo.currentPace")}
             icon={ArrowUpRight}
             iconColor="bg-violet-50 text-violet-600"
           />
           <StatCard
-            title="Beneficio estimado"
+            title={t("ceo.beneficioEstimado")}
             value={formatCurrency(data.beneficioEstimado)}
-            trend={data.beneficioEstimado >= 0 ? "Positivo" : "Negativo"}
+            trend={data.beneficioEstimado >= 0 ? t("common.positive") : t("common.negative")}
             trendUp={data.beneficioEstimado >= 0}
             icon={Euro}
             iconColor={
@@ -211,9 +215,9 @@ export function CeoPanel() {
             }
           />
           <StatCard
-            title="Margen neto"
+            title={t("ceo.margenNeto")}
             value={`${data.margenNetoPct}%`}
-            subtitle="Mes en curso"
+            subtitle={t("ceo.currentMonth")}
             icon={TrendingUp}
             iconColor="bg-indigo-50 text-indigo-600"
           />
@@ -223,7 +227,7 @@ export function CeoPanel() {
       {/* Barra progreso 100K */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="font-medium text-gray-700">Progreso objetivo 100K</span>
+          <span className="font-medium text-gray-700">{t("ceo.progress100k")}</span>
           <span className="font-bold text-karuma-600">{data.progreso100kPct}%</span>
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-gray-100">
@@ -233,7 +237,7 @@ export function CeoPanel() {
           />
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          {formatCurrency(data.ventasMes)} de {formatCurrency(data.objetivo100k)} · Proyección{" "}
+          {formatCurrency(data.ventasMes)} / {formatCurrency(data.objetivo100k)} · {t("ceo.projection")}{" "}
           {formatCurrency(data.proyeccionMensual)}
         </p>
       </div>
@@ -241,39 +245,39 @@ export function CeoPanel() {
       {/* Estado operativo */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Estado operativo
+          {t("ceo.operationalStatus")}
         </h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           <StatCard
-            title="Clientes mes"
+            title={t("ceo.clientesMes")}
             value={data.clientesMes.toLocaleString("es-ES")}
             icon={Users}
             iconColor="bg-purple-50 text-purple-600"
           />
           <StatCard
-            title="Ticket medio"
+            title={t("common.avgTicket")}
             value={formatCurrency(data.ticketMedio)}
             icon={Euro}
             iconColor="bg-amber-50 text-amber-600"
           />
           <StatCard
-            title="Google rating"
+            title={t("ceo.googleRating")}
             value={`${data.googleRating} ★`}
             icon={Star}
             iconColor="bg-amber-50 text-amber-600"
           />
           <StatCard
-            title="Reviews actuales"
+            title={t("ceo.reviewsActuales")}
             value={String(data.reviewsActuales)}
-            subtitle="Objetivo 1.000"
+            subtitle={t("ceo.reviewsGoal")}
             icon={Star}
             iconColor="bg-blue-50 text-blue-600"
           />
           <StatCard
-            title="Stock bajo"
+            title={t("ceo.stockBajo")}
             value={String(data.stockBajo)}
-            subtitle={data.stockBajo > 0 ? "Revisar inventario" : "Todo correcto"}
-            trend={data.stockBajo > 0 ? "Atención" : "OK"}
+            subtitle={data.stockBajo > 0 ? t("ceo.checkInventory") : t("ceo.allOk")}
+            trend={data.stockBajo > 0 ? t("ceo.attention") : "OK"}
             trendUp={data.stockBajo === 0}
             icon={Package}
             iconColor={
@@ -281,7 +285,7 @@ export function CeoPanel() {
             }
           />
           <StatCard
-            title="Coste personal %"
+            title={t("ceo.costePersonal")}
             value={`${data.costePersonalPct}%`}
             subtitle={`${data.personalMes.toLocaleString("es-ES")} €/mes`}
             icon={Users}
@@ -297,8 +301,8 @@ export function CeoPanel() {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">AI Resumen Ejecutivo</h2>
-            <p className="text-xs text-gray-500">Tu briefing diario</p>
+            <h2 className="text-sm font-semibold text-gray-900">{t("ceo.aiResumen")}</h2>
+            <p className="text-xs text-gray-500">{t("ceo.dailyBriefing")}</p>
           </div>
         </div>
         <p className="text-base leading-relaxed text-gray-800 sm:text-lg">{data.resumenEjecutivo}</p>
@@ -307,7 +311,7 @@ export function CeoPanel() {
       {/* Prioridades de hoy */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Prioridades de hoy
+          {t("ceo.prioridadesHoy")}
         </h2>
         <div className="space-y-2 sm:space-y-3">
           {data.prioridades.map((p) => {

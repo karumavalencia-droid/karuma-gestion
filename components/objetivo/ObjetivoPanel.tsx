@@ -36,6 +36,7 @@ import {
 import { RegistroRestosuite } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type Tab = "registro" | "tendencias" | "ai";
 type ModalKind = "registro" | "confirm" | null;
@@ -138,6 +139,7 @@ function BarChart({
 }
 
 export function ObjetivoPanel() {
+  const { t } = useLanguage();
   const [objetivoMensual, setObjetivoMensual] = useState(100_000);
   const [registros, setRegistros] = useState<RegistroRestosuite[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -283,13 +285,13 @@ export function ObjetivoPanel() {
   return (
     <div>
       <PageHeader
-        title="Objetivo 100K"
-        description={`Restosuite KPI · ${mesLabel}`}
+        title={t("objetivo.title")}
+        description={`${t("objetivo.description")} · ${mesLabel}`}
       >
         <Button size="sm" className="gap-1.5" onClick={() => openRegistroModal("add")}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nuevo registro</span>
-          <span className="sm:hidden">Nuevo</span>
+          <span className="hidden sm:inline">{t("common.newRecord")}</span>
+          <span className="sm:hidden">{t("common.new")}</span>
         </Button>
       </PageHeader>
 
@@ -305,19 +307,19 @@ export function ObjetivoPanel() {
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <p className="text-[10px] text-indigo-600 sm:text-xs">Ventas</p>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">{t("common.sales")}</p>
             <p className="font-bold text-indigo-950">{formatCurrency(periodoRestosuite.ventas)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-indigo-600 sm:text-xs">Clientes</p>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">{t("common.clientsLabel")}</p>
             <p className="font-bold text-indigo-950">{periodoRestosuite.clientes.toLocaleString("es-ES")}</p>
           </div>
           <div>
-            <p className="text-[10px] text-indigo-600 sm:text-xs">Ticket medio</p>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">{t("common.avgTicket")}</p>
             <p className="font-bold text-indigo-950">{formatCurrency(periodoRestosuite.ticketMedio)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-indigo-600 sm:text-xs">Días registrados</p>
+            <p className="text-[10px] text-indigo-600 sm:text-xs">{t("common.daysRegistered")}</p>
             <p className="font-bold text-indigo-950">{periodoRestosuite.dias}</p>
           </div>
         </div>
@@ -338,14 +340,14 @@ export function ObjetivoPanel() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Objetivo mensual
+              {t("objetivo.monthlyGoal")}
             </p>
             <p className="text-2xl font-bold text-gray-900 sm:text-3xl">
               {formatCurrency(metrics.objetivoMensual)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-500">Completado</p>
+            <p className="text-xs text-gray-500">{t("objetivo.completed")}</p>
             <p className="text-2xl font-bold text-karuma-600 sm:text-3xl">
               {metrics.porcentajeCompletado}%
             </p>
@@ -359,34 +361,34 @@ export function ObjetivoPanel() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
           <div>
-            <p className="text-xs text-gray-500">Ventas actuales</p>
+            <p className="text-xs text-gray-500">{t("objetivo.currentSales")}</p>
             <p className="font-semibold text-gray-900">{formatCurrency(metrics.ventasActuales)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Clientes actuales</p>
+            <p className="text-xs text-gray-500">{t("objetivo.currentClients")}</p>
             <p className="font-semibold text-gray-900">{metrics.clientesActuales.toLocaleString("es-ES")}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Ticket medio real</p>
+            <p className="text-xs text-gray-500">{t("objetivo.realTicket")}</p>
             <p className="font-semibold text-gray-900">{formatCurrency(metrics.ticketMedioReal)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Proyección mensual</p>
+            <p className="text-xs text-gray-500">{t("objetivo.monthlyProjection")}</p>
             <p className="font-semibold text-gray-900">{formatCurrency(metrics.proyeccionMensual)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Probabilidad objetivo</p>
+            <p className="text-xs text-gray-500">{t("objetivo.goalProbability")}</p>
             <p className="font-semibold text-gray-900">{metrics.probabilidadObjetivo}%</p>
           </div>
         </div>
         <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-500">Diferencia hasta objetivo</p>
+          <p className="text-xs text-gray-500">{t("objetivo.diffToGoal")}</p>
           <p
             className={`text-lg font-bold ${metrics.diferenciaObjetivo <= 0 ? "text-emerald-600" : "text-amber-700"}`}
           >
             {metrics.diferenciaObjetivo <= 0
-              ? `Superado en ${formatCurrency(Math.abs(metrics.diferenciaObjetivo))}`
-              : `Faltan ${formatCurrency(metrics.diferenciaObjetivo)}`}
+              ? `${t("objetivo.exceededBy")} ${formatCurrency(Math.abs(metrics.diferenciaObjetivo))}`
+              : `${t("objetivo.remaining")} ${formatCurrency(metrics.diferenciaObjetivo)}`}
           </p>
         </div>
       </div>
@@ -394,39 +396,39 @@ export function ObjetivoPanel() {
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-3 lg:grid-cols-6 sm:gap-4">
         <StatCard
-          title="Promedio diario"
+          title={t("objetivo.avgDaily")}
           value={formatCurrency(metrics.promedioDiario)}
           icon={Target}
           iconColor="bg-karuma-50 text-karuma-600"
         />
         <StatCard
-          title="Clientes/día"
+          title={t("objetivo.clientsPerDay")}
           value={String(metrics.promedioClientesDia)}
           icon={Users}
           iconColor="bg-blue-50 text-blue-600"
         />
         <StatCard
-          title="Ventas/día neces."
+          title={t("objetivo.salesNeededPerDay")}
           value={formatCurrency(metrics.ventasDiariasNecesarias)}
-          subtitle={`${metrics.diasRestantes} días rest.`}
+          subtitle={`${metrics.diasRestantes} ${t("objetivo.daysRemaining")}`}
           icon={CalendarDays}
           iconColor="bg-amber-50 text-amber-600"
         />
         <StatCard
-          title="Clientes/día obj."
+          title={t("objetivo.clientsGoalPerDay")}
           value={String(metrics.clientesNecesariosPorDia)}
           icon={Users}
           iconColor="bg-purple-50 text-purple-600"
         />
         <StatCard
-          title="Facturas/día"
+          title={t("objetivo.invoicesPerDay")}
           value={String(metrics.promedioFacturasDia)}
-          subtitle={`${metrics.totalFacturas} total`}
+          subtitle={`${metrics.totalFacturas} ${t("objetivo.total")}`}
           icon={FileText}
           iconColor="bg-slate-50 text-slate-600"
         />
         <StatCard
-          title="Ventas bebida"
+          title={t("objetivo.drinkSales")}
           value={`${metrics.ratioBebidas}%`}
           subtitle={formatCurrency(metrics.totalVentasBebida)}
           icon={Wine}
@@ -438,9 +440,9 @@ export function ObjetivoPanel() {
       <div className="mb-4 flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
         {(
           [
-            { id: "registro", label: "Restosuite", icon: CalendarDays },
-            { id: "tendencias", label: "Tendencias", icon: TrendingUp },
-            { id: "ai", label: "AI Insights", icon: Bot },
+            { id: "registro", label: t("objetivo.tabRegistro"), icon: CalendarDays },
+            { id: "tendencias", label: t("objetivo.tabTendencias"), icon: TrendingUp },
+            { id: "ai", label: t("objetivo.tabAi"), icon: Bot },
           ] as const
         ).map(({ id, label, icon: Icon }) => (
           <button
@@ -568,7 +570,7 @@ export function ObjetivoPanel() {
             )}
           </div>
 
-          <Card title="Historial diario (mes actual)">
+          <Card title={t("objetivo.dailyHistory")}>
             {registrosMes.length === 0 ? (
               <p className="text-sm text-gray-500">Sin datos para mostrar.</p>
             ) : (
@@ -582,7 +584,7 @@ export function ObjetivoPanel() {
             )}
           </Card>
 
-          <Card title="Tendencia semanal">
+          <Card title={t("objetivo.weeklyTrend")}>
             <BarChart
               items={tendenciaSemanal
                 .filter((s) => s.dias > 0)

@@ -4,36 +4,16 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-
-const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/ceo": "CEO",
-  "/ai-gerente": "AI Gerente",
-  "/datos": "Datos",
-  "/objetivo": "Objetivo 100K",
-  "/pedidos": "Pedidos",
-  "/inventario": "Inventario",
-  "/personal": "Personal",
-  "/finanzas": "Finanzas",
-  "/profit": "Beneficio",
-  "/reviews": "Reviews",
-  "/marketing": "Marketing",
-  "/cocina": "Cocina",
-  "/configuracion": "Configuración",
-  "/productos": "Productos",
-  "/produccion": "Producción",
-  "/empleados": "Empleados",
-  "/turnos": "Turnos",
-  "/delivery": "Delivery",
-  "/delivery-center": "Delivery Center",
-  "/compras": "Compras",
-  "/food-cost": "Food Cost",
-};
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const title = pageTitles[pathname] ?? "Karuma ERP";
+  const { t } = useLanguage();
+
+  const navKey = ROUTE_NAV_KEY[pathname];
+  const title = navKey ? t(`nav.${navKey}`) : t("header.appName");
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-gray-50">

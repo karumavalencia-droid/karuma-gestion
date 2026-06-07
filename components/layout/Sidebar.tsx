@@ -21,25 +21,27 @@ import {
   Truck,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "CEO", href: "/ceo", icon: Crown },
-  { name: "AI Gerente", href: "/ai-gerente", icon: Bot },
-  { name: "Datos", href: "/datos", icon: Database },
-  { name: "Objetivo 100K", href: "/objetivo", icon: Target },
-  { name: "Pedidos", href: "/pedidos", icon: ClipboardList },
-  { name: "Inventario", href: "/inventario", icon: Warehouse },
-  { name: "Compras", href: "/compras", icon: ShoppingCart },
-  { name: "Food Cost", href: "/food-cost", icon: ChefHat },
-  { name: "Personal", href: "/personal", icon: Users },
-  { name: "Finanzas", href: "/finanzas", icon: Wallet },
-  { name: "Beneficio", href: "/profit", icon: PieChart },
-  { name: "Reviews", href: "/reviews", icon: Star },
-  { name: "Delivery Center", href: "/delivery-center", icon: Truck },
-  { name: "Marketing", href: "/marketing", icon: Megaphone },
-  { name: "Cocina", href: "/cocina", icon: ChefHat },
-  { name: "Configuración", href: "/configuracion", icon: Settings },
+  { href: "/dashboard", icon: LayoutDashboard },
+  { href: "/ceo", icon: Crown },
+  { href: "/ai-gerente", icon: Bot },
+  { href: "/datos", icon: Database },
+  { href: "/objetivo", icon: Target },
+  { href: "/pedidos", icon: ClipboardList },
+  { href: "/inventario", icon: Warehouse },
+  { href: "/compras", icon: ShoppingCart },
+  { href: "/food-cost", icon: ChefHat },
+  { href: "/personal", icon: Users },
+  { href: "/finanzas", icon: Wallet },
+  { href: "/profit", icon: PieChart },
+  { href: "/reviews", icon: Star },
+  { href: "/delivery-center", icon: Truck },
+  { href: "/marketing", icon: Megaphone },
+  { href: "/cocina", icon: ChefHat },
+  { href: "/configuracion", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -49,6 +51,7 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   return (
     <>
@@ -71,14 +74,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               K
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">Karuma ERP</p>
+              <p className="truncate text-sm font-bold text-white">{t("header.appName")}</p>
               <p className="truncate text-[10px] text-gray-400 sm:text-xs">v1.0 · Sushi & Grill</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white lg:hidden"
-            aria-label="Cerrar menú"
+            aria-label={t("header.closeMenu")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -87,6 +90,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 sm:space-y-1 sm:px-3 sm:py-4">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const navKey = ROUTE_NAV_KEY[item.href];
+            const label = navKey ? t(`nav.${navKey}`) : item.href;
+
             return (
               <Link
                 key={item.href}
@@ -99,7 +105,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 }`}
               >
                 <item.icon className="h-5 w-5 shrink-0" />
-                {item.name}
+                {label}
               </Link>
             );
           })}
