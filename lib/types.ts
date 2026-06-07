@@ -266,3 +266,19 @@ export type RegistroDiario = RegistroRestosuite;
 
 /** @deprecated Usar RestosuiteStore */
 export type ObjetivoStore = RestosuiteStore;
+
+export interface RegistroProfit {
+  id: string;
+  mes: string;
+  ventas: number;
+  compras: number;
+  personal: number;
+  alquiler: number;
+  suministros: number;
+  gestoria: number;
+  otros: number;
+}
+
+export interface ProfitStore {
+  registros: RegistroProfit[];
+}
