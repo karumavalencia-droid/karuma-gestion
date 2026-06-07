@@ -16,11 +16,14 @@ import {
   Bot,
   Target,
   Database,
+  Star,
+  Crown,
   X,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "CEO", href: "/ceo", icon: Crown },
   { name: "AI Gerente", href: "/ai-gerente", icon: Bot },
   { name: "Datos", href: "/datos", icon: Database },
   { name: "Objetivo 100K", href: "/objetivo", icon: Target },
@@ -30,6 +33,7 @@ const navigation = [
   { name: "Personal", href: "/personal", icon: Users },
   { name: "Finanzas", href: "/finanzas", icon: Wallet },
   { name: "Beneficio", href: "/profit", icon: PieChart },
+  { name: "Reviews", href: "/reviews", icon: Star },
   { name: "Marketing", href: "/marketing", icon: Megaphone },
   { name: "Cocina", href: "/cocina", icon: ChefHat },
   { name: "Configuración", href: "/configuracion", icon: Settings },

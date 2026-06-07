@@ -5,6 +5,7 @@ export const MODULE_KEYS = {
   compras: "karuma_compras_v1",
   profit: "karuma_profit_v1",
   restosuite: "karuma_restosuite_kpi_v1",
+  reviews: "karuma_reviews_v1",
   objetivo: "karuma_objetivo_100k_v1",
   inventario: ["karuma_inventario_v2", "karuma_inventario_v1"],
 } as const;
@@ -24,6 +25,12 @@ export const MODULES: ModuleDef[] = [
     nombre: "Restosuite KPI",
     descripcion: "Ventas, clientes y ticket diario",
     keys: [MODULE_KEYS.restosuite],
+  },
+  {
+    id: "reviews",
+    nombre: "Google Reviews",
+    descripcion: "Rating, reseñas y reputación online",
+    keys: [MODULE_KEYS.reviews],
   },
   {
     id: "profit",
@@ -77,6 +84,10 @@ export interface DatosResumen {
   costePersonal: number;
   beneficioEstimado: number;
   margenPct: number;
+  ratingGoogle: number;
+  totalResenas: number;
+  progresoResenasPct: number;
+  pendientesResenas: number;
   fuentes: string[];
 }
 
@@ -280,6 +291,44 @@ function analyzeRestosuite(data: unknown): {
   };
 }
 
+function analyzeReviews(data: unknown): {
+  count: number;
+  rating: number;
+  totalResenas: number;
+  pendientes: number;
+  ultima: string | null;
+} {
+  if (!data || typeof data !== "object") {
+    return { count: 0, rating: 0, totalResenas: 0, pendientes: 0, ultima: null };
+  }
+  const r = data as Record<string, unknown>;
+  const resenas = Array.isArray(r.resenas) ? r.resenas : [];
+  const registrosMensuales = Array.isArray(r.registrosMensuales) ? r.registrosMensuales : [];
+  const totalResenas = Math.round(parseFloat(String(r.totalResenas ?? 0)) || 0);
+  const rating = fmtNum(parseFloat(String(r.ratingActual ?? 0)) || 0, 2);
+
+  let pendientes = 0;
+  for (const item of resenas) {
+    if (!item || typeof item !== "object") continue;
+    if (!(item as Record<string, unknown>).respondida) pendientes++;
+  }
+
+  const meses = registrosMensuales
+    .map((item) =>
+      item && typeof item === "object" ? String((item as Record<string, unknown>).mes ?? "") : "",
+    )
+    .filter(Boolean)
+    .sort();
+
+  return {
+    count: resenas.length || registrosMensuales.length,
+    rating,
+    totalResenas: totalResenas || resenas.length,
+    pendientes,
+    ultima: meses.length > 0 ? meses[meses.length - 1] : null,
+  };
+}
+
 function analyzeInventario(data: unknown): { count: number; ultima: string | null } {
   const arr = Array.isArray(data) ? data : [];
   let maxTs = 0;
@@ -329,6 +378,10 @@ export function scanModules(): ModuleInfo[] {
       const a = analyzeRestosuite(found.data);
       count = a.count;
       ultima = a.ultima;
+    } else if (mod.id === "reviews") {
+      const a = analyzeReviews(found.data);
+      count = a.count;
+      ultima = a.ultima;
     } else if (mod.id === "inventario") {
       const a = analyzeInventario(found.data);
       count = a.count;
@@ -359,11 +412,13 @@ export function computeResumen(): DatosResumen {
 
   const profitRaw = findRaw([MODULE_KEYS.profit]);
   const restoRaw = findRaw([MODULE_KEYS.restosuite, MODULE_KEYS.objetivo]);
+  const reviewsRaw = findRaw([MODULE_KEYS.reviews]);
   const comprasRaw = findRaw([MODULE_KEYS.compras]);
   const personalRaw = findRaw([MODULE_KEYS.personal]);
 
   const profit = profitRaw ? analyzeProfit(profitRaw.data) : null;
   const resto = restoRaw ? analyzeRestosuite(restoRaw.data) : null;
+  const reviews = reviewsRaw ? analyzeReviews(reviewsRaw.data) : null;
   const compras = comprasRaw ? analyzeCompras(comprasRaw.data) : null;
   const personal = personalRaw ? analyzePersonal(personalRaw.data) : null;
 
@@ -373,6 +428,10 @@ export function computeResumen(): DatosResumen {
   let costePersonal = 0;
   let beneficioEstimado = 0;
   let margenPct = 0;
+  let ratingGoogle = 0;
+  let totalResenas = 0;
+  let progresoResenasPct = 0;
+  let pendientesResenas = 0;
 
   if (profit?.registroMes) {
     ventas = profit.registroMes.ventas;
@@ -407,6 +466,14 @@ export function computeResumen(): DatosResumen {
     margenPct = fmtNum((beneficioEstimado / ventas) * 100, 1);
   }
 
+  if (reviews && reviews.totalResenas > 0) {
+    ratingGoogle = reviews.rating;
+    totalResenas = reviews.totalResenas;
+    pendientesResenas = reviews.pendientes;
+    progresoResenasPct = fmtNum(Math.min(100, (reviews.totalResenas / 1000) * 100), 1);
+    fuentes.push("Google Reviews");
+  }
+
   const ticketMedio = clientes > 0 ? fmtNum(ventas / clientes) : 0;
 
   return {
@@ -417,6 +484,10 @@ export function computeResumen(): DatosResumen {
     costePersonal,
     beneficioEstimado,
     margenPct,
+    ratingGoogle,
+    totalResenas,
+    progresoResenasPct,
+    pendientesResenas,
     fuentes: [...new Set(fuentes)],
   };
 }
@@ -489,6 +560,27 @@ export function generarAISummary(
     });
   }
 
+  const reviewsOk = modules.find((m) => m.id === "reviews")?.estado === "conectado";
+  const profitOk = modules.find((m) => m.id === "profit")?.estado === "conectado";
+
+  if (reviewsOk && resumen.ratingGoogle > 0) {
+    sugerencias.push({
+      id: "reviews-ventas",
+      tipo: resumen.ratingGoogle >= 4.8 ? "success" : "warning",
+      titulo: "Google Reviews + ventas",
+      mensaje: `Rating ${resumen.ratingGoogle}★ con ${resumen.totalResenas} reseñas (${resumen.progresoResenasPct}% de 1.000).${resumen.pendientesResenas > 0 ? ` ${resumen.pendientesResenas} pendiente(s) de respuesta.` : ""} Un rating alto correlaciona con +8-15% conversión en reservas y delivery.`,
+    });
+  }
+
+  if (reviewsOk && profitOk && resumen.ventas > 0) {
+    sugerencias.push({
+      id: "cruce-profit-reviews",
+      tipo: "info",
+      titulo: "AI Gerente — cruce Profit + Reviews",
+      mensaje: `Con ventas de ${resumen.ventas.toLocaleString("es-ES")} € y ${resumen.ratingGoogle}★, el AI Gerente estima el impacto de reputación en facturación. Abre AI Gerente para el análisis completo.`,
+    });
+  }
+
   return sugerencias;
 }
 
@@ -513,6 +605,10 @@ export function exportResumenCsv(
     ["Coste personal", resumen.costePersonal.toFixed(2)],
     ["Beneficio estimado", resumen.beneficioEstimado.toFixed(2)],
     ["Margen %", String(resumen.margenPct)],
+    ["Rating Google", resumen.ratingGoogle > 0 ? String(resumen.ratingGoogle) : ""],
+    ["Total reseñas", resumen.totalResenas > 0 ? String(resumen.totalResenas) : ""],
+    ["Progreso reseñas %", resumen.progresoResenasPct > 0 ? String(resumen.progresoResenasPct) : ""],
+    ["Reseñas pendientes", resumen.pendientesResenas > 0 ? String(resumen.pendientesResenas) : ""],
     ["Fuentes", `"${resumen.fuentes.join("; ")}"`],
   ];
 

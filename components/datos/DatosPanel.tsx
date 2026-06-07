@@ -12,6 +12,8 @@ import {
   Users,
   Wallet,
   WifiOff,
+  Star,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -112,7 +114,7 @@ export function DatosPanel() {
       />
 
       {/* KPIs unificados */}
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 sm:gap-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 sm:gap-4">
         <StatCard
           title="Ventas"
           value={formatCurrency(resumen.ventas)}
@@ -160,6 +162,27 @@ export function DatosPanel() {
           value={`${resumen.margenPct}%`}
           icon={Database}
           iconColor="bg-karuma-50 text-karuma-600"
+        />
+        <StatCard
+          title="Rating Google"
+          value={resumen.ratingGoogle > 0 ? `${resumen.ratingGoogle} ★` : "—"}
+          icon={Star}
+          iconColor="bg-amber-50 text-amber-600"
+        />
+        <StatCard
+          title="Reseñas"
+          value={resumen.totalResenas > 0 ? String(resumen.totalResenas) : "—"}
+          subtitle={
+            resumen.progresoResenasPct > 0 ? `${resumen.progresoResenasPct}% de 1.000` : undefined
+          }
+          icon={MessageSquare}
+          iconColor="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          title="Sin responder"
+          value={resumen.pendientesResenas > 0 ? String(resumen.pendientesResenas) : "0"}
+          icon={MessageSquare}
+          iconColor="bg-orange-50 text-orange-600"
         />
       </div>
 

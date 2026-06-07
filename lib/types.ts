@@ -282,3 +282,35 @@ export interface RegistroProfit {
 export interface ProfitStore {
   registros: RegistroProfit[];
 }
+
+export type PlataformaReview = "Google" | "TripAdvisor" | "TheFork";
+
+export interface ResenaReview {
+  id: string;
+  fecha: string;
+  autor: string;
+  rating: number;
+  texto: string;
+  plataforma: PlataformaReview;
+  respondida: boolean;
+  respuesta?: string;
+}
+
+export interface RegistroMensualReviews {
+  id: string;
+  mes: string;
+  totalResenas: number;
+  rating: number;
+  nuevasResenas: number;
+  positivas: number;
+  negativas: number;
+  pendientesRespuesta: number;
+}
+
+export interface ReviewsStore {
+  objetivoResenas: number;
+  ratingActual: number;
+  totalResenas: number;
+  registrosMensuales: RegistroMensualReviews[];
+  resenas: ResenaReview[];
+}
