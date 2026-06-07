@@ -356,3 +356,30 @@ export interface FoodCostStore {
   objetivoFoodCostPct: number;
   registros: RegistroFoodCost[];
 }
+
+export type CategoriaFactura =
+  | "Pescado"
+  | "Carne"
+  | "Verdura"
+  | "Arroz"
+  | "Bebidas"
+  | "Limpieza"
+  | "Packaging"
+  | "Otros";
+
+export interface Factura {
+  id: string;
+  fecha: string;
+  proveedor: string;
+  importe: number;
+  categoria: CategoriaFactura;
+  observaciones: string;
+  archivoNombre: string;
+  archivoTipo: string;
+  archivoData: string;
+  createdAt: number;
+}
+
+export interface FacturasStore {
+  facturas: Factura[];
+}

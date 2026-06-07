@@ -19,6 +19,7 @@ import {
   Star,
   Crown,
   Truck,
+  FileText,
   X,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -33,6 +34,7 @@ const navigation = [
   { href: "/pedidos", icon: ClipboardList },
   { href: "/inventario", icon: Warehouse },
   { href: "/compras", icon: ShoppingCart },
+  { href: "/facturas", icon: FileText },
   { href: "/food-cost", icon: ChefHat },
   { href: "/personal", icon: Users },
   { href: "/finanzas", icon: Wallet },
