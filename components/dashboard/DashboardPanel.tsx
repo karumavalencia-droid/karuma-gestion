@@ -1,131 +1,113 @@
 "use client";
 
-import { Euro, Users, Receipt, TrendingUp, Truck, AlertTriangle } from "lucide-react";
+import {
+  Euro,
+  Users,
+  Receipt,
+  TrendingUp,
+  Truck,
+  Monitor,
+  CalendarDays,
+} from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
-import { Card } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PageContent } from "@/components/layout/PageContent";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { dashboardStats, productosMasVendidos, alertasImportantes } from "@/lib/data/dashboard";
+import { dashboardKpis, weeklyTrend } from "@/lib/erp-v1/data";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export function DashboardPanel() {
   const { t } = useLanguage();
 
   return (
-    <div>
-      <PageHeader title={t("dashboard.title")} description={t("dashboard.description")} />
+    <PageContent>
+      <PageHeader description={t("pages.dashboard.description")} hideTitle />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          title={t("dashboard.ventasDia")}
-          value={formatCurrency(dashboardStats.ventasHoy)}
+          title={t("pages.dashboard.todaySales")}
+          value={formatCurrency(dashboardKpis.ventasHoy)}
           icon={Euro}
-          trend="+12,4% vs ayer"
+          trend="+12,3%"
           trendUp
           iconColor="bg-emerald-50 text-emerald-600"
         />
         <StatCard
-          title={t("dashboard.ventasMes")}
-          value={formatCurrency(dashboardStats.ventasMes)}
+          title={t("pages.dashboard.yesterdaySales")}
+          value={formatCurrency(dashboardKpis.ventasAyer)}
+          icon={CalendarDays}
+          iconColor="bg-gray-50 text-gray-600"
+        />
+        <StatCard
+          title={t("pages.dashboard.monthSales")}
+          value={formatCurrency(dashboardKpis.ventasMes)}
           icon={TrendingUp}
-          trend="+8,2% vs mes anterior"
+          trend="+8,2%"
           trendUp
           iconColor="bg-blue-50 text-blue-600"
         />
         <StatCard
-          title={t("dashboard.clientesHoy")}
-          value={String(dashboardStats.clientesHoy)}
-          subtitle={t("dashboard.salaDelivery")}
+          title={t("pages.dashboard.footfall")}
+          value={String(dashboardKpis.clientes)}
           icon={Users}
           iconColor="bg-purple-50 text-purple-600"
         />
         <StatCard
-          title={t("dashboard.ticketMedio")}
-          value={formatCurrency(dashboardStats.ticketMedio)}
+          title={t("pages.dashboard.avgSpend")}
+          value={formatCurrency(dashboardKpis.ticketMedio)}
           icon={Receipt}
-          trend="+2,1%"
-          trendUp
           iconColor="bg-amber-50 text-amber-600"
         />
-      </div>
-
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-3 sm:gap-4">
         <StatCard
-          title={t("dashboard.pedidosDelivery")}
-          value={String(dashboardStats.pedidosDelivery)}
-          subtitle={t("dashboard.deliveryChannels")}
-          icon={Truck}
-          iconColor="bg-karuma-50 text-karuma-600"
-        />
-        <StatCard
-          title={t("dashboard.uberEats")}
-          value={formatCurrency(dashboardStats.uberEats.ventas)}
-          subtitle={`${dashboardStats.uberEats.pedidos} ${t("dashboard.pedidos")}`}
+          title={t("pages.dashboard.uberEats")}
+          value={formatCurrency(dashboardKpis.uberEats)}
           icon={Truck}
           iconColor="bg-gray-900 text-white"
         />
         <StatCard
-          title={t("dashboard.glovo")}
-          value={formatCurrency(dashboardStats.glovo.ventas)}
-          subtitle={`${dashboardStats.glovo.pedidos} ${t("dashboard.pedidos")}`}
+          title={t("pages.dashboard.glovo")}
+          value={formatCurrency(dashboardKpis.glovo)}
           icon={Truck}
           iconColor="bg-yellow-400 text-gray-900"
         />
+        <StatCard
+          title={t("pages.dashboard.restosuite")}
+          value={dashboardKpis.restosuite.toLocaleString()}
+          subtitle={t("pages.dashboard.restosuiteUnit")}
+          icon={Monitor}
+          iconColor="bg-karuma-50 text-karuma-600"
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <Card title={t("dashboard.topProducts")}>
-          <div className="space-y-2 sm:space-y-3">
-            {productosMasVendidos.map((producto, index) => (
-              <div
-                key={producto.nombre}
-                className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2.5 sm:px-4 sm:py-3"
-              >
-                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-karuma-100 text-[10px] font-bold text-karuma-700 sm:h-7 sm:w-7 sm:text-xs">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">{producto.nombre}</p>
-                    <p className="text-xs text-gray-500">
-                      {producto.cantidad} {t("dashboard.units")}
-                    </p>
-                  </div>
-                </div>
-                <span className="shrink-0 text-sm font-semibold text-gray-900">
-                  {formatCurrency(producto.ingresos)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title={t("dashboard.alertas")}>
-          <div className="space-y-2 sm:space-y-3">
-            {alertasImportantes.map((alerta) => (
-              <div
-                key={alerta.id}
-                className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2.5 sm:px-4 sm:py-3"
-              >
-                <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-                  <AlertTriangle
-                    className={`mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5 ${
-                      alerta.prioridad === "alta" ? "text-red-500" : "text-amber-500"
-                    }`}
-                  />
-                  <p className="text-sm text-gray-900">{alerta.mensaje}</p>
-                </div>
-                <StatusBadge variant={alerta.prioridad === "alta" ? "danger" : "warning"}>
-                  {alerta.prioridad === "alta"
-                    ? t("common.priorityHigh")
-                    : t("common.priorityMedium")}
-                </StatusBadge>
-              </div>
-            ))}
-          </div>
-        </Card>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <h3 className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-900">
+          {t("pages.dashboard.weeklyTrend")}
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">{t("pages.dashboard.colDate")}</th>
+                <th className="px-4 py-3 text-right">{t("pages.dashboard.colSales")}</th>
+                <th className="px-4 py-3 text-right">{t("pages.dashboard.colClients")}</th>
+                <th className="px-4 py-3 text-right">{t("pages.dashboard.colDelivery")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {weeklyTrend.map((row) => (
+                <tr key={row.fecha} className="hover:bg-gray-50/80">
+                  <td className="px-4 py-3 text-gray-700">{formatDate(row.fecha)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-900">
+                    {formatCurrency(row.ventas)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-600">{row.clientes}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{row.delivery}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </PageContent>
   );
 }

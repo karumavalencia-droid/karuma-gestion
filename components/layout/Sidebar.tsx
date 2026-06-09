@@ -2,49 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  ClipboardList,
-  Warehouse,
-  ShoppingCart,
-  Users,
-  Wallet,
-  Megaphone,
-  PieChart,
-  ChefHat,
-  Settings,
-  Bot,
-  Target,
-  Database,
-  Star,
-  Crown,
-  Truck,
-  FileText,
-  X,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Megaphone, Users, X } from "lucide-react";
+import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
-const navigation = [
-  { href: "/dashboard", icon: LayoutDashboard },
-  { href: "/ceo", icon: Crown },
-  { href: "/ai-gerente", icon: Bot },
-  { href: "/datos", icon: Database },
-  { href: "/objetivo", icon: Target },
-  { href: "/pedidos", icon: ClipboardList },
-  { href: "/inventario", icon: Warehouse },
-  { href: "/compras", icon: ShoppingCart },
-  { href: "/facturas", icon: FileText },
-  { href: "/food-cost", icon: ChefHat },
-  { href: "/personal", icon: Users },
-  { href: "/finanzas", icon: Wallet },
-  { href: "/profit", icon: PieChart },
-  { href: "/reviews", icon: Star },
-  { href: "/delivery-center", icon: Truck },
-  { href: "/marketing", icon: Megaphone },
-  { href: "/cocina", icon: ChefHat },
-  { href: "/configuracion", icon: Settings },
-];
+const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
+  "/dashboard": LayoutDashboard,
+  "/staff": Users,
+  "/schedule": CalendarDays,
+  "/marketing": Megaphone,
+};
 
 interface SidebarProps {
   open: boolean;
@@ -81,43 +50,40 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white lg:hidden"
-            aria-label={t("header.closeMenu")}
+            aria-label="关闭菜单"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 sm:space-y-1 sm:px-3 sm:py-4">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const navKey = ROUTE_NAV_KEY[item.href];
-            const label = navKey ? t(`nav.${navKey}`) : item.href;
-
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {ERP_NAV_ROUTES.map((route) => {
+            const isActive = pathname === route || pathname.startsWith(`${route}/`);
+            const Icon = NAV_ICONS[route];
+            const navKey = ROUTE_NAV_KEY[route];
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={route}
+                href={route}
                 onClick={onClose}
-                className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-karuma-600 text-white"
-                    : "text-gray-300 active:bg-gray-800 hover:bg-gray-800 hover:text-white"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
                 }`}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
-                {label}
+                <Icon className="h-5 w-5 shrink-0 opacity-90" />
+                {t(`nav.${navKey}`)}
               </Link>
             );
           })}
         </nav>
 
-        <div className="border-t border-gray-800 p-3 sm:p-4">
-          <div className="rounded-lg bg-gray-800/50 px-3 py-2.5">
-            <p className="text-xs font-medium text-gray-300">Karuma Sushi & Grill</p>
-            <p className="text-[10px] text-gray-500 sm:text-xs">Valencia · Ruzafa</p>
-          </div>
+        <div className="border-t border-gray-800 px-4 py-3">
+          <p className="text-[10px] text-gray-500 sm:text-xs">结构冻结 · 仅员工与排班</p>
         </div>
       </aside>
     </>

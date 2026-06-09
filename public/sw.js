@@ -30,6 +30,13 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // 不拦截 Next.js 静态资源（CSS / JS），避免样式丢失
+  if (url.pathname.startsWith("/_next/")) {
+    return;
+  }
+
   if (event.request.method !== "GET") return;
 
   if (event.request.mode === "navigate") {
@@ -41,7 +48,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const url = new URL(event.request.url);
   if (url.origin === self.location.origin && PRECACHE_URLS.includes(url.pathname)) {
     event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
   }

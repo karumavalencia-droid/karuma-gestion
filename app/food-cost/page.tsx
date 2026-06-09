@@ -1,5 +1,5 @@
-import { FoodCostPanel } from "@/components/food-cost/FoodCostPanel";
+import { FoodCostErpPanel } from "@/components/erp-v1/FoodCostErpPanel";
 
 export default function FoodCostPage() {
-  return <FoodCostPanel />;
+  return <FoodCostErpPanel />;
 }

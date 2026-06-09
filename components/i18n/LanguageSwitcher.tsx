@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import type { Locale } from "@/lib/i18n/translations";
+import type { Locale } from "@/lib/i18n";
 
 const options: { id: Locale; labelKey: string }[] = [
   { id: "es", labelKey: "language.es" },

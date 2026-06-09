@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { AppShell } from "@/components/layout/AppShell";
-import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { Providers } from "@/components/layout/Providers";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import "./globals.css";
 
@@ -43,9 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body className={inter.className}>
         <PwaRegister />
-        <LanguageProvider>
-          <AppShell>{children}</AppShell>
-        </LanguageProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -8,13 +8,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  DEFAULT_LOCALE,
-  type Locale,
-  loadStoredLocale,
-  saveLocale,
-  translate,
-} from "./translations";
+import type { Locale } from "../i18n";
+import { DEFAULT_LOCALE, loadStoredLocale, saveLocale } from "../i18n";
+import { translate } from "./translations";
 
 interface LanguageContextValue {
   locale: Locale;
