@@ -1,0 +1,162 @@
+diff --git a/.env.local.example b/.env.local.example
+index ac8ad21..a831887 100644
+--- a/.env.local.example
++++ b/.env.local.example
+@@ -5,6 +5,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ # Server-only: never expose to the browser
+ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ 
++# Automatically generated when a Vercel Blob store is connected
++BLOB_READ_WRITE_TOKEN=vercel_blob_rw_your-store-token
++
+ # Daily POS synchronization
+ KARUMA_SYNC_SECRET=generate-a-random-secret-at-least-16-characters
+ CRON_SECRET=generate-a-different-random-secret-at-least-16-characters
+diff --git a/app/api/sales/daily/route.ts b/app/api/sales/daily/route.ts
+index 190515f..7d9373e 100644
+--- a/app/api/sales/daily/route.ts
++++ b/app/api/sales/daily/route.ts
+@@ -1,7 +1,10 @@
+ import { NextResponse } from "next/server";
+-import { isSupabaseConfigured } from "@/lib/supabase/admin";
+ import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
+-import { mergeDailySalesRecords, readDailySalesStore } from "@/lib/sales-sync/storage";
++import {
++  isDailySalesStorageConfigured,
++  mergeDailySalesRecords,
++  readDailySalesStore,
++} from "@/lib/sales-sync/storage";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -15,7 +18,7 @@ function todayInMadrid(): string {
+ }
+ 
+ export async function GET(request: Request) {
+-  if (!isSupabaseConfigured()) {
++  if (!isDailySalesStorageConfigured()) {
+     return NextResponse.json({ configured: false, updatedAt: null, records: [] });
+   }
+ 
+diff --git a/lib/sales-sync/storage.ts b/lib/sales-sync/storage.ts
+index c5ae7ac..744b8cf 100644
+--- a/lib/sales-sync/storage.ts
++++ b/lib/sales-sync/storage.ts
+@@ -3,6 +3,14 @@ import type { DailySalesRecord, DailySalesStore } from "./types";
+ 
+ const BUCKET_NAME = "karuma-private";
+ const FILE_PATH = "sales/daily-sales.json";
++const BLOB_API_URL = "https://blob.vercel-storage.com";
++
++type BlobListResponse = {
++  blobs?: Array<{
++    url: string;
++    pathname: string;
++  }>;
++};
+ 
+ function emptyStore(): DailySalesStore {
+   return {
+@@ -22,6 +30,81 @@ function normalizeStore(value: unknown): DailySalesStore {
+   };
+ }
+ 
++function getBlobCredentials(): { token: string; storeId: string } | null {
++  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
++  if (!token) return null;
++  const storeId = token.split("_")[3] || "";
++  return storeId ? { token, storeId } : null;
++}
++
++function blobHeaders(credentials: { token: string; storeId: string }): Headers {
++  return new Headers({
++    Authorization: `Bearer ${credentials.token}`,
++    "x-vercel-blob-store-id": credentials.storeId,
++    "x-api-blob-request-attempt": "0",
++    "x-api-blob-request-id": `${credentials.storeId}:${Date.now()}:${crypto.randomUUID()}`,
++    "x-api-version": "12",
++  });
++}
++
++async function readBlobStore(credentials: { token: string; storeId: string }): Promise<DailySalesStore> {
++  const listUrl = new URL(BLOB_API_URL);
++  listUrl.searchParams.set("limit", "1");
++  listUrl.searchParams.set("prefix", FILE_PATH);
++
++  const listResponse = await fetch(listUrl, {
++    headers: blobHeaders(credentials),
++    cache: "no-store",
++  });
++  if (!listResponse.ok) {
++    throw new Error(`Vercel Blob list failed with ${listResponse.status}`);
++  }
++
++  const listing = (await listResponse.json()) as BlobListResponse;
++  const blob = listing.blobs?.find((item) => item.pathname === FILE_PATH);
++  if (!blob) return emptyStore();
++
++  const response = await fetch(blob.url, {
++    headers: { Authorization: `Bearer ${credentials.token}` },
++    cache: "no-store",
++  });
++  if (!response.ok) {
++    throw new Error(`Vercel Blob read failed with ${response.status}`);
++  }
++
++  try {
++    return normalizeStore(await response.json());
++  } catch {
++    return emptyStore();
++  }
++}
++
++async function writeBlobStore(
++  credentials: { token: string; storeId: string },
++  store: DailySalesStore,
++): Promise<void> {
++  const encodedPath = FILE_PATH.split("/").map(encodeURIComponent).join("/");
++  const headers = blobHeaders(credentials);
++  headers.set("x-vercel-blob-access", "private");
++  headers.set("x-add-random-suffix", "0");
++  headers.set("x-allow-overwrite", "1");
++  headers.set("x-content-type", "application/json");
++  headers.set("x-cache-control-max-age", "0");
++
++  const response = await fetch(`${BLOB_API_URL}/${encodedPath}`, {
++    method: "PUT",
++    headers,
++    body: JSON.stringify(store, null, 2),
++  });
++  if (!response.ok) {
++    throw new Error(`Vercel Blob write failed with ${response.status}`);
++  }
++}
++
++export function isDailySalesStorageConfigured(): boolean {
++  return Boolean(getBlobCredentials() || isSupabaseConfigured());
++}
++
+ async function ensureBucket(): Promise<void> {
+   const supabase = getSupabaseAdmin();
+   if (!supabase) throw new Error("Supabase is not configured");
+@@ -42,6 +125,8 @@ async function ensureBucket(): Promise<void> {
+ }
+ 
+ export async function readDailySalesStore(): Promise<DailySalesStore> {
++  const blobCredentials = getBlobCredentials();
++  if (blobCredentials) return readBlobStore(blobCredentials);
+   if (!isSupabaseConfigured()) return emptyStore();
+   const supabase = getSupabaseAdmin();
+   if (!supabase) return emptyStore();
+@@ -62,6 +147,11 @@ export async function readDailySalesStore(): Promise<DailySalesStore> {
+ }
+ 
+ export async function writeDailySalesStore(store: DailySalesStore): Promise<void> {
++  const blobCredentials = getBlobCredentials();
++  if (blobCredentials) {
++    await writeBlobStore(blobCredentials, store);
++    return;
++  }
+   if (!isSupabaseConfigured()) throw new Error("Supabase is not configured");
+   const supabase = getSupabaseAdmin();
+   if (!supabase) throw new Error("Supabase is not configured");
