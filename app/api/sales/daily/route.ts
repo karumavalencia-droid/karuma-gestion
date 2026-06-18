@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
-import { mergeDailySalesRecords, readDailySalesStore } from "@/lib/sales-sync/storage";
+import {
+  isDailySalesStorageConfigured,
+  mergeDailySalesRecords,
+  readDailySalesStore,
+} from "@/lib/sales-sync/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +18,7 @@ function todayInMadrid(): string {
 }
 
 export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) {
+  if (!isDailySalesStorageConfigured()) {
     return NextResponse.json({ configured: false, updatedAt: null, records: [] });
   }
 
