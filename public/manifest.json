@@ -1,14 +1,42 @@
 {
   "name": "Karuma ERP",
   "short_name": "Karuma",
-  "description": "Sistema ERP interno para Karuma Sushi & Grill",
-  "start_url": "/dashboard",
+  "description": "Fichaje y ERP interno para Karuma Sushi & Grill",
+  "start_url": "/kiosk",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#111827",
+  "theme_color": "#f9fafb",
   "lang": "es",
+  "shortcuts": [
+    {
+      "name": "Fichaje",
+      "short_name": "Fichaje",
+      "description": "Abrir el fichaje de empleados",
+      "url": "/kiosk",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Abrir el panel de gestión",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "/icon.svg",

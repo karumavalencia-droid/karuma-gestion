@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, LayoutDashboard, Megaphone, Users, X } from "lucide-react";
+import { CalendarDays, Clock3, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
@@ -12,7 +12,9 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/staff": Users,
   "/schedule": CalendarDays,
+  "/kiosk": Clock3,
   "/marketing": Megaphone,
+  "/delivery": Truck,
 };
 
 interface SidebarProps {
@@ -83,7 +85,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-gray-800 px-4 py-3">
-          <p className="text-[10px] text-gray-500 sm:text-xs">结构冻结 · 仅员工与排班</p>
+          <p className="text-[10px] text-gray-500 sm:text-xs">打卡入口：/kiosk · PIN 本地记录</p>
         </div>
       </aside>
     </>

@@ -27,7 +27,9 @@ export const i18n = {
       dashboard: "首页",
       staff: "员工管理",
       schedule: "排班管理",
+      kiosk: "员工打卡",
       marketing: "增长计划",
+      delivery: "外卖增长",
     },
     header: {
       openMenu: "打开菜单",
@@ -134,6 +136,9 @@ export const i18n = {
       deptCocina: "厨房",
     },
     marketing: marketingZh,
+    delivery: {
+      title: "外卖增长计划",
+    },
   },
   es: {
     common: {
@@ -155,7 +160,9 @@ export const i18n = {
       dashboard: "Dashboard",
       staff: "Personal",
       schedule: "Horarios",
+      kiosk: "Fichaje",
       marketing: "Marketing",
+      delivery: "Delivery",
     },
     header: {
       openMenu: "Abrir menú",
@@ -262,6 +269,9 @@ export const i18n = {
       deptCocina: "Cocina",
     },
     marketing: marketingEs,
+    delivery: {
+      title: "Plan de crecimiento delivery",
+    },
   },
 } as const;
 
