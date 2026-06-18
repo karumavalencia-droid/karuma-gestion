@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   TrendingUp,
   Users,
   CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
 import { PageContent } from "@/components/layout/PageContent";
@@ -21,12 +23,71 @@ import { getAlertasInventario } from "@/lib/data/inventario";
 import { pedidos, pedidosStats } from "@/lib/data/pedidos";
 import { dashboardKpis, weeklyTrend } from "@/lib/erp-v1/data";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { DailySalesSummary } from "@/lib/sales-sync/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+
+function madridDate(daysFromToday = 0): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromToday);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
 
 export function DashboardPanel() {
   const { locale, t } = useLanguage();
-  const salesDelta = dashboardKpis.ventasHoy - dashboardKpis.ventasAyer;
-  const salesDeltaPct = (salesDelta / dashboardKpis.ventasAyer) * 100;
+  const [salesSummary, setSalesSummary] = useState<DailySalesSummary | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/sales/daily?limit=62", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: DailySalesSummary | null) => {
+        if (active && data) setSalesSummary(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const liveKpis = useMemo(() => {
+    const records = salesSummary?.records ?? [];
+    const today = madridDate();
+    const yesterday = madridDate(-1);
+    const monthPrefix = today.slice(0, 7);
+    const todayRecord = records.find((record) => record.date === today);
+    const yesterdayRecord = records.find((record) => record.date === yesterday);
+    const monthRecords = records.filter((record) => record.date.startsWith(monthPrefix));
+
+    return {
+      ventasHoy: todayRecord?.netSales ?? dashboardKpis.ventasHoy,
+      ventasAyer: yesterdayRecord?.netSales ?? dashboardKpis.ventasAyer,
+      ventasMes:
+        monthRecords.length > 0
+          ? monthRecords.reduce((sum, record) => sum + record.netSales, 0)
+          : dashboardKpis.ventasMes,
+      clientes: todayRecord?.customers || dashboardKpis.clientes,
+      ticketMedio: todayRecord?.averageTicket || dashboardKpis.ticketMedio,
+      trend:
+        records.length > 0
+          ? records.slice(-7).map((record) => ({
+              fecha: record.date,
+              ventas: record.netSales,
+              clientes: record.customers,
+              delivery: record.orders,
+            }))
+          : weeklyTrend,
+      hasLiveData: records.length > 0,
+    };
+  }, [salesSummary]);
+
+  const salesDelta = liveKpis.ventasHoy - liveKpis.ventasAyer;
+  const salesDeltaPct =
+    liveKpis.ventasAyer > 0 ? (salesDelta / liveKpis.ventasAyer) * 100 : 0;
   const activeOrders = pedidos.filter((pedido) => pedido.estado !== "entregado").slice(0, 5);
   const inventoryAlerts = getAlertasInventario();
   const orderStatusLabels =
@@ -48,10 +109,31 @@ export function DashboardPanel() {
     <PageContent>
       <PageHeader description={t("dashboard.description")} hideTitle />
 
+      {salesSummary && (
+        <div
+          className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs sm:text-sm ${
+            liveKpis.hasLiveData
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+        >
+          <RefreshCw className="h-4 w-4 shrink-0" />
+          <span>
+            {liveKpis.hasLiveData
+              ? locale === "zh"
+                ? `收银数据已同步${salesSummary.updatedAt ? ` · ${new Date(salesSummary.updatedAt).toLocaleString("zh-CN")}` : ""}`
+                : `Ventas sincronizadas${salesSummary.updatedAt ? ` · ${new Date(salesSummary.updatedAt).toLocaleString("es-ES")}` : ""}`
+              : locale === "zh"
+                ? "每日营业同步已准备，等待收银系统授权"
+                : "Sincronización diaria preparada; falta autorizar el TPV"}
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
           title={t("dashboard.ventasDia")}
-          value={formatCurrency(dashboardKpis.ventasHoy)}
+          value={formatCurrency(liveKpis.ventasHoy)}
           icon={Euro}
           subtitle={`${formatCurrency(Math.abs(salesDelta))} vs ${t("pages.dashboard.yesterdaySales")}`}
           trend={`${salesDeltaPct >= 0 ? "+" : ""}${salesDeltaPct.toFixed(1)}%`}
@@ -60,13 +142,13 @@ export function DashboardPanel() {
         />
         <StatCard
           title={t("pages.dashboard.yesterdaySales")}
-          value={formatCurrency(dashboardKpis.ventasAyer)}
+          value={formatCurrency(liveKpis.ventasAyer)}
           icon={CalendarDays}
           iconColor="bg-gray-50 text-gray-600"
         />
         <StatCard
           title={t("dashboard.ventasMes")}
-          value={formatCurrency(dashboardKpis.ventasMes)}
+          value={formatCurrency(liveKpis.ventasMes)}
           icon={TrendingUp}
           trend="+8,2%"
           trendUp
@@ -74,14 +156,14 @@ export function DashboardPanel() {
         />
         <StatCard
           title={t("dashboard.clientesHoy")}
-          value={String(dashboardKpis.clientes)}
+          value={String(liveKpis.clientes)}
           icon={Users}
           subtitle={t("dashboard.salaDelivery")}
           iconColor="bg-purple-50 text-purple-600"
         />
         <StatCard
           title={t("dashboard.ticketMedio")}
-          value={formatCurrency(dashboardKpis.ticketMedio)}
+          value={formatCurrency(liveKpis.ticketMedio)}
           icon={Receipt}
           iconColor="bg-amber-50 text-amber-600"
         />
@@ -203,7 +285,7 @@ export function DashboardPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {weeklyTrend.map((row) => (
+              {liveKpis.trend.map((row) => (
                 <tr key={row.fecha} className="hover:bg-gray-50/80">
                   <td className="px-4 py-3 text-gray-700">{formatDate(row.fecha)}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
