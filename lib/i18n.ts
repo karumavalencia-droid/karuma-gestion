@@ -27,9 +27,9 @@ export const i18n = {
       dashboard: "首页",
       staff: "员工管理",
       schedule: "排班管理",
-      kiosk: "员工打卡",
       marketing: "增长计划",
       delivery: "外卖增长",
+      reservas: "预约管理",
     },
     header: {
       openMenu: "打开菜单",
@@ -160,9 +160,9 @@ export const i18n = {
       dashboard: "Dashboard",
       staff: "Personal",
       schedule: "Horarios",
-      kiosk: "Fichaje",
       marketing: "Marketing",
       delivery: "Delivery",
+      reservas: "Reservas",
     },
     header: {
       openMenu: "Abrir menú",

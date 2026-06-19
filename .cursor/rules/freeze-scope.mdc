@@ -1,0 +1,38 @@
+---
+description: Karuma ERP 结构冻结 — 仅维护员工与排班
+alwaysApply: true
+---
+
+# Karuma ERP — 结构冻结
+
+## 禁止
+
+- 不要新增菜单、页面、模块
+- 不要恢复或扩展已暂停模块的功能
+
+## 唯一活跃开发范围
+
+1. **员工管理** (`/staff`)
+2. **排班管理** (`/schedule`)
+
+Dashboard (`/dashboard`) 保持静态，仅必要时修 bug。
+
+## 暂停（不开发、不进侧栏）
+
+- Google 评论 (`/reviews`)
+- 交班记录 (`/shift-log`)
+- 权限管理 (`/roles`)
+- 请假管理 (`/leave`)
+- 销售、成本、库存、发票等其它 ERP 页面
+
+路由文件可保留在仓库中，但不要改动或扩展，除非用户明确解冻。
+
+## 导航唯一来源
+
+`lib/layout/navigation.ts` — 仅 `/dashboard`、`/staff`、`/schedule`
+
+## 稳定性
+
+- 不修改 Dashboard 除非用户明确要求
+- 排班与员工使用 mock 数据，不接新数据库功能
+- 开发环境已禁用 PWA Service Worker（避免 Sin conexión 误报）

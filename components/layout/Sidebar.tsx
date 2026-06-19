@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, Clock3, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
@@ -12,10 +12,12 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/staff": Users,
   "/schedule": CalendarDays,
-  "/kiosk": Clock3,
   "/marketing": Megaphone,
   "/delivery": Truck,
+  "/dashboard/reservas": CalendarCheck,
 };
+
+const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
 
 interface SidebarProps {
   open: boolean;
@@ -63,7 +65,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {ERP_NAV_ROUTES.map((route) => {
-            const isActive = pathname === route || pathname.startsWith(`${route}/`);
+            const isActive =
+              route === "/dashboard"
+                ? pathname === "/dashboard"
+                : route === "/dashboard/reservas"
+                  ? RESERVAS_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))
+                  : pathname === route || pathname.startsWith(`${route}/`);
             const Icon = NAV_ICONS[route];
             const navKey = ROUTE_NAV_KEY[route];
             return (
@@ -85,7 +92,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-gray-800 px-4 py-3">
-          <p className="text-[10px] text-gray-500 sm:text-xs">打卡入口：/kiosk · PIN 本地记录</p>
+          <p className="text-[10px] text-gray-500 sm:text-xs">结构冻结 · 仅员工与排班</p>
         </div>
       </aside>
     </>

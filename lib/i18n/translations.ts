@@ -25,7 +25,6 @@ export const translations = {
       ingredients: "Ingredients",
       staff: "Staff",
       schedule: "Schedule",
-      kiosk: "Fichaje",
       shiftLog: "Shift Log",
       leave: "Leave",
       roles: "Roles & Access",
@@ -48,6 +47,7 @@ export const translations = {
       delivery: "Delivery",
       cocina: "Cocina",
       configuracion: "Configuración",
+      reservas: "Reservas",
     },
     header: {
       openMenu: "Abrir menú",
@@ -371,7 +371,6 @@ export const translations = {
       ingredients: "原料管理",
       staff: "员工管理",
       schedule: "排班管理",
-      kiosk: "员工打卡",
       shiftLog: "交班记录",
       leave: "请假",
       roles: "权限管理",
@@ -394,6 +393,7 @@ export const translations = {
       delivery: "外卖增长",
       cocina: "厨房",
       configuracion: "设置",
+      reservas: "预约管理",
     },
     header: {
       openMenu: "打开菜单",
@@ -725,6 +725,11 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
   "/schedule": "schedule.title",
   "/marketing": "marketing.title",
   "/delivery": "delivery.title",
+  "/reservas": "nav.reservas",
+  "/dashboard/reservas": "nav.reservas",
+  "/dashboard/mesa-view": "nav.reservas",
+  "/dashboard/clientes": "nav.reservas",
+  "/dashboard/config": "nav.reservas",
   "/shift-log": "pages.shiftLog.title",
   "/leave": "pages.leave.title",
   "/my-schedule": "pages.mySchedule.title",
@@ -744,7 +749,6 @@ export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/ingredients": "ingredients",
   "/staff": "staff",
   "/schedule": "schedule",
-  "/kiosk": "kiosk",
   "/shift-log": "shiftLog",
   "/leave": "leave",
   "/roles": "roles",
@@ -766,6 +770,7 @@ export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/delivery": "delivery",
   "/cocina": "cocina",
   "/configuracion": "configuracion",
+  "/dashboard/reservas": "reservas",
 };
 
 export function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined {

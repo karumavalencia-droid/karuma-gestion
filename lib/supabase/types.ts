@@ -61,6 +61,81 @@ export type DbUserInsert = {
   role_id: string;
 };
 
+// ── Reservas types ──────────────────────────────────────────────────────────
+
+export type DbMesa = {
+  id: number;
+  numero: number;
+  capacidad: number;
+  zona: string | null;
+  combinable: boolean;
+  activa: boolean;
+  pos_x: number | null;
+  pos_y: number | null;
+  ancho: number | null;
+  alto: number | null;
+  forma: string | null;
+};
+
+export type DbClienteReserva = {
+  id: string;
+  nombre: string;
+  telefono: string;
+  email: string | null;
+  visitas: number;
+  no_shows: number;
+  vip: boolean;
+  bloqueado: boolean;
+  notas: string | null;
+  ultima_visita: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbReserva = {
+  id: string;
+  cliente_id: string | null;
+  fecha: string;
+  hora_inicio: string;
+  duracion_min: number;
+  servicio: "comida" | "cena";
+  personas: number;
+  mesa_ids: number[];
+  estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
+  notas: string | null;
+  origen: "online" | "telefono" | "walkin" | "manual";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbReservasConfig = {
+  id: number;
+  reservas_online_activas: boolean;
+  max_personas_online: number;
+  intervalo_min: number;
+  duracion_1_2_min: number;
+  duracion_3_4_min: number;
+  dias_max_antelacion: number;
+  capacidad_online_pct: number;
+  comida_inicio: string;
+  comida_fin: string;
+  cena_inicio: string;
+  cena_fin: string;
+  telefono: string | null;
+  whatsapp: string | null;
+  google_review_link: string | null;
+};
+
+export type DbCierreServicio = {
+  id: number;
+  fecha: string;
+  servicio: "comida" | "cena" | "todo" | null;
+  motivo: string | null;
+  created_at: string;
+};
+
+// ── Database ─────────────────────────────────────────────────────────────────
+
 export type Database = {
   public: {
     Tables: {
@@ -80,6 +155,47 @@ export type Database = {
         Row: DbStaff;
         Insert: DbStaffInsert;
         Update: DbStaffUpdate;
+        Relationships: [];
+      };
+      mesas: {
+        Row: DbMesa;
+        Insert: Omit<DbMesa, "id">;
+        Update: Partial<Omit<DbMesa, "id">>;
+        Relationships: [];
+      };
+      clientes_reservas: {
+        Row: DbClienteReserva;
+        Insert: {
+          id?: string;
+          nombre: string;
+          telefono: string;
+          email?: string | null;
+          visitas?: number;
+          no_shows?: number;
+          vip?: boolean;
+          bloqueado?: boolean;
+          notas?: string | null;
+          ultima_visita?: string | null;
+        };
+        Update: Partial<Omit<DbClienteReserva, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      reservas: {
+        Row: DbReserva;
+        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at"> & { id?: string };
+        Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      reservas_config: {
+        Row: DbReservasConfig;
+        Insert: Partial<DbReservasConfig>;
+        Update: Partial<DbReservasConfig>;
+        Relationships: [];
+      };
+      cierres_servicio: {
+        Row: DbCierreServicio;
+        Insert: Omit<DbCierreServicio, "id" | "created_at">;
+        Update: Partial<Omit<DbCierreServicio, "id" | "created_at">>;
         Relationships: [];
       };
     };
