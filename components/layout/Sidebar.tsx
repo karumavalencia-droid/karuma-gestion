@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, LayoutDashboard, Megaphone, Users, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
@@ -13,7 +13,11 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/staff": Users,
   "/schedule": CalendarDays,
   "/marketing": Megaphone,
+  "/delivery": Truck,
+  "/dashboard/reservas": CalendarCheck,
 };
+
+const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
 
 interface SidebarProps {
   open: boolean;
@@ -61,7 +65,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {ERP_NAV_ROUTES.map((route) => {
-            const isActive = pathname === route || pathname.startsWith(`${route}/`);
+            const isActive =
+              route === "/dashboard"
+                ? pathname === "/dashboard"
+                : route === "/dashboard/reservas"
+                  ? RESERVAS_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))
+                  : pathname === route || pathname.startsWith(`${route}/`);
             const Icon = NAV_ICONS[route];
             const navKey = ROUTE_NAV_KEY[route];
             return (

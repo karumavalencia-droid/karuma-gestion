@@ -44,8 +44,10 @@ export const translations = {
       googleReviews: "Google Reviews",
       deliveryCenter: "Delivery Center",
       marketing: "Marketing",
+      delivery: "Delivery",
       cocina: "Cocina",
       configuracion: "Configuración",
+      reservas: "Reservas",
     },
     header: {
       openMenu: "Abrir menú",
@@ -388,8 +390,10 @@ export const translations = {
       googleReviews: "Google 评论",
       deliveryCenter: "外卖中心",
       marketing: "增长计划",
+      delivery: "外卖增长",
       cocina: "厨房",
       configuracion: "设置",
+      reservas: "预约管理",
     },
     header: {
       openMenu: "打开菜单",
@@ -720,6 +724,12 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
   "/staff": "staff.title",
   "/schedule": "schedule.title",
   "/marketing": "marketing.title",
+  "/delivery": "delivery.title",
+  "/reservas": "nav.reservas",
+  "/dashboard/reservas": "nav.reservas",
+  "/dashboard/mesa-view": "nav.reservas",
+  "/dashboard/clientes": "nav.reservas",
+  "/dashboard/config": "nav.reservas",
   "/shift-log": "pages.shiftLog.title",
   "/leave": "pages.leave.title",
   "/my-schedule": "pages.mySchedule.title",
@@ -757,8 +767,10 @@ export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/reviews": "reviews",
   "/delivery-center": "deliveryCenter",
   "/marketing": "marketing",
+  "/delivery": "delivery",
   "/cocina": "cocina",
   "/configuracion": "configuracion",
+  "/dashboard/reservas": "reservas",
 };
 
 export function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined {

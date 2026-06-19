@@ -7,7 +7,7 @@ import { SidebarLayout } from "./SidebarLayout";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/kiosk")) {
+  if (pathname.startsWith("/kiosk") || pathname.startsWith("/reservas")) {
     return <>{children}</>;
   }
   return <SidebarLayout>{children}</SidebarLayout>;
