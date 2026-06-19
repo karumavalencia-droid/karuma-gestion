@@ -1,4 +1,4 @@
-const CACHE_NAME = "karuma-pwa-v1";
+const CACHE_NAME = "karuma-pwa-v2";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [

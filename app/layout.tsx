@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { Providers } from "@/components/layout/Providers";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
   themeColor: "#111827",
@@ -40,7 +37,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={inter.className}>
+      <body>
         <PwaRegister />
         <Providers>{children}</Providers>
       </body>
