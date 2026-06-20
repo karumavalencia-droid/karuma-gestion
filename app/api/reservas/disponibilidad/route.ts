@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { calcularSlotsDisponibles } from "@/lib/reservas/disponibilidad";
-import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+import type { Mesa, Reserva, ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -18,18 +18,45 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
   }
 
-  const [{ data: mesas }, { data: reservas }, { data: configData }, { data: cierres }] = await Promise.all([
+  // dia 0=Dom…6=Sáb — JS getDay() matches
+  const diaSemana = new Date(fecha + "T12:00:00").getDay();
+
+  const [
+    { data: mesas },
+    { data: reservas },
+    { data: configData },
+    { data: cierres },
+    { data: horarioData },
+  ] = await Promise.all([
     supabase.from("mesas").select("*").eq("activa", true),
     supabase.from("reservas").select("*").eq("fecha", fecha),
     supabase.from("reservas_config").select("*").eq("id", 1).single(),
     supabase.from("cierres_servicio").select("servicio").eq("fecha", fecha),
+    supabase.from("horario_semanal").select("*").eq("dia", diaSemana).single(),
   ]);
 
   if (!mesas || !configData) {
     return NextResponse.json({ error: "Error al cargar datos" }, { status: 500 });
   }
 
-  // Check if this service is closed for the day
+  const horarioDia = horarioData as HorarioDia | null;
+
+  // Restaurante cerrado ese día
+  if (horarioDia && !horarioDia.activo) {
+    return NextResponse.json({ slots: [], cerrado: true });
+  }
+
+  // Servicio desactivado para ese día
+  if (horarioDia) {
+    if (servicio === "comida" && !horarioDia.comida_activa) {
+      return NextResponse.json({ slots: [], cerrado: true });
+    }
+    if (servicio === "cena" && !horarioDia.cena_activa) {
+      return NextResponse.json({ slots: [], cerrado: true });
+    }
+  }
+
+  // Cierre puntual (override manual)
   const cerrado = (cierres ?? []).some(
     (c) => c.servicio === servicio || c.servicio === "todo",
   );
@@ -37,16 +64,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ slots: [], cerrado: true });
   }
 
+  // Build effective config — override global times with per-day horario
+  const config = configData as ReservasConfig;
+  const effectiveConfig: ReservasConfig = horarioDia
+    ? {
+        ...config,
+        comida_inicio: horarioDia.comida_inicio,
+        comida_fin:    horarioDia.comida_fin,
+        cena_inicio:   horarioDia.cena_inicio,
+        cena_fin:      horarioDia.cena_fin,
+      }
+    : config;
+
   let slots = calcularSlotsDisponibles(
     mesas as Mesa[],
     (reservas ?? []) as Reserva[],
-    configData as ReservasConfig,
+    effectiveConfig,
     fecha,
     servicio,
     personas,
   );
 
-  // Filter past slots and min-advance slots for today
+  // Filter past/too-soon slots for today
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
   if (fecha === todayStr) {

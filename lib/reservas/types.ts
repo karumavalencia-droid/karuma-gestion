@@ -59,6 +59,18 @@ export interface ReservasConfig {
   google_review_link: string | null;
 }
 
+/** Horario por día de la semana (0=Dom … 6=Sab) */
+export interface HorarioDia {
+  dia: number;           // 0 domingo … 6 sábado
+  activo: boolean;       // si el restaurante abre ese día
+  comida_activa: boolean;
+  comida_inicio: string; // "HH:MM"
+  comida_fin: string;    // último pase "HH:MM"
+  cena_activa: boolean;
+  cena_inicio: string;
+  cena_fin: string;
+}
+
 /** Slot horario calculado para mostrar al cliente */
 export interface SlotDisponible {
   hora: string;
