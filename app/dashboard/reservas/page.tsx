@@ -13,6 +13,8 @@ import {
   sentarReserva,
   cambiarMesas,
   desplazarReserva,
+  getMesasConEstado,
+  createWalkInForMesa,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
@@ -21,6 +23,7 @@ import {
   loadEspera,
   updateEspera,
   getVisitasCliente,
+  type MesaConEstado,
   type ReservaLocal,
   type EstadoLocal,
   type ServicioLocal,
@@ -135,6 +138,14 @@ export default function ReservasPage() {
   const [stats, setStats] = useState<StatsLocal | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [espera, setEspera] = useState<EsperaLocal[]>([]);
+  const [mesas, setMesas] = useState<MesaConEstado[]>([]);
+
+  // Mesa-panel inline state (walk-in desde el plano)
+  const [mesaSel, setMesaSel] = useState<MesaConEstado | null>(null);
+  const [wiInlineMesa, setWiInlineMesa] = useState<MesaConEstado | null>(null);
+  const [wiInlinePersonas, setWiInlinePersonas] = useState(2);
+  const [wiInlineNombre, setWiInlineNombre] = useState("");
+  const [wiInlineError, setWiInlineError] = useState("");
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [fecha, setFecha] = useState(getSharedFecha);
@@ -208,20 +219,24 @@ export default function ReservasPage() {
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   // ── Load ───────────────────────────────────────────────────────────────────
+  const servicioPlano: ServicioLocal = vistaServicio === "cena" ? "cena" : "comida";
+
   const reload = useCallback(() => {
     syncAndLoadReservas(fecha).then((all) => {
       setReservas(all);
       setStats(getDashboardStats(fecha));
       setEspera(loadEspera().filter((e) => e.fecha === fecha));
+      setMesas(getMesasConEstado(fecha, servicioPlano));
       setLoaded(true);
     }).catch(() => {
       const all = loadReservas().filter((r) => r.fecha === fecha);
       setReservas(all);
       setStats(getDashboardStats(fecha));
       setEspera(loadEspera().filter((e) => e.fecha === fecha));
+      setMesas(getMesasConEstado(fecha, servicioPlano));
       setLoaded(true);
     });
-  }, [fecha]);
+  }, [fecha, servicioPlano]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -557,7 +572,10 @@ export default function ReservasPage() {
           <p className="text-sm text-gray-500">Comida: {statsComida.total} reservas · {statsComida.pax} pax &nbsp;|&nbsp; Cena: {statsCena.total} reservas · {statsCena.pax} pax</p>
         </div>
 
-        {/* ── List ────────────────────────────────────────────────────────── */}
+        {/* ── Split: Lista + Plano ─────────────────────────────────────────── */}
+        <div className="flex gap-4">
+        {/* ── List (izq) ──────────────────────────────────────────────────── */}
+        <div className="min-w-0 flex-1">
         {!loaded ? (
           <p className="py-12 text-center text-gray-500">Cargando…</p>
         ) : filtradas.length === 0 ? (
@@ -675,6 +693,51 @@ export default function ReservasPage() {
             })}
           </div>
         )}
+        </div>{/* end list */}
+
+        {/* ── Plano (der) ─────────────────────────────────────────────────── */}
+        <div className="hidden w-72 shrink-0 xl:block">
+          <div className="sticky top-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Plano · {servicioPlano}</p>
+              <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs">
+                {(["comida","cena"] as ServicioLocal[]).map((s) => (
+                  <button key={s} onClick={() => setVistaServicio(s)}
+                    className={`px-2 py-1 font-medium ${servicioPlano === s ? "bg-karuma-600 text-white" : "bg-white text-gray-400"}`}>
+                    {s === "comida" ? "🍱" : "🍣"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {mesas.map((m) => {
+                const colors = {
+                  available: "border-gray-200 bg-white text-gray-400",
+                  reserved:  "border-emerald-400 bg-emerald-50 text-emerald-700",
+                  occupied:  "border-red-400 bg-red-50 text-red-700",
+                  cleaning:  "border-yellow-400 bg-yellow-50 text-yellow-700",
+                };
+                return (
+                  <button key={m.id} onClick={() => setMesaSel(m)}
+                    className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${colors[m.status]}`}>
+                    <p className="text-xs font-black">T{m.numero}</p>
+                    <p className="text-[9px] opacity-70">{m.capacidad}p</p>
+                    {m.reserva && (
+                      <p className="truncate text-[8px] font-semibold leading-tight">{m.reserva.nombre.split(" ")[0]}</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex gap-2 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-gray-300 bg-white"/>&nbsp;Libre</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-400"/>&nbsp;Reservada</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-400"/>&nbsp;Ocupada</span>
+            </div>
+          </div>
+        </div>
+        </div>{/* end split */}
+
         </>)}
       </div>
 
@@ -684,6 +747,68 @@ export default function ReservasPage() {
           {toast}
         </div>
       )}
+
+      {/* ── Mesa-plano detail modal ───────────────────────────────────────────── */}
+      <Modal open={!!mesaSel && !wiInlineMesa} title={`Mesa T${mesaSel?.numero}`} onClose={() => setMesaSel(null)}>
+        {mesaSel && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">{mesaSel.capacidad} pax · {mesaSel.status === "available" ? "Libre" : mesaSel.status === "reserved" ? "Reservada" : "Ocupada"}</p>
+            {mesaSel.reserva && (
+              <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-red-50" : "bg-emerald-50"}`}>
+                <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{mesaSel.reserva.nombre}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Hora</span><span>{mesaSel.reserva.hora}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Personas</span><span>{mesaSel.reserva.personas}</span></div>
+              </div>
+            )}
+            {mesaSel.status === "available" && (
+              <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
+                className="w-full rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-500">
+                + Walk-In directo
+              </button>
+            )}
+            {mesaSel.status === "reserved" && mesaSel.reserva && (
+              <button onClick={() => { openSeat(mesaSel.reserva!); setMesaSel(null); }}
+                className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+                → Sentar
+              </button>
+            )}
+            {mesaSel.status === "occupied" && mesaSel.reserva && (
+              <button onClick={() => { handleLiberar(mesaSel.reserva!); setMesaSel(null); }}
+                className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
+                ✓ Liberar mesa
+              </button>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Walk-in desde plano */}
+      <Modal open={!!wiInlineMesa} title={`Walk-In — T${wiInlineMesa?.numero}`} onClose={() => setWiInlineMesa(null)}>
+        {wiInlineMesa && (
+          <div className="space-y-4">
+            {wiInlineError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiInlineError}</p>}
+            <Field label="Personas" required>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setWiInlinePersonas(Math.max(1, wiInlinePersonas - 1))}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl font-bold">−</button>
+                <span className="flex-1 text-center text-4xl font-black">{wiInlinePersonas}</span>
+                <button onClick={() => setWiInlinePersonas(wiInlinePersonas + 1)}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl font-bold">+</button>
+              </div>
+            </Field>
+            <Field label="Nombre (opcional)">
+              <input className={inp} value={wiInlineNombre} onChange={(e) => setWiInlineNombre(e.target.value)} placeholder="Walk-In" />
+            </Field>
+            <button onClick={() => {
+              const res = createWalkInForMesa(wiInlineMesa.id, wiInlinePersonas, wiInlineNombre, "", "");
+              if (!res.ok) { setWiInlineError(res.error); return; }
+              setWiInlineMesa(null); setMesaSel(null); reload(); showToast(`T${wiInlineMesa.numero} — Walk-In registrado`);
+            }} className="w-full rounded-xl bg-red-600 py-3.5 font-black text-white hover:bg-red-500">
+              Ocupar T{wiInlineMesa.numero} ahora
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* ── Desplazar modal ───────────────────────────────────────────────────── */}
       <Modal open={!!desplazarR} title="Desplazar reserva" onClose={() => setDesplazarR(null)}>
