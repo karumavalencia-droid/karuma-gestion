@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import {
-  loadReservas,
   getDashboardStats,
   createReserva,
   updateEstado,
@@ -159,14 +160,35 @@ export default function ReservasPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  // ── Load from localStorage ────────────────────────────────────────────────
+  // ── Load: sync Supabase online bookings into localStorage, then read all ──
   const reload = useCallback(() => {
-    setReservas(loadReservas().filter((r) => r.fecha === fecha));
-    setStats(getDashboardStats(fecha));
-    setLoaded(true);
+    // Sync Supabase → localStorage in background, then update state
+    syncAndLoadReservas(fecha).then((all) => {
+      setReservas(all);
+      setStats(getDashboardStats(fecha));
+      setLoaded(true);
+    }).catch(() => {
+      // Fallback: localStorage only
+      const all = (typeof window !== "undefined")
+        ? (JSON.parse(localStorage.getItem("karuma_reservas_v1") ?? "[]") as ReservaLocal[]).filter(r => r.fecha === fecha)
+        : [];
+      setReservas(all);
+      setStats(getDashboardStats(fecha));
+      setLoaded(true);
+    });
   }, [fecha]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // ── Realtime: auto-reload when Supabase changes ───────────────────────────
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const ch = sb.channel("reservas_admin_sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => reload())
+      .subscribe();
+    return () => { void ch.unsubscribe(); };
+  }, [reload]);
 
   const filtradas = reservas.filter((r) => {
     if (servicio && r.servicio !== servicio) return false;
@@ -371,8 +393,11 @@ export default function ReservasPage() {
                           {st.label}
                         </span>
                         <span className="text-xs text-gray-500 capitalize">{r.servicio}</span>
+                        {r.origen === "online" && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-600">🌐 Online</span>
+                        )}
                         {r.type === "walk_in" && (
-                          <span className="rounded-full bg-pink-900/30 px-2 py-0.5 text-[10px] font-bold text-pink-400">WALK-IN</span>
+                          <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">WALK-IN</span>
                         )}
                       </div>
                       <p className="mt-0.5 font-semibold text-gray-900">{r.nombre}</p>

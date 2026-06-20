@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
+  loadReservas,
   createWalkInForMesa,
   sentarReserva,
   liberarMesa,
@@ -99,12 +102,26 @@ export default function MesaViewPage() {
   const [seatMesaIds, setSeatMesaIds] = useState<string[]>([]);
   const [seatError, setSeatError] = useState("");
 
-  // ── Load from localStorage ────────────────────────────────────────────────
+  // ── Load: sync Supabase → localStorage, then compute mesa status ─────────
   const reload = useCallback(() => {
-    setMesas(getMesasConEstado(fecha, servicio));
+    syncAndLoadReservas(fecha).then(() => {
+      setMesas(getMesasConEstado(fecha, servicio));
+    }).catch(() => {
+      setMesas(getMesasConEstado(fecha, servicio));
+    });
   }, [fecha, servicio]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // ── Realtime: auto-refresh when any reservation changes ──────────────────
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const ch = sb.channel("mesa_view_sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => reload())
+      .subscribe();
+    return () => { void ch.unsubscribe(); };
+  }, [reload]);
 
   // Auto-refresh every 60s
   useEffect(() => {

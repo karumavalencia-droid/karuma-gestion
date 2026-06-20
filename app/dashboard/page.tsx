@@ -5,6 +5,7 @@ import { CalendarCheck, Users, UserX, TableProperties, Clock, TrendingUp, WifiOf
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
 import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
+import { syncAndLoadReservas } from "@/lib/reservas/sync";
 
 interface SalesRecord { date: string; grossSales: number; customers: number; }
 interface SalesResponse { configured: boolean; records: SalesRecord[]; }
@@ -25,7 +26,10 @@ export default function DashboardPage() {
   const thisMonth = todayStr.slice(0, 7);
 
   useEffect(() => {
-    setStats(getDashboardStats(todayStr));
+    // Sync online bookings then compute stats
+    syncAndLoadReservas(todayStr)
+      .then(() => setStats(getDashboardStats(todayStr)))
+      .catch(() => setStats(getDashboardStats(todayStr)));
 
     fetch("/api/sales/daily?limit=31")
       .then((r) => r.json())
@@ -33,9 +37,13 @@ export default function DashboardPage() {
       .catch(() => null);
   }, [todayStr]);
 
-  // Refresh stats every 30s
+  // Refresh every 30s
   useEffect(() => {
-    const id = setInterval(() => setStats(getDashboardStats(todayStr)), 30_000);
+    const id = setInterval(() => {
+      syncAndLoadReservas(todayStr)
+        .then(() => setStats(getDashboardStats(todayStr)))
+        .catch(() => setStats(getDashboardStats(todayStr)));
+    }, 30_000);
     return () => clearInterval(id);
   }, [todayStr]);
 

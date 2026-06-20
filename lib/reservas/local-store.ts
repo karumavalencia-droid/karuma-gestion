@@ -53,6 +53,7 @@ export interface ReservaLocal {
   notas: string;
   estado: EstadoLocal;
   creadoEn: string;
+  origen?: "online" | "telefono" | "walkin" | "manual"; // source
   seatedAt?: string;     // ISO when seated
   finishedAt?: string;   // ISO when finished
 }
