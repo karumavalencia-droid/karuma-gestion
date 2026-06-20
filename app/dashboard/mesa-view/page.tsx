@@ -14,12 +14,12 @@ function minutosHasta(horaInicio: string): number {
 }
 
 const ESTADO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
-  libre:      { bg: "bg-gray-700",     border: "border-gray-500",   text: "text-gray-300",   label: "Libre" },
-  Confirmada: { bg: "bg-emerald-800",  border: "border-emerald-500", text: "text-emerald-100", label: "Reservada" },
-  Sentado:    { bg: "bg-red-800",      border: "border-red-500",    text: "text-red-100",    label: "Sentado" },
-  WalkIn:     { bg: "bg-pink-800",     border: "border-pink-500",   text: "text-pink-100",   label: "Walk-In" },
-  NoShow:     { bg: "bg-gray-800",     border: "border-gray-600",   text: "text-gray-500",   label: "No Show" },
-  Finalizada: { bg: "bg-gray-700",     border: "border-gray-600",   text: "text-gray-500",   label: "Finalizada" },
+  libre:      { bg: "bg-gray-100",     border: "border-gray-300",   text: "text-gray-500",   label: "Libre" },
+  Confirmada: { bg: "bg-emerald-50",   border: "border-emerald-400", text: "text-emerald-800", label: "Reservada" },
+  Sentado:    { bg: "bg-red-50",       border: "border-red-400",    text: "text-red-800",    label: "Sentado" },
+  WalkIn:     { bg: "bg-pink-50",      border: "border-pink-400",   text: "text-pink-800",   label: "Walk-In" },
+  NoShow:     { bg: "bg-gray-50",      border: "border-gray-300",   text: "text-gray-400",   label: "No Show" },
+  Finalizada: { bg: "bg-gray-50",      border: "border-gray-200",   text: "text-gray-400",   label: "Finalizada" },
 };
 
 interface MesaConReserva extends Mesa {
@@ -108,7 +108,7 @@ export default function MesaViewPage() {
     .reduce((sum, m) => sum + (m.reserva?.personas ?? 0), 0);
 
   return (
-    <div className="-m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
+    <div className="min-h-[calc(100dvh)] p-4 text-gray-900 md:p-6">
       <div className="mx-auto max-w-4xl">
         <ReservasNav />
 
@@ -118,15 +118,15 @@ export default function MesaViewPage() {
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
           />
-          <div className="flex overflow-hidden rounded-lg border border-gray-700">
+          <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setServicio(s)}
                 className={`px-5 py-2 text-sm font-medium transition-colors ${
-                  servicio === s ? "bg-karuma-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  servicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                 }`}
               >
                 {s === "comida" ? "🍱 Comida" : "🍣 Cena"}
@@ -137,17 +137,17 @@ export default function MesaViewPage() {
 
         {/* Stats row */}
         <div className="mb-5 grid grid-cols-3 gap-3">
-          <div className="rounded-xl bg-gray-800 p-3 text-center">
-            <p className="text-2xl font-bold text-white">{mesas.length}</p>
-            <p className="text-xs text-gray-400">Total mesas</p>
+          <div className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-gray-900">{mesas.length}</p>
+            <p className="text-xs text-gray-500">Total mesas</p>
           </div>
-          <div className="rounded-xl bg-emerald-900/50 p-3 text-center">
-            <p className="text-2xl font-bold text-emerald-300">{ocupadas}</p>
-            <p className="text-xs text-emerald-400">Ocupadas</p>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-emerald-700">{ocupadas}</p>
+            <p className="text-xs text-emerald-600">Ocupadas</p>
           </div>
-          <div className="rounded-xl bg-gray-700/50 p-3 text-center">
-            <p className="text-2xl font-bold text-gray-300">{libres}</p>
-            <p className="text-xs text-gray-400">Libres</p>
+          <div className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-gray-600">{libres}</p>
+            <p className="text-xs text-gray-500">Libres</p>
           </div>
         </div>
 
@@ -155,8 +155,8 @@ export default function MesaViewPage() {
         <div className="mb-5 flex flex-wrap gap-3 text-xs">
           {Object.entries(ESTADO_STYLES).map(([key, s]) => (
             <span key={key} className="flex items-center gap-1.5">
-              <span className={`h-3 w-3 rounded-sm ${s.bg}`} />
-              <span className="text-gray-400">{s.label}</span>
+              <span className={`h-3 w-3 rounded-sm border ${s.bg} ${s.border}`} />
+              <span className="text-gray-500">{s.label}</span>
             </span>
           ))}
         </div>
@@ -227,8 +227,8 @@ export default function MesaViewPage() {
 
         {/* Bottom summary */}
         {!loading && personasActuales > 0 && (
-          <div className="mt-6 rounded-xl bg-gray-800 px-4 py-3 text-sm text-gray-300">
-            <span className="font-semibold text-white">{personasActuales}</span> personas sentadas ahora
+          <div className="mt-6 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+            <span className="font-semibold text-gray-900">{personasActuales}</span> personas sentadas ahora
           </div>
         )}
       </div>
@@ -237,17 +237,17 @@ export default function MesaViewPage() {
       {seleccionada && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={() => setSeleccionada(null)}>
           <div
-            className="w-full max-w-sm rounded-t-2xl bg-gray-900 p-6 sm:rounded-2xl"
+            className="w-full max-w-sm rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-black">Mesa {seleccionada.numero}</h2>
-                <p className="text-sm text-gray-400">{seleccionada.capacidad} personas · {seleccionada.zona}</p>
+                <h2 className="text-xl font-black text-gray-900">Mesa {seleccionada.numero}</h2>
+                <p className="text-sm text-gray-500">{seleccionada.capacidad} personas · {seleccionada.zona}</p>
               </div>
               <button
                 onClick={() => setSeleccionada(null)}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-800"
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -255,21 +255,21 @@ export default function MesaViewPage() {
 
             {seleccionada.reserva ? (
               <div className="space-y-2 text-sm">
-                <div className="rounded-xl bg-gray-800 p-4 space-y-2">
+                <div className="rounded-xl bg-gray-50 p-4 space-y-2 border border-gray-200">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Cliente</span>
+                    <span className="text-gray-500">Cliente</span>
                     <span className="font-semibold">{seleccionada.reserva.cliente_nombre}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Hora</span>
+                    <span className="text-gray-500">Hora</span>
                     <span className="font-semibold">{seleccionada.reserva.hora_inicio.slice(0, 5)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Personas</span>
+                    <span className="text-gray-500">Personas</span>
                     <span className="font-semibold">{seleccionada.reserva.personas}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Estado</span>
+                    <span className="text-gray-500">Estado</span>
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${ESTADO_STYLES[seleccionada.reserva.estado]?.bg ?? ""} ${ESTADO_STYLES[seleccionada.reserva.estado]?.text ?? ""}`}>
                       {ESTADO_STYLES[seleccionada.reserva.estado]?.label ?? seleccionada.reserva.estado}
                     </span>
@@ -319,7 +319,7 @@ export default function MesaViewPage() {
               </div>
             ) : (
               <div className="py-4 text-center">
-                <p className="text-gray-400">Mesa libre para este servicio</p>
+                <p className="text-gray-500">Mesa libre para este servicio</p>
               </div>
             )}
           </div>
