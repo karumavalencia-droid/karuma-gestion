@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X, Timer } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
@@ -91,8 +91,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="border-t border-gray-800 px-4 py-3">
-          <p className="text-[10px] text-gray-500 sm:text-xs">结构冻结 · 仅员工与排班</p>
+        <div className="border-t border-gray-800 px-3 py-3">
+          <Link
+            href="/kiosk"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+          >
+            <Timer className="h-5 w-5 shrink-0 opacity-80" />
+            Modo fichaje
+          </Link>
         </div>
       </aside>
     </>

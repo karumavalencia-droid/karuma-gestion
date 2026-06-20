@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { LayoutDashboard } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import type { Locale } from "@/lib/i18n";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { computeTodayAdminStats, ADMIN_PIN } from "@/lib/kiosk/admin";
 import {
   KIOSK_DEPARTMENTS,
@@ -56,8 +59,12 @@ function renderEmployeeStatus(emp: KioskEmployee, locale: Locale, t: (k: string)
   return `${t("kiosk.statusOut")} ${status.time}`;
 }
 
+const ADMIN_ROLES = new Set(["owner", "manager"]);
+
 export default function KioskPage() {
   const { locale, t } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = ADMIN_ROLES.has(user.role);
   const [selected, setSelected] = useState<KioskEmployee | null>(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
@@ -141,6 +148,15 @@ export default function KioskPage() {
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start">
+            {isAdmin && (
+              <Link
+                href="/dashboard"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-karuma-200 bg-karuma-50 px-3 py-2 text-sm font-medium text-karuma-700 shadow-sm hover:bg-karuma-100"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Panel ERP
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => {

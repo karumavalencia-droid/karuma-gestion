@@ -143,5 +143,6 @@ export function getAllowedRoutes(role: Role): string[] {
 export function getDefaultRoute(role: Role): string {
   const allowed = getAllowedRoutes(role);
   if (allowed.includes("/dashboard")) return "/dashboard";
-  return allowed[0] ?? "/schedule";
+  // Employees without dashboard access go to kiosk
+  return "/kiosk";
 }

@@ -2,7 +2,7 @@
   "name": "Karuma ERP",
   "short_name": "Karuma",
   "description": "Fichaje y ERP interno para Karuma Sushi & Grill",
-  "start_url": "/kiosk",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
