@@ -5,7 +5,7 @@ import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { nombre, telefono, personas, fecha, hora, servicio, notas } = body;
+  const { nombre, telefono, personas, fecha, hora, servicio, notas, origen = "online" } = body;
 
   if (!nombre || !telefono || !personas || !fecha || !hora || !servicio) {
     return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
@@ -27,11 +27,14 @@ export async function POST(req: NextRequest) {
   }
 
   const config = configData as ReservasConfig;
-  if (!config.reservas_online_activas) {
-    return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
-  }
-  if (personas > config.max_personas_online) {
-    return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
+
+  if (origen === "online") {
+    if (!config.reservas_online_activas) {
+      return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
+    }
+    if (personas > config.max_personas_online) {
+      return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
+    }
   }
 
   const duracion = personas <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
       mesa_ids: mesaIds,
       estado: "Confirmada",
       notas: notas ?? null,
-      origen: "online",
+      origen,
     })
     .select("id")
     .single();
@@ -96,5 +99,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, reservaId: reserva.id });
+  return NextResponse.json({ ok: true, reservaId: reserva.id, mesaIds });
 }

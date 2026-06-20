@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Error al cargar datos" }, { status: 500 });
   }
 
-  const slots = calcularSlotsDisponibles(
+  let slots = calcularSlotsDisponibles(
     mesas as Mesa[],
     (reservas ?? []) as Reserva[],
     configData as ReservasConfig,
@@ -36,6 +36,22 @@ export async function GET(req: NextRequest) {
     servicio,
     personas,
   );
+
+  // Filter past slots and min-advance slots for today
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+  if (fecha === todayStr) {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const minAdvanceMin = 30;
+    slots = slots.map((s) => {
+      const [h, m] = s.hora.split(":").map(Number);
+      const slotMin = h * 60 + m;
+      if (slotMin < nowMin + minAdvanceMin) {
+        return { ...s, disponible: false };
+      }
+      return s;
+    });
+  }
 
   return NextResponse.json({ slots });
 }
