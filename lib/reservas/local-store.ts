@@ -1,10 +1,10 @@
-// ─── Karuma Reservas — localStorage engine ────────────────────────────────────
+// ─── Karuma Reservas — localStorage engine v2 ────────────────────────────────
 // Keys: karuma_reservas_v1 / karuma_clientes_v1 / karuma_tables_v1
 
-export const RESERVAS_KEY  = "karuma_reservas_v1";
-export const CLIENTES_KEY  = "karuma_clientes_v1";
-export const TABLES_KEY    = "karuma_tables_v1";
-export const MAX_DIAS      = 7;
+export const RESERVAS_KEY = "karuma_reservas_v1";
+export const CLIENTES_KEY = "karuma_clientes_v1";
+export const TABLES_KEY   = "karuma_tables_v1";
+export const MAX_DIAS     = 7;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,10 +13,13 @@ export type EstadoLocal =
   | "confirmada"
   | "sentada"
   | "walkin"
+  | "finished"
   | "no-show"
   | "cancelada";
 
+export type MesaStatus = "available" | "reserved" | "occupied" | "cleaning";
 export type ServicioLocal = "comida" | "cena";
+export type TipoReserva = "reservation" | "walk_in";
 
 export interface MesaLocal {
   id: string;       // 'T1'..'T21'
@@ -27,17 +30,24 @@ export interface MesaLocal {
 
 export interface ReservaLocal {
   id: string;
+  type: TipoReserva;
   fecha: string;         // YYYY-MM-DD
   hora: string;          // HH:MM
   servicio: ServicioLocal;
   personas: number;
-  mesaIds: string[];     // ['T7']
+  mesaIds: string[];     // e.g. ['T7'] or ['T3','T4']
   nombre: string;
   telefono: string;
   notas: string;
   estado: EstadoLocal;
-  origen: "manual" | "walkin";
   creadoEn: string;
+  seatedAt?: string;     // ISO when seated
+  finishedAt?: string;   // ISO when finished
+}
+
+export interface MesaConEstado extends MesaLocal {
+  status: MesaStatus;
+  reserva?: ReservaLocal;
 }
 
 export interface ClienteLocal {
@@ -116,6 +126,32 @@ export function loadClientes(): ClienteLocal[] {
 }
 export function saveClientes(data: ClienteLocal[]) { write(CLIENTES_KEY, data); }
 
+// ─── Mesa status computation ──────────────────────────────────────────────────
+
+function isActive(r: ReservaLocal): boolean {
+  return r.estado !== "cancelada" && r.estado !== "no-show" && r.estado !== "finished";
+}
+function isOccupied(r: ReservaLocal): boolean {
+  return r.estado === "sentada" || r.estado === "walkin";
+}
+function isReserved(r: ReservaLocal): boolean {
+  return r.estado === "confirmada" || r.estado === "pendiente";
+}
+
+export function getMesasConEstado(fecha: string, servicio: string): MesaConEstado[] {
+  const mesas = loadMesas();
+  const reservas = loadReservas().filter(
+    (r) => r.fecha === fecha && r.servicio === servicio && isActive(r),
+  );
+  return mesas.map((m) => {
+    const occ = reservas.find((r) => isOccupied(r) && r.mesaIds.includes(m.id));
+    if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ };
+    const res = reservas.find((r) => isReserved(r) && r.mesaIds.includes(m.id));
+    if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res };
+    return { ...m, status: "available" as MesaStatus };
+  });
+}
+
 // ─── Table assignment ─────────────────────────────────────────────────────────
 
 function toMin(hora: string): number {
@@ -123,47 +159,38 @@ function toMin(hora: string): number {
   return h * 60 + m;
 }
 
-function ocupadasEn(fecha: string, hora: string, servicio: string, excludeId?: string): Set<string> {
+export function ocupadasEn(
+  fecha: string, hora: string, servicio: string, excludeId?: string,
+): Set<string> {
   const min = toMin(hora);
   const taken = new Set<string>();
   for (const r of loadReservas()) {
-    if (r.id === excludeId) continue;
+    if (r.id === excludeId || !isActive(r)) continue;
     if (r.fecha !== fecha || r.servicio !== servicio) continue;
-    if (r.estado === "cancelada" || r.estado === "no-show") continue;
     if (Math.abs(toMin(r.hora) - min) < 90) r.mesaIds.forEach((id) => taken.add(id));
   }
   return taken;
 }
 
 export function asignarMesa(
-  personas: number,
-  fecha: string,
-  hora: string,
-  servicio: string,
-  excludeId?: string,
+  personas: number, fecha: string, hora: string, servicio: string, excludeId?: string,
 ): string[] | null {
   const taken = ocupadasEn(fecha, hora, servicio, excludeId);
-  const disponibles = loadMesas()
+  const avail = loadMesas()
     .filter((m) => !taken.has(m.id) && m.capacidad >= personas)
     .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
-  if (!disponibles.length) return null;
-  return [disponibles[0].id];
+  return avail.length ? [avail[0].id] : null;
 }
 
-// ─── Mesa label helper ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function mesaLabel(mesaIds: string[]): string {
   if (!mesaIds.length) return "—";
   const mesas = loadMesas();
   return mesaIds
-    .map((id) => {
-      const m = mesas.find((x) => x.id === id);
-      return m ? `Mesa ${m.numero}` : id;
-    })
-    .join(", ");
+    .map((id) => { const m = mesas.find((x) => x.id === id); return m ? `T${m.numero}` : id; })
+    .join(" + ");
 }
-
-// ─── Upsert cliente ───────────────────────────────────────────────────────────
 
 export function upsertCliente(nombre: string, telefono: string, fecha: string, personas: number) {
   const clientes = loadClientes();
@@ -191,58 +218,131 @@ export function upsertCliente(nombre: string, telefono: string, fecha: string, p
   saveClientes(clientes);
 }
 
-// ─── Create reserva ───────────────────────────────────────────────────────────
+// ─── Create reservation ───────────────────────────────────────────────────────
 
 export interface CreateReservaInput {
-  fecha: string;
-  hora: string;
-  servicio: ServicioLocal;
-  personas: number;
-  nombre: string;
-  telefono: string;
-  notas: string;
-  origen: "manual" | "walkin";
+  fecha: string; hora: string; servicio: ServicioLocal;
+  personas: number; nombre: string; telefono: string;
+  notas: string; origen: "manual" | "walkin";
+  forceMesaIds?: string[];  // bypass auto-assign
 }
 
 export function createReserva(
   input: CreateReservaInput,
 ): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
-  // Validate max 7 days
   const hoy = new Date().toISOString().split("T")[0];
-  const max = new Date();
-  max.setDate(max.getDate() + MAX_DIAS);
+  const max = new Date(); max.setDate(max.getDate() + MAX_DIAS);
   if (input.fecha < hoy) return { ok: false, error: "No se puede reservar en fechas pasadas." };
   if (input.fecha > max.toISOString().split("T")[0])
-    return { ok: false, error: `Solo se puede reservar con un máximo de ${MAX_DIAS} días de antelación.` };
+    return { ok: false, error: `Máximo ${MAX_DIAS} días de antelación.` };
 
-  const mesaIds = asignarMesa(input.personas, input.fecha, input.hora, input.servicio);
-  if (!mesaIds) return { ok: false, error: "No hay mesas disponibles para ese horario y número de personas." };
+  let mesaIds: string[];
+  if (input.forceMesaIds && input.forceMesaIds.length) {
+    mesaIds = input.forceMesaIds;
+  } else {
+    const assigned = asignarMesa(input.personas, input.fecha, input.hora, input.servicio);
+    if (!assigned) return { ok: false, error: "No hay mesas disponibles para ese horario y número de personas." };
+    mesaIds = assigned;
+  }
 
+  const now = new Date().toISOString();
+  const isWalkIn = input.origen === "walkin";
   const reserva: ReservaLocal = {
     id: crypto.randomUUID(),
-    fecha: input.fecha,
-    hora: input.hora,
-    servicio: input.servicio,
-    personas: input.personas,
-    mesaIds,
+    type: isWalkIn ? "walk_in" : "reservation",
+    fecha: input.fecha, hora: input.hora, servicio: input.servicio,
+    personas: input.personas, mesaIds,
     nombre: input.nombre.trim() || "Sin nombre",
     telefono: input.telefono.trim(),
     notas: input.notas.trim(),
-    estado: input.origen === "walkin" ? "walkin" : "confirmada",
-    origen: input.origen,
-    creadoEn: new Date().toISOString(),
+    estado: isWalkIn ? "walkin" : "confirmada",
+    creadoEn: now,
+    seatedAt: isWalkIn ? now : undefined,
   };
 
-  const reservas = loadReservas();
-  reservas.push(reserva);
-  saveReservas(reservas);
-
+  const list = loadReservas();
+  list.push(reserva);
+  saveReservas(list);
   upsertCliente(input.nombre, input.telefono, input.fecha, input.personas);
-
   return { ok: true, reserva };
 }
 
-// ─── Update / delete ──────────────────────────────────────────────────────────
+// ─── Create walk-in for a specific mesa ──────────────────────────────────────
+
+export function createWalkInForMesa(
+  mesaId: string, personas: number, nombre: string, telefono: string, notas: string,
+): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
+  // Check mesa is not currently occupied
+  const hoy = new Date().toISOString().split("T")[0];
+  const hora = new Date().toTimeString().slice(0, 5);
+  const servicio: ServicioLocal = new Date().getHours() >= 17 ? "cena" : "comida";
+
+  const activas = loadReservas().filter(
+    (r) => r.fecha === hoy && r.servicio === servicio && isActive(r) &&
+            isOccupied(r) && r.mesaIds.includes(mesaId),
+  );
+  if (activas.length) return { ok: false, error: "Esta mesa ya está ocupada." };
+
+  return createReserva({
+    fecha: hoy, hora, servicio, personas,
+    nombre, telefono, notas,
+    origen: "walkin", forceMesaIds: [mesaId],
+  });
+}
+
+// ─── Seat a reservation ───────────────────────────────────────────────────────
+
+export function sentarReserva(
+  reservaId: string,
+  forceMesaIds?: string[],
+): { ok: true } | { ok: false; error: string } {
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === reservaId);
+  if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
+
+  const r = list[idx];
+  let mesaIds = r.mesaIds;
+
+  if (forceMesaIds && forceMesaIds.length) {
+    mesaIds = forceMesaIds;
+  } else if (!mesaIds.length) {
+    const assigned = asignarMesa(r.personas, r.fecha, r.hora, r.servicio, reservaId);
+    if (!assigned) return { ok: false, error: "No hay mesas disponibles." };
+    mesaIds = assigned;
+  }
+
+  list[idx] = { ...r, estado: "sentada", mesaIds, seatedAt: new Date().toISOString() };
+  saveReservas(list);
+  return { ok: true };
+}
+
+// ─── Liberar mesa (finish) ────────────────────────────────────────────────────
+
+export function liberarMesa(reservaId: string): void {
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === reservaId);
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], estado: "finished", finishedAt: new Date().toISOString() };
+    saveReservas(list);
+  }
+}
+
+// ─── Change mesas ─────────────────────────────────────────────────────────────
+
+export function cambiarMesas(
+  reservaId: string,
+  newMesaIds: string[],
+): { ok: true } | { ok: false; error: string } {
+  if (!newMesaIds.length) return { ok: false, error: "Selecciona al menos una mesa." };
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === reservaId);
+  if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
+  list[idx] = { ...list[idx], mesaIds: newMesaIds };
+  saveReservas(list);
+  return { ok: true };
+}
+
+// ─── Update estado ────────────────────────────────────────────────────────────
 
 export function updateEstado(id: string, estado: EstadoLocal) {
   const list = loadReservas();
@@ -262,7 +362,6 @@ export function getDashboardStats(fecha: string): StatsLocal {
 
   const activas = all.filter((r) => r.estado !== "cancelada" && r.estado !== "no-show");
   const sentadas = all.filter((r) => r.estado === "sentada" || r.estado === "walkin");
-
   const mesasOc = new Set<string>();
   sentadas.forEach((r) => r.mesaIds.forEach((id) => mesasOc.add(id)));
 
@@ -274,7 +373,7 @@ export function getDashboardStats(fecha: string): StatsLocal {
   return {
     reservasHoy: activas.length,
     paxHoy: activas.reduce((s, r) => s + r.personas, 0),
-    walkInsHoy: all.filter((r) => r.estado === "walkin").length,
+    walkInsHoy: all.filter((r) => r.type === "walk_in").length,
     sentadasHoy: sentadas.length,
     noShowsHoy: all.filter((r) => r.estado === "no-show").length,
     canceladasHoy: all.filter((r) => r.estado === "cancelada").length,
