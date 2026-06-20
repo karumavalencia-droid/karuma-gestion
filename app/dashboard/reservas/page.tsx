@@ -73,6 +73,13 @@ export default function GestionReservasPage() {
     const sb = getSupabaseClient();
     if (!sb) return;
     await sb.from("reservas").update({ estado }).eq("id", id);
+    if (estado === "NoShow") {
+      const { data: r } = await sb.from("reservas").select("cliente_id").eq("id", id).single();
+      if (r?.cliente_id) {
+        const { data: cli } = await sb.from("clientes_reservas").select("no_shows").eq("id", r.cliente_id).single();
+        if (cli) await sb.from("clientes_reservas").update({ no_shows: cli.no_shows + 1 }).eq("id", r.cliente_id);
+      }
+    }
     cargar();
   }
 
