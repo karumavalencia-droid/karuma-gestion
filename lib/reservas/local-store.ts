@@ -3,9 +3,12 @@
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
-export const TABLES_KEY   = "karuma_tables_v2"; // bumped to force reseed (T19→2p, T20→4p, T28)
+export const TABLES_KEY   = "karuma_tables_v2";
 export const HORARIO_KEY  = "karuma_horario_v1";
+export const ESPERA_KEY   = "karuma_espera_v1";
 export const MAX_DIAS     = 7;
+
+export type CanalLocal = "google" | "instagram" | "telefono" | "web" | "presencial" | "otro";
 
 // 0=domingo, 1=lunes … 6=sábado
 export interface HorarioConfig {
@@ -53,9 +56,22 @@ export interface ReservaLocal {
   notas: string;
   estado: EstadoLocal;
   creadoEn: string;
-  origen?: "online" | "telefono" | "walkin" | "manual"; // source
-  seatedAt?: string;     // ISO when seated
-  finishedAt?: string;   // ISO when finished
+  origen?: "online" | "telefono" | "walkin" | "manual";
+  canal?: CanalLocal;    // captación: google, instagram, etc.
+  seatedAt?: string;
+  finishedAt?: string;
+}
+
+export interface EsperaLocal {
+  id: string;
+  fecha: string;
+  nombre: string;
+  telefono: string;
+  personas: number;
+  notas: string;
+  creadoEn: string;
+  servicio: ServicioLocal;
+  estado: "esperando" | "sentado" | "cancelado";
 }
 
 export interface MesaConEstado extends MesaLocal {
@@ -138,6 +154,37 @@ export function loadClientes(): ClienteLocal[] {
   return read<ClienteLocal[]>(CLIENTES_KEY, []);
 }
 export function saveClientes(data: ClienteLocal[]) { write(CLIENTES_KEY, data); }
+
+export function loadEspera(): EsperaLocal[] {
+  return read<EsperaLocal[]>(ESPERA_KEY, []);
+}
+export function saveEspera(data: EsperaLocal[]) { write(ESPERA_KEY, data); }
+
+export function addEspera(
+  fecha: string, servicio: ServicioLocal,
+  nombre: string, telefono: string, personas: number, notas: string,
+): EsperaLocal {
+  const entry: EsperaLocal = {
+    id: crypto.randomUUID(), fecha, servicio, nombre, telefono,
+    personas, notas, creadoEn: new Date().toISOString(), estado: "esperando",
+  };
+  const list = loadEspera();
+  list.push(entry);
+  saveEspera(list);
+  return entry;
+}
+
+export function updateEspera(id: string, estado: EsperaLocal["estado"]) {
+  const list = loadEspera();
+  const idx = list.findIndex((e) => e.id === id);
+  if (idx >= 0) { list[idx] = { ...list[idx], estado }; saveEspera(list); }
+}
+
+export function getVisitasCliente(telefono: string): number {
+  if (!telefono.trim()) return 0;
+  const c = loadClientes().find((c) => c.telefono === telefono.trim());
+  return c?.visitas ?? 0;
+}
 
 // ─── Mesa status computation ──────────────────────────────────────────────────
 
@@ -241,7 +288,8 @@ export interface CreateReservaInput {
   fecha: string; hora: string; servicio: ServicioLocal;
   personas: number; nombre: string; telefono: string;
   notas: string; origen: "manual" | "walkin";
-  forceMesaIds?: string[];  // bypass auto-assign
+  canal?: CanalLocal;
+  forceMesaIds?: string[];
 }
 
 export function createReserva(
@@ -274,6 +322,7 @@ export function createReserva(
     notas: input.notas.trim(),
     estado: isWalkIn ? "walkin" : "confirmada",
     creadoEn: now,
+    canal: input.canal,
     seatedAt: isWalkIn ? now : undefined,
   };
 
