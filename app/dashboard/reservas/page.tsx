@@ -3,14 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import {
-  fetchReservasSb,
-  fetchStatsSb,
-  accionReservaSb,
-  mapEstadoLocalToSb,
-} from "@/lib/reservas/sb-store";
-import {
+  loadReservas,
+  getDashboardStats,
+  createReserva,
+  updateEstado,
+  liberarMesa,
+  sentarReserva,
+  cambiarMesas,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
@@ -18,8 +18,8 @@ import {
   type EstadoLocal,
   type ServicioLocal,
   type MesaLocal,
+  type StatsLocal,
 } from "@/lib/reservas/local-store";
-import type { StatsLocal } from "@/lib/reservas/local-store";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ function MesaPicker({ mesas, selected, onToggle }: {
         return (
           <button key={m.id} onClick={() => onToggle(m.id)}
             className={`rounded-lg border-2 py-1.5 text-center transition-colors ${
-              sel ? "border-karuma-500 bg-karuma-900/50 text-karuma-300 font-bold"
+              sel ? "border-karuma-600 bg-karuma-50 text-karuma-700 font-bold"
                   : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-400"
             }`}>
             <p className="text-xs font-bold">T{m.numero}</p>
@@ -159,28 +159,14 @@ export default function ReservasPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  // ── Load from Supabase ────────────────────────────────────────────────────
-  const reload = useCallback(async () => {
-    const [r, s] = await Promise.all([
-      fetchReservasSb(fecha),
-      fetchStatsSb(fecha),
-    ]);
-    setReservas(r);
-    setStats(s);
+  // ── Load from localStorage ────────────────────────────────────────────────
+  const reload = useCallback(() => {
+    setReservas(loadReservas().filter((r) => r.fecha === fecha));
+    setStats(getDashboardStats(fecha));
     setLoaded(true);
   }, [fecha]);
 
-  useEffect(() => { void reload(); }, [reload]);
-
-  // ── Realtime subscription ─────────────────────────────────────────────────
-  useEffect(() => {
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    const ch = sb.channel("reservas_admin")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => { void reload(); })
-      .subscribe();
-    return () => { void ch.unsubscribe(); };
-  }, [reload]);
+  useEffect(() => { reload(); }, [reload]);
 
   const filtradas = reservas.filter((r) => {
     if (servicio && r.servicio !== servicio) return false;
@@ -193,16 +179,16 @@ export default function ReservasPage() {
   }).sort((a, b) => a.hora.localeCompare(b.hora));
 
   // ── Status actions ────────────────────────────────────────────────────────
-  async function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
-    await accionReservaSb("estado", r.id, { estado: mapEstadoLocalToSb(estado) });
+  function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
+    updateEstado(r.id, estado);
     setCancelId(null);
-    void reload();
+    reload();
     showToast("Estado actualizado");
   }
 
-  async function handleLiberar(r: ReservaLocal) {
-    await accionReservaSb("liberar", r.id);
-    void reload();
+  function handleLiberar(r: ReservaLocal) {
+    liberarMesa(r.id);
+    reload();
     showToast("Mesa liberada");
   }
 
@@ -210,65 +196,41 @@ export default function ReservasPage() {
   function openSeat(r: ReservaLocal) {
     setSeatR(r); setSeatIds(r.mesaIds.length ? r.mesaIds : []); setSeatErr("");
   }
-  async function submitSeat() {
+  function submitSeat() {
     if (!seatR) return;
-    if (seatIds.length && JSON.stringify(seatIds) !== JSON.stringify(seatR.mesaIds)) {
-      await accionReservaSb("cambiar-mesa", seatR.id, {
-        mesaIds: seatIds.map((id) => parseInt(id.replace("T", ""), 10)),
-      });
-    }
-    const res = await accionReservaSb("seat", seatR.id);
-    if (!res.ok) { setSeatErr(res.error ?? "Error"); return; }
-    setSeatR(null); void reload(); showToast("Cliente sentado");
+    const res = sentarReserva(seatR.id, seatIds.length ? seatIds : undefined);
+    if (!res.ok) { setSeatErr(res.error); return; }
+    setSeatR(null); reload(); showToast("Cliente sentado");
   }
 
   // ── Cambiar mesa ───────────────────────────────────────────────────────────
   function openChange(r: ReservaLocal) {
     setChangeR(r); setChangeIds(r.mesaIds); setChangeErr("");
   }
-  async function submitChange() {
+  function submitChange() {
     if (!changeR) return;
     if (!changeIds.length) { setChangeErr("Selecciona al menos una mesa."); return; }
-    const res = await accionReservaSb("cambiar-mesa", changeR.id, {
-      mesaIds: changeIds.map((id) => parseInt(id.replace("T", ""), 10)),
-    });
-    if (!res.ok) { setChangeErr(res.error ?? "Error"); return; }
-    setChangeR(null); void reload(); showToast("Mesa actualizada");
+    const res = cambiarMesas(changeR.id, changeIds);
+    if (!res.ok) { setChangeErr(res.error); return; }
+    setChangeR(null); reload(); showToast("Mesa actualizada");
   }
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────
-  async function submitNueva() {
+  function submitNueva() {
     setNError("");
-    if (!nTelefono.trim()) { setNError("El teléfono es obligatorio."); return; }
     if (!nFecha || !nHora)  { setNError("Fecha y hora son obligatorias."); return; }
     if (nPersonas < 1)      { setNError("Indica el número de personas."); return; }
     setNLoading(true);
-    try {
-      const res = await fetch("/api/reservas/crear", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: nNombre || "Sin nombre",
-          telefono: nTelefono,
-          personas: nPersonas,
-          fecha: nFecha,
-          hora: nHora,
-          servicio: nServicio,
-          notas: nNotas,
-          origen: "manual",
-          forceMesaIds: nMesaIds.length
-            ? nMesaIds.map((id) => parseInt(id.replace("T", ""), 10))
-            : undefined,
-        }),
-      });
-      const json = await res.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
-      if (!res.ok || !json.ok) { setNError(json.error ?? "Error al crear reserva"); return; }
-      const assignedMesas = (json.mesaIds ?? []).map((n: number) => `T${n}`);
-      setNExito({ mesaIds: assignedMesas, nombre: nNombre || "Sin nombre", fecha: nFecha, hora: nHora, personas: nPersonas });
-      void reload();
-    } finally {
-      setNLoading(false);
-    }
+    const res = createReserva({
+      fecha: nFecha, hora: nHora, servicio: nServicio, personas: nPersonas,
+      nombre: nNombre || "Sin nombre", telefono: nTelefono,
+      notas: nNotas, origen: "manual",
+      forceMesaIds: nMesaIds.length ? nMesaIds : undefined,
+    });
+    setNLoading(false);
+    if (!res.ok) { setNError(res.error); return; }
+    setNExito({ mesaIds: res.reserva.mesaIds, nombre: res.reserva.nombre, fecha: nFecha, hora: nHora, personas: nPersonas });
+    reload();
   }
   function cerrarNueva() {
     setShowNueva(false); setNError(""); setNExito(null);
@@ -277,36 +239,21 @@ export default function ReservasPage() {
   }
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
-  async function submitWI() {
+  function submitWI() {
     setWError("");
     if (wPersonas < 1) { setWError("Indica el número de personas."); return; }
     setWLoading(true);
-    try {
-      const res = await fetch("/api/reservas/crear", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: wNombre || "Walk-In",
-          telefono: wTelefono || undefined,
-          personas: wPersonas,
-          fecha: hoy(),
-          hora: new Date().toTimeString().slice(0, 5),
-          servicio: autoServicio(),
-          notas: wNotas,
-          origen: "walkin",
-          forceMesaIds: wMesaIds.length
-            ? wMesaIds.map((id) => parseInt(id.replace("T", ""), 10))
-            : undefined,
-        }),
-      });
-      const json = await res.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
-      if (!res.ok || !json.ok) { setWError(json.error ?? "Error al registrar walk-in"); return; }
-      const assignedMesas = (json.mesaIds ?? []).map((n: number) => `T${n}`);
-      setWExito({ mesaIds: assignedMesas, personas: wPersonas });
-      void reload();
-    } finally {
-      setWLoading(false);
-    }
+    const res = createReserva({
+      fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+      servicio: autoServicio(), personas: wPersonas,
+      nombre: wNombre || "Walk-In", telefono: wTelefono,
+      notas: wNotas, origen: "walkin",
+      forceMesaIds: wMesaIds.length ? wMesaIds : undefined,
+    });
+    setWLoading(false);
+    if (!res.ok) { setWError(res.error); return; }
+    setWExito({ mesaIds: res.reserva.mesaIds, personas: wPersonas });
+    reload();
   }
   function cerrarWI() {
     setShowWI(false); setWError(""); setWExito(null);
@@ -368,7 +315,7 @@ export default function ReservasPage() {
             <input placeholder="Buscar…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
               className="w-24 bg-transparent text-sm text-gray-900 focus:outline-none" />
           </div>
-          <button onClick={() => void reload()} className="rounded-lg border border-gray-300 bg-white p-2 text-gray-400 hover:bg-gray-50">
+          <button onClick={() => reload()} className="rounded-lg border border-gray-300 bg-white p-2 text-gray-400 hover:bg-gray-50">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -402,7 +349,7 @@ export default function ReservasPage() {
           <p className="py-12 text-center text-gray-500">Cargando…</p>
         ) : filtradas.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-gray-500">No hay reservas.</p>
+            <p className="text-gray-500">Todavía no hay reservas para este día.</p>
             <button onClick={() => setShowNueva(true)}
               className="mt-4 rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
               + Nueva Reserva
@@ -447,7 +394,7 @@ export default function ReservasPage() {
                     {isActive && (
                       <div className="flex flex-wrap gap-1.5">
                         {r.estado === "pendiente" && (
-                          <button onClick={() => void handleEstado(r, "confirmada")}
+                          <button onClick={() => handleEstado(r, "confirmada")}
                             className="rounded-lg bg-emerald-800 px-2.5 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-700">
                             Confirmar
                           </button>
@@ -459,7 +406,7 @@ export default function ReservasPage() {
                           </button>
                         )}
                         {(r.estado === "sentada" || r.estado === "walkin") && (
-                          <button onClick={() => void handleLiberar(r)}
+                          <button onClick={() => handleLiberar(r)}
                             className="rounded-lg bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-300">
                             Liberar
                           </button>
@@ -469,14 +416,14 @@ export default function ReservasPage() {
                           Mesa
                         </button>
                         {r.estado !== "no-show" && (
-                          <button onClick={() => void handleEstado(r, "no-show")}
+                          <button onClick={() => handleEstado(r, "no-show")}
                             className="rounded-lg bg-yellow-900 px-2.5 py-1 text-xs font-semibold text-yellow-300 hover:bg-yellow-800">
                             No Show
                           </button>
                         )}
                         {cancelId === r.id ? (
                           <>
-                            <button onClick={() => void handleEstado(r, "cancelada")}
+                            <button onClick={() => handleEstado(r, "cancelada")}
                               className="rounded-lg bg-red-700 px-2.5 py-1 text-xs font-bold text-white">¿Seguro?</button>
                             <button onClick={() => setCancelId(null)}
                               className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-600">No</button>
@@ -508,11 +455,11 @@ export default function ReservasPage() {
       <Modal open={showNueva} title="Nueva Reserva" onClose={cerrarNueva}>
         {nExito ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl bg-emerald-900/40 p-4">
-              <CheckCircle className="h-6 w-6 shrink-0 text-emerald-400" />
+            <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+              <CheckCircle className="h-6 w-6 shrink-0 text-emerald-600" />
               <div>
-                <p className="font-bold text-emerald-300">Reserva confirmada</p>
-                <p className="text-sm text-emerald-400">{mesaLabel(nExito.mesaIds)} asignada</p>
+                <p className="font-bold text-emerald-700">Reserva confirmada</p>
+                <p className="text-sm text-emerald-600">{mesaLabel(nExito.mesaIds)} asignada</p>
               </div>
             </div>
             <div className="rounded-xl bg-gray-50 p-4 text-sm space-y-1.5 border border-gray-200">
@@ -526,7 +473,7 @@ export default function ReservasPage() {
         ) : (
           <div className="space-y-4">
             {nError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-900/40 p-3 text-sm text-red-300">
+              <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-600">
                 <AlertCircle className="h-4 w-4 shrink-0" /> {nError}
               </div>
             )}
@@ -567,7 +514,7 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={nMesaIds}
                 onToggle={(id) => setNMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </Field>
-            <button onClick={() => void submitNueva()} disabled={nLoading}
+            <button onClick={() => submitNueva()} disabled={nLoading}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700 disabled:opacity-60">
               {nLoading ? "Guardando…" : "Confirmar reserva"}
             </button>
@@ -579,11 +526,11 @@ export default function ReservasPage() {
       <Modal open={showWI} title="Walk-In" onClose={cerrarWI}>
         {wExito ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl bg-pink-900/40 p-4">
+            <div className="flex items-center gap-3 rounded-xl bg-pink-50 border border-pink-200 p-4">
               <CheckCircle className="h-6 w-6 shrink-0 text-pink-400" />
               <div>
-                <p className="font-bold text-pink-300">Walk-In registrado</p>
-                <p className="text-sm text-pink-400">Mesa: {mesaLabel(wExito.mesaIds)}</p>
+                <p className="font-bold text-pink-700">Walk-In registrado</p>
+                <p className="text-sm text-pink-600">Mesa: {mesaLabel(wExito.mesaIds)}</p>
               </div>
             </div>
             <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-center">
@@ -595,17 +542,17 @@ export default function ReservasPage() {
         ) : (
           <div className="space-y-4">
             {wError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-900/40 p-3 text-sm text-red-300">
+              <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-600">
                 <AlertCircle className="h-4 w-4 shrink-0" /> {wError}
               </div>
             )}
             <Field label="Personas" required>
               <div className="flex items-center gap-3">
                 <button onClick={() => setWPersonas(Math.max(1, wPersonas - 1))}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-700 text-xl font-bold hover:bg-gray-600">−</button>
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl text-gray-700 font-bold hover:bg-gray-600">−</button>
                 <span className="flex-1 text-center text-4xl font-black">{wPersonas}</span>
                 <button onClick={() => setWPersonas(Math.min(20, wPersonas + 1))}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-700 text-xl font-bold hover:bg-gray-600">+</button>
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl text-gray-700 font-bold hover:bg-gray-600">+</button>
               </div>
             </Field>
             <Field label="Nombre (opcional)">
@@ -621,7 +568,7 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={wMesaIds}
                 onToggle={(id) => setWMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </Field>
-            <button onClick={() => void submitWI()} disabled={wLoading}
+            <button onClick={() => submitWI()} disabled={wLoading}
               className="w-full rounded-xl bg-pink-700 py-3.5 text-base font-black text-white hover:bg-pink-600 disabled:opacity-60">
               {wLoading ? "Registrando…" : "Asignar mesa ahora"}
             </button>
@@ -640,7 +587,7 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={seatIds}
                 onToggle={(id) => setSeatIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
-            <button onClick={() => void submitSeat()}
+            <button onClick={() => submitSeat()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               {seatIds.length ? `Sentar en ${seatIds.join(", ")}` : "Sentar (auto)"}
             </button>
@@ -659,7 +606,7 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={changeIds}
                 onToggle={(id) => setChangeIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
-            <button onClick={() => void submitChange()}
+            <button onClick={() => submitChange()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               Guardar cambio
             </button>

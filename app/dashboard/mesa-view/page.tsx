@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { fetchMesasConEstadoSb, accionReservaSb } from "@/lib/reservas/sb-store";
 import {
+  getMesasConEstado,
+  createWalkInForMesa,
+  sentarReserva,
+  liberarMesa,
   type MesaConEstado,
   type MesaLocal,
   type ReservaLocal,
@@ -97,27 +99,16 @@ export default function MesaViewPage() {
   const [seatMesaIds, setSeatMesaIds] = useState<string[]>([]);
   const [seatError, setSeatError] = useState("");
 
-  // ── Load from Supabase ────────────────────────────────────────────────────
-  const reload = useCallback(async () => {
-    const result = await fetchMesasConEstadoSb(fecha, servicio);
-    setMesas(result);
+  // ── Load from localStorage ────────────────────────────────────────────────
+  const reload = useCallback(() => {
+    setMesas(getMesasConEstado(fecha, servicio));
   }, [fecha, servicio]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => { reload(); }, [reload]);
 
-  // ── Realtime subscription ─────────────────────────────────────────────────
+  // Auto-refresh every 60s
   useEffect(() => {
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    const ch = sb.channel("mesa_view_admin")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => { void reload(); })
-      .subscribe();
-    return () => { void ch.unsubscribe(); };
-  }, [reload]);
-
-  // Live duration counter
-  useEffect(() => {
-    const id = setInterval(() => { setTick((t) => t + 1); void reload(); }, 60_000);
+    const id = setInterval(() => { setTick((t) => t + 1); reload(); }, 60_000);
     return () => clearInterval(id);
   }, [reload]);
 
@@ -138,29 +129,13 @@ export default function MesaViewPage() {
     setWiNotas(""); setWiError(""); setWiOk(null);
   }
 
-  async function submitWalkIn() {
+  function submitWalkIn() {
     if (!wiMesa) return;
     setWiError("");
-    const mesaNumero = parseInt(wiMesa.id.replace("T", ""), 10);
-    const res = await fetch("/api/reservas/crear", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nombre: wiNombre || "Walk-In",
-        telefono: wiTelefono || undefined,
-        personas: wiPersonas,
-        fecha: hoy(),
-        hora: new Date().toTimeString().slice(0, 5),
-        servicio,
-        notas: wiNotas,
-        origen: "walkin",
-        forceMesaIds: [mesaNumero],
-      }),
-    });
-    const json = await res.json() as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) { setWiError(json.error ?? "Error al registrar walk-in"); return; }
+    const res = createWalkInForMesa(wiMesa.id, wiPersonas, wiNombre, wiTelefono, wiNotas);
+    if (!res.ok) { setWiError(res.error); return; }
     setWiOk({ mesaId: wiMesa.id, personas: wiPersonas, seatedAt: new Date().toISOString() });
-    void reload();
+    reload();
     showToast(`${wiMesa.id} — Walk-In registrado`);
   }
 
@@ -169,10 +144,10 @@ export default function MesaViewPage() {
     setWiNombre(""); setWiTelefono(""); setWiNotas(""); setWiPersonas(2);
   }
 
-  async function handleLiberar(reservaId: string) {
-    await accionReservaSb("liberar", reservaId);
+  function handleLiberar(reservaId: string) {
+    liberarMesa(reservaId);
     setSel(null);
-    void reload();
+    reload();
     showToast("Mesa liberada");
   }
 
@@ -182,18 +157,13 @@ export default function MesaViewPage() {
     setSeatError("");
   }
 
-  async function submitSeat() {
+  function submitSeat() {
     if (!seatReserva) return;
     setSeatError("");
-    if (seatMesaIds.length && JSON.stringify(seatMesaIds) !== JSON.stringify(seatReserva.mesaIds)) {
-      await accionReservaSb("cambiar-mesa", seatReserva.id, {
-        mesaIds: seatMesaIds.map((id) => parseInt(id.replace("T", ""), 10)),
-      });
-    }
-    const res = await accionReservaSb("seat", seatReserva.id);
-    if (!res.ok) { setSeatError(res.error ?? "Error"); return; }
+    const res = sentarReserva(seatReserva.id, seatMesaIds.length ? seatMesaIds : undefined);
+    if (!res.ok) { setSeatError(res.error); return; }
     setSeatReserva(null); setSel(null);
-    void reload();
+    reload();
     showToast("Mesa ocupada");
   }
 
@@ -339,7 +309,7 @@ export default function MesaViewPage() {
                     <div className="flex justify-between"><span className="text-gray-500">Notas</span><span className="text-right max-w-[60%] text-gray-700">{sel.reserva.notas}</span></div>
                   )}
                 </div>
-                <button onClick={() => void handleLiberar(sel.reserva!.id)}
+                <button onClick={() => handleLiberar(sel.reserva!.id)}
                   className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
                   ✓ Liberar mesa
                 </button>
@@ -410,7 +380,7 @@ export default function MesaViewPage() {
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
                 <textarea className={inp} rows={2} value={wiNotas} onChange={(e) => setWiNotas(e.target.value)} />
               </div>
-              <button onClick={() => void submitWalkIn()}
+              <button onClick={() => submitWalkIn()}
                 className="w-full rounded-xl bg-red-600 py-3.5 text-base font-black text-white hover:bg-red-500">
                 Ocupar T{wiMesa.numero} ahora
               </button>
@@ -440,7 +410,7 @@ export default function MesaViewPage() {
                 <p className="mt-1.5 text-xs text-gray-400">Sin selección = asignación automática</p>
               )}
             </div>
-            <button onClick={() => void submitSeat()}
+            <button onClick={() => submitSeat()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               {seatMesaIds.length ? `Sentar en ${seatMesaIds.join(", ")}` : "Sentar (auto-asignar mesa)"}
             </button>
