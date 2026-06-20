@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     clienteId = clienteExistente.id;
     await supabase
       .from("clientes_reservas")
-      .update({ nombre, visitas: clienteExistente.visitas + 1 })
+      .update({ nombre, visitas: clienteExistente.visitas + 1, ultima_visita: fecha })
       .eq("id", clienteId);
   } else {
     const { data: nuevoCliente, error } = await supabase
