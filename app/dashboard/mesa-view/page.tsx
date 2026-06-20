@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import type { EstadoReserva } from "@/lib/reservas/types";
 import {
   loadMesas,
   getMesasConEstado,
@@ -16,6 +18,18 @@ import {
   type ReservaLocal,
   type ServicioLocal,
 } from "@/lib/reservas/local-store";
+
+function mapEstadoSb(e: EstadoReserva): ReservaLocal["estado"] {
+  switch (e) {
+    case "Confirmada": return "confirmada";
+    case "Sentado":    return "sentada";
+    case "Finalizada": return "finished";
+    case "Cancelada":  return "cancelada";
+    case "NoShow":     return "no-show";
+    case "WalkIn":     return "walkin";
+    default:           return "confirmada";
+  }
+}
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -105,9 +119,42 @@ export default function MesaViewPage() {
   const [seatMesaIds, setSeatMesaIds] = useState<string[]>([]);
   const [seatError, setSeatError] = useState("");
 
-  // ── Load ─────────────────────────────────────────────────────────────────────
-  const reload = useCallback(() => {
-    setMesas(getMesasConEstado(fecha, servicio));
+  const sb = getSupabaseClient();
+
+  // ── Load: localStorage + Supabase ────────────────────────────────────────────
+  const reload = useCallback(async () => {
+    let sbExtra: ReservaLocal[] = [];
+    if (sb) {
+      const { data } = await sb
+        .from("reservas")
+        .select("*, clientes_reservas(nombre, telefono)")
+        .eq("fecha", fecha)
+        .eq("servicio", servicio);
+      if (data) {
+        const localIds = new Set(loadReservas().map((r) => r.id));
+        sbExtra = (data as Record<string, unknown>[])
+          .filter((r) => !localIds.has(r.id as string))
+          .map((r) => {
+            const cliente = (r.clientes_reservas ?? {}) as { nombre?: string; telefono?: string };
+            return {
+              id: r.id as string,
+              type: (r.origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
+              fecha: r.fecha as string,
+              hora: r.hora_inicio as string,
+              servicio: r.servicio as ServicioLocal,
+              personas: r.personas as number,
+              mesaIds: ((r.mesa_ids as number[]) ?? []).map((n: number) => `T${n}`),
+              nombre: cliente.nombre ?? "Sin nombre",
+              telefono: cliente.telefono ?? "",
+              notas: (r.notas as string) ?? "",
+              estado: mapEstadoSb(r.estado as EstadoReserva),
+              creadoEn: (r.created_at as string) ?? new Date().toISOString(),
+            } satisfies ReservaLocal;
+          });
+      }
+    }
+    setMesas(getMesasConEstado(fecha, servicio, sbExtra));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha, servicio]);
 
   useEffect(() => { reload(); }, [reload]);
