@@ -32,7 +32,7 @@ function mapSbRow(r: SbRow): ReservaLocal {
     id: r.id as string,
     type: origen === "walkin" ? "walk_in" : "reservation",
     fecha: r.fecha as string,
-    hora: r.hora_inicio as string,
+    hora: (r.hora_inicio as string).slice(0, 5), // "20:15:00" → "20:15"
     servicio: r.servicio as ServicioLocal,
     personas: r.personas as number,
     mesaIds: ((r.mesa_ids as number[]) ?? []).map((n) => `T${n}`),
@@ -62,13 +62,24 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
 
       if (data && data.length > 0) {
         const local = loadReservas();
-        const localIds = new Set(local.map((r) => r.id));
-        const newEntries = (data as SbRow[])
-          .filter((r) => !localIds.has(r.id as string))
-          .map(mapSbRow);
-
-        if (newEntries.length > 0) {
-          saveReservas([...local, ...newEntries]);
+        // Build map of online-sourced entries by id for fast lookup
+        const localMap = new Map(local.map((r) => [r.id, r]));
+        let changed = false;
+        for (const row of data as SbRow[]) {
+          const mapped = mapSbRow(row);
+          const existing = localMap.get(mapped.id);
+          if (!existing) {
+            // New entry from Supabase
+            localMap.set(mapped.id, mapped);
+            changed = true;
+          } else if (existing.origen === "online" && existing.estado !== mapped.estado) {
+            // Update estado for online entries if changed in Supabase
+            localMap.set(mapped.id, { ...existing, estado: mapped.estado });
+            changed = true;
+          }
+        }
+        if (changed) {
+          saveReservas([...localMap.values()]);
         }
       }
     } catch {
