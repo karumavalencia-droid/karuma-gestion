@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Reserva, EstadoReserva } from "@/lib/reservas/types";
-import { MessageCircle, Plus, Search } from "lucide-react";
+import { MessageCircle, Plus, Search, CalendarPlus } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 
 const ESTADO_COLORES: Record<EstadoReserva, string> = {
@@ -15,17 +15,36 @@ const ESTADO_COLORES: Record<EstadoReserva, string> = {
   WalkIn: "bg-pink-900/40 text-pink-300",
 };
 
+type SlotItem = { hora: string; disponible: boolean };
+
 export default function GestionReservasPage() {
   const [reservas, setReservas] = useState<(Reserva & { cliente_nombre?: string; cliente_telefono?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
   const [servicio, setServicio] = useState<"" | "comida" | "cena">("");
   const [busqueda, setBusqueda] = useState("");
+
+  // Walk-in modal
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [wiNombre, setWiNombre] = useState("");
   const [wiTelefono, setWiTelefono] = useState("");
   const [wiPersonas, setWiPersonas] = useState(2);
   const [wiNotas, setWiNotas] = useState("");
+
+  // Manual reservation modal
+  const [showManual, setShowManual] = useState(false);
+  const [mFecha, setMFecha] = useState(new Date().toISOString().split("T")[0]);
+  const [mServicio, setMServicio] = useState<"comida" | "cena">("cena");
+  const [mPersonas, setMPersonas] = useState(2);
+  const [mNombre, setMNombre] = useState("");
+  const [mTelefono, setMTelefono] = useState("");
+  const [mNotas, setMNotas] = useState("");
+  const [mHora, setMHora] = useState("");
+  const [mSlots, setMSlots] = useState<SlotItem[]>([]);
+  const [mLoadingSlots, setMLoadingSlots] = useState(false);
+  const [mEnviando, setMEnviando] = useState(false);
+  const [mError, setMError] = useState("");
+  const [mMesaAsignada, setMMesaAsignada] = useState<number[]>([]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -85,6 +104,73 @@ export default function GestionReservasPage() {
     cargar();
   }
 
+  async function cargarSlotsManual() {
+    if (!mFecha || !mServicio || !mPersonas) return;
+    setMLoadingSlots(true);
+    setMSlots([]);
+    setMHora("");
+    try {
+      const res = await fetch(`/api/reservas/disponibilidad?fecha=${mFecha}&servicio=${mServicio}&personas=${mPersonas}`);
+      const data = await res.json();
+      setMSlots(data.slots ?? []);
+    } catch {
+      setMSlots([]);
+    } finally {
+      setMLoadingSlots(false);
+    }
+  }
+
+  async function crearManual() {
+    if (!mNombre.trim() || !mTelefono.trim() || !mHora) {
+      setMError("Completa todos los campos obligatorios");
+      return;
+    }
+    setMEnviando(true);
+    setMError("");
+    try {
+      const res = await fetch("/api/reservas/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: mNombre,
+          telefono: mTelefono,
+          personas: mPersonas,
+          fecha: mFecha,
+          hora: mHora,
+          servicio: mServicio,
+          notas: mNotas,
+          origen: "manual",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error");
+      setMMesaAsignada(data.mesaIds ?? []);
+      // Show assigned table briefly, then close
+      setTimeout(() => {
+        setShowManual(false);
+        resetManual();
+        cargar();
+      }, 2000);
+    } catch (e: unknown) {
+      setMError(e instanceof Error ? e.message : "Error al crear reserva");
+    } finally {
+      setMEnviando(false);
+    }
+  }
+
+  function resetManual() {
+    setMFecha(new Date().toISOString().split("T")[0]);
+    setMServicio("cena");
+    setMPersonas(2);
+    setMNombre("");
+    setMTelefono("");
+    setMNotas("");
+    setMHora("");
+    setMSlots([]);
+    setMError("");
+    setMMesaAsignada([]);
+  }
+
   const filtradas = reservas.filter((r) => {
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
@@ -100,12 +186,20 @@ export default function GestionReservasPage() {
         <ReservasNav />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold">Gestión de Reservas</h1>
-          <button
-            onClick={() => setShowWalkIn(true)}
-            className="flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" /> Walk-In
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowManual(true); setMMesaAsignada([]); }}
+              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700"
+            >
+              <CalendarPlus className="h-4 w-4" /> Nueva Reserva
+            </button>
+            <button
+              onClick={() => setShowWalkIn(true)}
+              className="flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" /> Walk-In
+            </button>
+          </div>
         </div>
 
         {/* Filtros */}
@@ -282,6 +376,149 @@ export default function GestionReservasPage() {
                 Registrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nueva Reserva Manual */}
+      {showManual && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-5 text-lg font-bold">Nueva Reserva Manual</h2>
+
+            {mMesaAsignada.length > 0 ? (
+              <div className="rounded-xl bg-emerald-900/40 p-4 text-center">
+                <p className="text-emerald-300 text-sm font-semibold">✓ Reserva creada</p>
+                <p className="mt-1 text-emerald-400 text-sm">Mesa asignada: {mMesaAsignada.join(", ")}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Fecha + Servicio + Personas */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">Fecha *</label>
+                    <input
+                      type="date"
+                      value={mFecha}
+                      onChange={(e) => { setMFecha(e.target.value); setMSlots([]); setMHora(""); }}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">Servicio *</label>
+                    <select
+                      value={mServicio}
+                      onChange={(e) => { setMServicio(e.target.value as "comida" | "cena"); setMSlots([]); setMHora(""); }}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+                    >
+                      <option value="comida">Comida</option>
+                      <option value="cena">Cena</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Personas *</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => { setMPersonas(n); setMSlots([]); setMHora(""); }}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium ${mPersonas === n ? "bg-karuma-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cargar horarios */}
+                <button
+                  onClick={cargarSlotsManual}
+                  disabled={mLoadingSlots}
+                  className="w-full rounded-lg border border-gray-700 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {mLoadingSlots ? "Cargando horarios…" : "Ver horarios disponibles"}
+                </button>
+
+                {/* Slots */}
+                {mSlots.length > 0 && (
+                  <div>
+                    <label className="mb-2 block text-xs text-gray-400">Hora *</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {mSlots.map((s) => (
+                        <button
+                          key={s.hora}
+                          onClick={() => s.disponible && setMHora(s.hora)}
+                          disabled={!s.disponible}
+                          className={`rounded-lg py-2 text-sm font-medium ${
+                            mHora === s.hora
+                              ? "bg-karuma-600 text-white"
+                              : s.disponible
+                                ? "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                                : "bg-gray-800 text-gray-600 line-through cursor-not-allowed"
+                          }`}
+                        >
+                          {s.hora}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Datos cliente */}
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Nombre *</label>
+                  <input
+                    type="text"
+                    placeholder="Nombre del cliente"
+                    value={mNombre}
+                    onChange={(e) => setMNombre(e.target.value)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Teléfono *</label>
+                  <input
+                    type="tel"
+                    placeholder="+34 600 000 000"
+                    value={mTelefono}
+                    onChange={(e) => setMTelefono(e.target.value)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Notas (opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Alergias, celebración…"
+                    value={mNotas}
+                    onChange={(e) => setMNotas(e.target.value)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {mError && (
+                  <p className="rounded-lg bg-red-900/40 px-3 py-2 text-sm text-red-300">{mError}</p>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => { setShowManual(false); resetManual(); }}
+                    className="flex-1 rounded-lg border border-gray-700 py-2.5 text-sm text-gray-400"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={crearManual}
+                    disabled={!mNombre.trim() || !mTelefono.trim() || !mHora || mEnviando}
+                    className="flex-1 rounded-lg bg-karuma-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {mEnviando ? "Creando…" : "Crear Reserva"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
