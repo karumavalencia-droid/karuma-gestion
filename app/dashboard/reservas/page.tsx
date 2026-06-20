@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw } from "lucide-react";
+import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Wifi } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import type { EstadoReserva } from "@/lib/reservas/types";
 import {
   loadReservas,
   loadMesas,
@@ -21,6 +23,34 @@ import {
 } from "@/lib/reservas/local-store";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
+
+// Reserva con fuente marcada para diferenciar acciones
+type ReservaConFuente = ReservaLocal & { _sbId?: string };
+
+// Mapea estado de Supabase → EstadoLocal
+function mapEstadoSb(e: EstadoReserva): EstadoLocal {
+  switch (e) {
+    case "Confirmada": return "confirmada";
+    case "Sentado":    return "sentada";
+    case "Finalizada": return "finished";
+    case "Cancelada":  return "cancelada";
+    case "NoShow":     return "no-show";
+    case "WalkIn":     return "walkin";
+    default:           return "confirmada";
+  }
+}
+function mapEstadoToSb(e: EstadoLocal): EstadoReserva {
+  switch (e) {
+    case "confirmada": return "Confirmada";
+    case "pendiente":  return "Confirmada";
+    case "sentada":    return "Sentado";
+    case "finished":   return "Finalizada";
+    case "cancelada":  return "Cancelada";
+    case "no-show":    return "NoShow";
+    case "walkin":     return "WalkIn";
+    default:           return "Confirmada";
+  }
+}
 
 const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: string }> = {
   pendiente:  { bg: "bg-yellow-900/40",  text: "text-yellow-300",  label: "Pendiente"  },
@@ -104,9 +134,10 @@ function MesaPicker({ mesas, selected, onToggle }: {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReservasPage() {
-  const [reservas, setReservas] = useState<ReservaLocal[]>([]);
+  const [reservas, setReservas] = useState<ReservaConFuente[]>([]);
   const [mesas, setMesas] = useState<MesaLocal[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const sb = getSupabaseClient();
 
   // Filters
   const [fecha, setFecha] = useState(hoy);
@@ -155,11 +186,47 @@ export default function ReservasPage() {
   const [changeIds, setChangeIds] = useState<string[]>([]);
   const [changeErr, setChangeErr] = useState("");
 
-  // ── Load ───────────────────────────────────────────────────────────────────
-  const reload = useCallback(() => {
-    setReservas(loadReservas());
+  // ── Load: fusiona localStorage + Supabase ─────────────────────────────────
+  const reload = useCallback(async () => {
+    const locales: ReservaConFuente[] = loadReservas();
     setMesas(loadMesas());
+
+    // Fetch reservas online de Supabase
+    let sbReservas: ReservaConFuente[] = [];
+    if (sb) {
+      const { data } = await sb
+        .from("reservas")
+        .select("*, clientes_reservas(nombre, telefono)")
+        .order("hora_inicio");
+      if (data) {
+        const localIds = new Set(locales.map((r) => r.id));
+        sbReservas = (data as Record<string, unknown>[])
+          .filter((r) => !localIds.has(r.id as string)) // no duplicar
+          .map((r) => {
+            const cliente = (r.clientes_reservas ?? {}) as { nombre?: string; telefono?: string };
+            const mesaIds = ((r.mesa_ids as number[]) ?? []).map((n: number) => `T${n}`);
+            return {
+              id: r.id as string,
+              _sbId: r.id as string,
+              type: (r.origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
+              fecha: r.fecha as string,
+              hora: r.hora_inicio as string,
+              servicio: r.servicio as ServicioLocal,
+              personas: r.personas as number,
+              mesaIds,
+              nombre: cliente.nombre ?? "Sin nombre",
+              telefono: cliente.telefono ?? "",
+              notas: (r.notas as string) ?? "",
+              estado: mapEstadoSb(r.estado as EstadoReserva),
+              creadoEn: (r.created_at as string) ?? new Date().toISOString(),
+            } satisfies ReservaConFuente;
+          });
+      }
+    }
+
+    setReservas([...locales, ...sbReservas]);
     setLoaded(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
@@ -179,29 +246,43 @@ export default function ReservasPage() {
     return true;
   }).sort((a, b) => a.hora.localeCompare(b.hora));
 
-  // ── Status actions ─────────────────────────────────────────────────────────
-  function handleEstado(id: string, estado: EstadoLocal) {
-    updateEstado(id, estado);
+  // ── Status actions (soporta local + Supabase) ─────────────────────────────
+  async function handleEstado(r: ReservaConFuente, estado: EstadoLocal) {
+    if (r._sbId && sb) {
+      await sb.from("reservas").update({ estado: mapEstadoToSb(estado) }).eq("id", r._sbId);
+    } else {
+      updateEstado(r.id, estado);
+    }
     setCancelId(null);
     reload();
     showToast("Estado actualizado");
   }
 
-  function handleLiberar(id: string) {
-    liberarMesa(id);
+  async function handleLiberar(r: ReservaConFuente) {
+    if (r._sbId && sb) {
+      await sb.from("reservas").update({ estado: "Finalizada" }).eq("id", r._sbId);
+    } else {
+      liberarMesa(r.id);
+    }
     reload();
     showToast("Mesa liberada");
   }
 
   // ── Sentar ─────────────────────────────────────────────────────────────────
-  function openSeat(r: ReservaLocal) {
+  function openSeat(r: ReservaConFuente) {
     setSeatR(r); setSeatIds(r.mesaIds.length ? r.mesaIds : []); setSeatErr("");
   }
-  function submitSeat() {
+  async function submitSeat() {
     if (!seatR) return;
-    const res = sentarReserva(seatR.id, seatIds.length ? seatIds : undefined);
-    if (!res.ok) { setSeatErr(res.error); return; }
-    setSeatR(null); reload(); showToast("Cliente sentado");
+    const r = seatR as ReservaConFuente;
+    if (r._sbId && sb) {
+      await sb.from("reservas").update({ estado: "Sentado" }).eq("id", r._sbId);
+      setSeatR(null); reload(); showToast("Cliente sentado");
+    } else {
+      const res = sentarReserva(r.id, seatIds.length ? seatIds : undefined);
+      if (!res.ok) { setSeatErr(res.error); return; }
+      setSeatR(null); reload(); showToast("Cliente sentado");
+    }
   }
 
   // ── Cambiar mesa ───────────────────────────────────────────────────────────
@@ -368,6 +449,11 @@ export default function ReservasPage() {
                         {r.type === "walk_in" && (
                           <span className="rounded-full bg-pink-900/30 px-2 py-0.5 text-[10px] font-bold text-pink-400">WALK-IN</span>
                         )}
+                        {r._sbId && (
+                          <span className="flex items-center gap-1 rounded-full bg-blue-900/40 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+                            <Wifi className="h-2.5 w-2.5" /> Online
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 font-semibold text-gray-200">{r.nombre}</p>
                       <p className="text-sm text-gray-400">
@@ -389,7 +475,7 @@ export default function ReservasPage() {
                       <div className="flex flex-wrap gap-1.5">
                         {/* Confirm */}
                         {r.estado === "pendiente" && (
-                          <button onClick={() => handleEstado(r.id, "confirmada")}
+                          <button onClick={() => handleEstado(r, "confirmada")}
                             className="rounded-lg bg-emerald-800 px-2.5 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-700">
                             Confirmar
                           </button>
@@ -403,19 +489,21 @@ export default function ReservasPage() {
                         )}
                         {/* Liberar */}
                         {(r.estado === "sentada" || r.estado === "walkin") && (
-                          <button onClick={() => handleLiberar(r.id)}
+                          <button onClick={() => handleLiberar(r)}
                             className="rounded-lg bg-gray-700 px-2.5 py-1 text-xs font-semibold text-gray-300 hover:bg-gray-600">
                             Liberar
                           </button>
                         )}
                         {/* Change mesa */}
-                        <button onClick={() => openChange(r)}
-                          className="rounded-lg bg-gray-800 px-2.5 py-1 text-xs text-gray-400 hover:bg-gray-700">
-                          Mesa
-                        </button>
+                        {!r._sbId && (
+                          <button onClick={() => openChange(r)}
+                            className="rounded-lg bg-gray-800 px-2.5 py-1 text-xs text-gray-400 hover:bg-gray-700">
+                            Mesa
+                          </button>
+                        )}
                         {/* No show */}
                         {r.estado !== "no-show" && (
-                          <button onClick={() => handleEstado(r.id, "no-show")}
+                          <button onClick={() => handleEstado(r, "no-show")}
                             className="rounded-lg bg-yellow-900 px-2.5 py-1 text-xs font-semibold text-yellow-300 hover:bg-yellow-800">
                             No Show
                           </button>
@@ -423,7 +511,7 @@ export default function ReservasPage() {
                         {/* Cancel */}
                         {cancelId === r.id ? (
                           <>
-                            <button onClick={() => handleEstado(r.id, "cancelada")}
+                            <button onClick={() => handleEstado(r, "cancelada")}
                               className="rounded-lg bg-red-700 px-2.5 py-1 text-xs font-bold text-white">¿Seguro?</button>
                             <button onClick={() => setCancelId(null)}
                               className="rounded-lg bg-gray-700 px-2.5 py-1 text-xs text-gray-300">No</button>
