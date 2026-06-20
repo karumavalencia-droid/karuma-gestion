@@ -3,8 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Mesa, Reserva, EstadoReserva } from "@/lib/reservas/types";
-import { X, Users, Clock } from "lucide-react";
+import { X, Users, Clock, AlertTriangle } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+
+function minutosHasta(horaInicio: string): number {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const [h, m] = horaInicio.split(":").map(Number);
+  return (h * 60 + m) - nowMin;
+}
 
 const ESTADO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
   libre:      { bg: "bg-gray-700",     border: "border-gray-500",   text: "text-gray-300",   label: "Libre" },
@@ -28,6 +35,7 @@ export default function MesaViewPage() {
   );
   const [seleccionada, setSeleccionada] = useState<MesaConReserva | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -65,6 +73,12 @@ export default function MesaViewPage() {
   }, [fecha, servicio]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Tick every minute to refresh arrival badges
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Realtime: re-load whenever any reservation changes
   useEffect(() => {
@@ -156,12 +170,33 @@ export default function MesaViewPage() {
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
             {mesas.map((m) => {
               const st = ESTADO_STYLES[m.estadoActual] ?? ESTADO_STYLES.libre;
+              const minutos = m.reserva && m.estadoActual === "Confirmada"
+                ? minutosHasta(m.reserva.hora_inicio.slice(0, 5))
+                : null;
+              const llegaProto = minutos !== null && minutos >= 0 && minutos <= 30;
+              const retrasado = minutos !== null && minutos < 0 && minutos > -60;
+              // suppress unused var warning
+              void tick;
               return (
                 <button
                   key={m.id}
                   onClick={() => setSeleccionada(m)}
-                  className={`group relative rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${st.bg} ${st.border}`}
+                  className={`relative rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${st.bg} ${
+                    llegaProto ? "border-yellow-400" : retrasado ? "border-red-400" : st.border
+                  }`}
                 >
+                  {/* Arriving-soon pulse dot */}
+                  {llegaProto && (
+                    <span className="absolute right-2 top-2 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                    </span>
+                  )}
+                  {retrasado && (
+                    <span className="absolute right-2 top-2 text-red-400">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                   <p className={`text-base font-black ${st.text}`}>{m.numero}</p>
                   <p className="text-xs text-gray-500">{m.capacidad}p · {m.zona}</p>
                   {m.reserva ? (
@@ -172,6 +207,11 @@ export default function MesaViewPage() {
                       <div className={`mt-0.5 flex items-center gap-1 text-xs ${st.text} opacity-80`}>
                         <Clock className="h-3 w-3" />
                         {m.reserva.hora_inicio.slice(0, 5)}
+                        {minutos !== null && minutos <= 30 && (
+                          <span className={`ml-1 font-bold ${retrasado ? "text-red-300" : "text-yellow-300"}`}>
+                            {retrasado ? `+${Math.abs(minutos)}m` : `${minutos}m`}
+                          </span>
+                        )}
                         <Users className="ml-1 h-3 w-3" />
                         {m.reserva.personas}
                       </div>
