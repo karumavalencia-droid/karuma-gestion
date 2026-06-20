@@ -66,6 +66,19 @@ export default function MesaViewPage() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Realtime: re-load whenever any reservation changes
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const channel = sb
+      .channel("mesa-view-reservas")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => {
+        cargar();
+      })
+      .subscribe();
+    return () => { void sb.removeChannel(channel); };
+  }, [cargar]);
+
   async function cambiarEstado(reservaId: string, estado: EstadoReserva) {
     const sb = getSupabaseClient();
     if (!sb) return;
