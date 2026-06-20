@@ -73,6 +73,19 @@ export default function GestionReservasPage() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Realtime: refresh list when any reservation changes
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const channel = sb
+      .channel("reservas-list")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => {
+        cargar();
+      })
+      .subscribe();
+    return () => { void sb.removeChannel(channel); };
+  }, [cargar]);
+
   async function cambiarEstado(id: string, estado: EstadoReserva) {
     const sb = getSupabaseClient();
     if (!sb) return;
