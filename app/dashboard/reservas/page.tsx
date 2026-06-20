@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Reserva, EstadoReserva } from "@/lib/reservas/types";
-import { MessageCircle, Plus, Search, CalendarPlus, Star } from "lucide-react";
+import { MessageCircle, Plus, Search, CalendarPlus, Star, AlertTriangle } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 
 const ESTADO_COLORES: Record<EstadoReserva, string> = {
@@ -292,7 +292,20 @@ export default function GestionReservasPage() {
                   <tr key={r.id} className="bg-gray-900 hover:bg-gray-800">
                     <td className="px-4 py-3 font-medium">{r.cliente_nombre}</td>
                     <td className="px-4 py-3 text-gray-400">{r.cliente_telefono}</td>
-                    <td className="px-4 py-3">{r.hora_inicio.slice(0, 5)}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5">
+                        {r.hora_inicio.slice(0, 5)}
+                        {r.estado === "Confirmada" && (() => {
+                          const now = new Date();
+                          const nowMin = now.getHours() * 60 + now.getMinutes();
+                          const [h, m] = r.hora_inicio.split(":").map(Number);
+                          const diff = (h * 60 + m) - nowMin;
+                          if (diff < 0 && diff > -90) return <AlertTriangle className="h-3.5 w-3.5 text-red-400" />;
+                          if (diff >= 0 && diff <= 15) return <span className="h-2 w-2 animate-ping rounded-full bg-yellow-400" />;
+                          return null;
+                        })()}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center">{r.personas}</td>
                     <td className="px-4 py-3 text-gray-400">
                       {r.mesa_ids.length ? r.mesa_ids.join(", ") : "—"}
