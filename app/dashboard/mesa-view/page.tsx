@@ -1,330 +1,487 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import type { Mesa, Reserva, EstadoReserva } from "@/lib/reservas/types";
-import { X, Users, Clock, AlertTriangle } from "lucide-react";
+import { X, Users, Clock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import {
+  loadMesas,
+  getMesasConEstado,
+  createWalkInForMesa,
+  sentarReserva,
+  liberarMesa,
+  mesaLabel,
+  loadReservas,
+  type MesaConEstado,
+  type MesaLocal,
+  type ReservaLocal,
+  type ServicioLocal,
+} from "@/lib/reservas/local-store";
 
-function minutosHasta(horaInicio: string): number {
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const [h, m] = horaInicio.split(":").map(Number);
-  return (h * 60 + m) - nowMin;
-}
+// ─── Status config ────────────────────────────────────────────────────────────
 
-const ESTADO_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
-  libre:      { bg: "bg-gray-100",     border: "border-gray-300",   text: "text-gray-500",   label: "Libre" },
-  Confirmada: { bg: "bg-emerald-50",   border: "border-emerald-400", text: "text-emerald-800", label: "Reservada" },
-  Sentado:    { bg: "bg-red-50",       border: "border-red-400",    text: "text-red-800",    label: "Sentado" },
-  WalkIn:     { bg: "bg-pink-50",      border: "border-pink-400",   text: "text-pink-800",   label: "Walk-In" },
-  NoShow:     { bg: "bg-gray-50",      border: "border-gray-300",   text: "text-gray-400",   label: "No Show" },
-  Finalizada: { bg: "bg-gray-50",      border: "border-gray-200",   text: "text-gray-400",   label: "Finalizada" },
+const STATUS_STYLE = {
+  available: { bg: "bg-white",        border: "border-gray-200",   badge: "bg-gray-100 text-gray-500",    label: "Libre"      },
+  reserved:  { bg: "bg-emerald-50",   border: "border-emerald-400", badge: "bg-emerald-100 text-emerald-700", label: "Reservada"  },
+  occupied:  { bg: "bg-red-50",       border: "border-red-400",    badge: "bg-red-100 text-red-700",      label: "Ocupada"    },
+  cleaning:  { bg: "bg-yellow-50",    border: "border-yellow-400", badge: "bg-yellow-100 text-yellow-700", label: "Limpieza"   },
 };
 
-interface MesaConReserva extends Mesa {
-  reserva?: Reserva & { cliente_nombre?: string };
-  estadoActual: string;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function hoy() { return new Date().toISOString().split("T")[0]; }
+function autoServicio(): ServicioLocal { return new Date().getHours() >= 17 ? "cena" : "comida"; }
+
+function duracion(seatedAt?: string): string {
+  if (!seatedAt) return "";
+  const mins = Math.floor((Date.now() - new Date(seatedAt).getTime()) / 60_000);
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-export default function MesaViewPage() {
-  const [mesas, setMesas] = useState<MesaConReserva[]>([]);
-  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
-  const [servicio, setServicio] = useState<"comida" | "cena">(
-    new Date().getHours() < 17 ? "comida" : "cena",
+// ─── Modal shell ──────────────────────────────────────────────────────────────
+
+function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+         onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl"
+           onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
   );
-  const [seleccionada, setSeleccionada] = useState<MesaConReserva | null>(null);
-  const [loading, setLoading] = useState(true);
+}
+
+// ─── Mesa picker ──────────────────────────────────────────────────────────────
+
+function MesaPicker({
+  mesas, selectedIds, onToggle,
+}: { mesas: MesaLocal[]; selectedIds: string[]; onToggle: (id: string) => void }) {
+  return (
+    <div className="grid grid-cols-5 gap-1.5">
+      {mesas.map((m) => {
+        const sel = selectedIds.includes(m.id);
+        return (
+          <button key={m.id} onClick={() => onToggle(m.id)}
+            className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
+              sel ? "border-karuma-600 bg-karuma-50 text-karuma-700 font-bold"
+                  : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400"
+            }`}>
+            <p className="text-xs font-bold">T{m.numero}</p>
+            <p className="text-[10px] text-gray-500">{m.capacidad}p</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm focus:border-karuma-500 focus:outline-none";
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function MesaViewPage() {
+  const [fecha, setFecha] = useState(hoy);
+  const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
+  const [mesas, setMesas] = useState<MesaConEstado[]>([]);
   const [tick, setTick] = useState(0);
+  const [toast, setToast] = useState("");
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
-    const sb = getSupabaseClient();
-    if (!sb) { setLoading(false); return; }
+  // Selected mesa for detail/action
+  const [sel, setSel] = useState<MesaConEstado | null>(null);
 
-    const [{ data: mesasData }, { data: reservasData }] = await Promise.all([
-      sb.from("mesas").select("*").eq("activa", true).order("numero"),
-      sb
-        .from("reservas")
-        .select("*, cliente:clientes_reservas(nombre)")
-        .eq("fecha", fecha)
-        .eq("servicio", servicio)
-        .not("estado", "in", '("Cancelada","Finalizada")'),
-    ]);
+  // Walk-in modal for a specific mesa
+  const [wiMesa, setWiMesa] = useState<MesaConEstado | null>(null);
+  const [wiPersonas, setWiPersonas] = useState(2);
+  const [wiNombre, setWiNombre] = useState("");
+  const [wiTelefono, setWiTelefono] = useState("");
+  const [wiNotas, setWiNotas] = useState("");
+  const [wiError, setWiError] = useState("");
+  const [wiOk, setWiOk] = useState<ReservaLocal | null>(null);
 
-    const reservasPorMesa = new Map<number, Reserva & { cliente_nombre?: string }>();
-    for (const r of (reservasData ?? []) as Array<Record<string, unknown>>) {
-      const reserva = r as unknown as Reserva & { cliente: { nombre?: string } | null };
-      for (const mId of reserva.mesa_ids) {
-        reservasPorMesa.set(mId, {
-          ...reserva,
-          cliente_nombre: reserva.cliente?.nombre ?? "—",
-        });
-      }
-    }
+  // Seat modal (select mesas manually)
+  const [seatReserva, setSeatReserva] = useState<ReservaLocal | null>(null);
+  const [seatMesaIds, setSeatMesaIds] = useState<string[]>([]);
+  const [seatError, setSeatError] = useState("");
 
-    setMesas(
-      ((mesasData ?? []) as Mesa[]).map((m) => {
-        const r = reservasPorMesa.get(m.id);
-        return { ...m, reserva: r, estadoActual: r ? r.estado : "libre" };
-      }),
-    );
-    setLoading(false);
+  // ── Load ─────────────────────────────────────────────────────────────────────
+  const reload = useCallback(() => {
+    setMesas(getMesasConEstado(fecha, servicio));
   }, [fecha, servicio]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { reload(); }, [reload]);
 
-  // Tick every minute to refresh arrival badges
+  // Live duration counter
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    const id = setInterval(() => { setTick((t) => t + 1); reload(); }, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [reload]);
 
-  // Realtime: re-load whenever any reservation changes
-  useEffect(() => {
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    const channel = sb
-      .channel("mesa-view-reservas")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => {
-        cargar();
-      })
-      .subscribe();
-    return () => { void sb.removeChannel(channel); };
-  }, [cargar]);
+  void tick; // suppress unused var warning
 
-  async function cambiarEstado(reservaId: string, estado: EstadoReserva) {
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    await sb.from("reservas").update({ estado }).eq("id", reservaId);
-    setSeleccionada(null);
-    cargar();
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  // ── Stats ─────────────────────────────────────────────────────────────────────
+  const total    = mesas.length;
+  const ocupadas = mesas.filter((m) => m.status === "occupied").length;
+  const reservadas = mesas.filter((m) => m.status === "reserved").length;
+  const libres   = mesas.filter((m) => m.status === "available").length;
+
+  // ── Walk-In for mesa ──────────────────────────────────────────────────────────
+  function openWalkIn(m: MesaConEstado) {
+    setWiMesa(m); setWiPersonas(m.capacidad); setWiNombre(""); setWiTelefono("");
+    setWiNotas(""); setWiError(""); setWiOk(null);
   }
 
-  const ocupadas = mesas.filter((m) => m.estadoActual !== "libre").length;
-  const libres = mesas.filter((m) => m.estadoActual === "libre").length;
-  const personasActuales = mesas
-    .filter((m) => m.reserva && (m.estadoActual === "Sentado" || m.estadoActual === "WalkIn"))
-    .reduce((sum, m) => sum + (m.reserva?.personas ?? 0), 0);
+  function submitWalkIn() {
+    if (!wiMesa) return;
+    setWiError("");
+    const res = createWalkInForMesa(wiMesa.id, wiPersonas, wiNombre, wiTelefono, wiNotas);
+    if (!res.ok) { setWiError(res.error); return; }
+    setWiOk(res.reserva);
+    reload();
+    showToast(`${wiMesa.id} — Walk-In registrado`);
+  }
+
+  function closeWalkIn() {
+    setWiMesa(null); setWiOk(null); setWiError("");
+    setWiNombre(""); setWiTelefono(""); setWiNotas(""); setWiPersonas(2);
+  }
+
+  // ── Liberar mesa ──────────────────────────────────────────────────────────────
+  function handleLiberar(reservaId: string) {
+    liberarMesa(reservaId);
+    setSel(null);
+    reload();
+    showToast("Mesa liberada");
+  }
+
+  // ── Sentar reserva ────────────────────────────────────────────────────────────
+  function openSeat(r: ReservaLocal) {
+    setSeatReserva(r);
+    setSeatMesaIds(r.mesaIds.length ? r.mesaIds : []);
+    setSeatError("");
+  }
+
+  function submitSeat() {
+    if (!seatReserva) return;
+    setSeatError("");
+    const ids = seatMesaIds.length ? seatMesaIds : undefined;
+    const res = sentarReserva(seatReserva.id, ids);
+    if (!res.ok) { setSeatError(res.error); return; }
+    setSeatReserva(null); setSel(null);
+    reload();
+    showToast("Mesa ocupada");
+  }
+
+  function toggleSeatMesa(id: string) {
+    setSeatMesaIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  // ── Click on a mesa card ──────────────────────────────────────────────────────
+  function handleMesaClick(m: MesaConEstado) {
+    if (m.status === "available") { openWalkIn(m); return; }
+    setSel(m);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[calc(100dvh)] p-4 text-gray-900 md:p-6">
+    <div className="min-h-dvh p-4 text-gray-900 md:p-6">
       <div className="mx-auto max-w-4xl">
         <ReservasNav />
 
         {/* Top bar */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
-          />
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setServicio(s)}
+              <button key={s} onClick={() => setServicio(s)}
                 className={`px-5 py-2 text-sm font-medium transition-colors ${
                   servicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
-                }`}
-              >
+                }`}>
                 {s === "comida" ? "🍱 Comida" : "🍣 Cena"}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="mb-5 grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
-            <p className="text-2xl font-bold text-gray-900">{mesas.length}</p>
-            <p className="text-xs text-gray-500">Total mesas</p>
-          </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center shadow-sm">
-            <p className="text-2xl font-bold text-emerald-700">{ocupadas}</p>
-            <p className="text-xs text-emerald-600">Ocupadas</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
-            <p className="text-2xl font-bold text-gray-600">{libres}</p>
-            <p className="text-xs text-gray-500">Libres</p>
-          </div>
-        </div>
-
-        {/* Leyenda */}
-        <div className="mb-5 flex flex-wrap gap-3 text-xs">
-          {Object.entries(ESTADO_STYLES).map(([key, s]) => (
-            <span key={key} className="flex items-center gap-1.5">
-              <span className={`h-3 w-3 rounded-sm border ${s.bg} ${s.border}`} />
-              <span className="text-gray-500">{s.label}</span>
-            </span>
+        {/* Stats */}
+        <div className="mb-5 grid grid-cols-4 gap-2">
+          {[
+            { label: "Total",     val: total,     cls: "text-gray-900" },
+            { label: "Ocupadas",  val: ocupadas,  cls: "text-red-600"  },
+            { label: "Reservadas",val: reservadas, cls: "text-emerald-600" },
+            { label: "Libres",    val: libres,    cls: "text-gray-500" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
+              <p className={`text-2xl font-bold ${s.cls}`}>{s.val}</p>
+              <p className="text-xs text-gray-400">{s.label}</p>
+            </div>
           ))}
         </div>
 
-        {/* Grid de mesas */}
-        {loading ? (
-          <div className="py-16 text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-700 border-t-karuma-600" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-            {mesas.map((m) => {
-              const st = ESTADO_STYLES[m.estadoActual] ?? ESTADO_STYLES.libre;
-              const minutos = m.reserva && m.estadoActual === "Confirmada"
-                ? minutosHasta(m.reserva.hora_inicio.slice(0, 5))
-                : null;
-              const llegaProto = minutos !== null && minutos >= 0 && minutos <= 30;
-              const retrasado = minutos !== null && minutos < 0 && minutos > -60;
-              // suppress unused var warning
-              void tick;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => setSeleccionada(m)}
-                  className={`relative rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${st.bg} ${
-                    llegaProto ? "border-yellow-400" : retrasado ? "border-red-400" : st.border
-                  }`}
-                >
-                  {/* Arriving-soon pulse dot */}
-                  {llegaProto && (
-                    <span className="absolute right-2 top-2 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-yellow-400" />
-                    </span>
-                  )}
-                  {retrasado && (
-                    <span className="absolute right-2 top-2 text-red-400">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                  <p className={`text-base font-black ${st.text}`}>{m.numero}</p>
-                  <p className="text-xs text-gray-500">{m.capacidad}p · {m.zona}</p>
-                  {m.reserva ? (
-                    <>
-                      <p className={`mt-1.5 truncate text-xs font-semibold ${st.text}`}>
-                        {m.reserva.cliente_nombre}
-                      </p>
-                      <div className={`mt-0.5 flex items-center gap-1 text-xs ${st.text} opacity-80`}>
-                        <Clock className="h-3 w-3" />
-                        {m.reserva.hora_inicio.slice(0, 5)}
-                        {minutos !== null && minutos <= 30 && (
-                          <span className={`ml-1 font-bold ${retrasado ? "text-red-300" : "text-yellow-300"}`}>
-                            {retrasado ? `+${Math.abs(minutos)}m` : `${minutos}m`}
-                          </span>
-                        )}
-                        <Users className="ml-1 h-3 w-3" />
-                        {m.reserva.personas}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-gray-500">{st.label}</p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Legend */}
+        <div className="mb-5 flex flex-wrap gap-3 text-xs">
+          {(Object.entries(STATUS_STYLE) as [keyof typeof STATUS_STYLE, typeof STATUS_STYLE[keyof typeof STATUS_STYLE]][]).map(([key, s]) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <span className={`h-3 w-3 rounded-sm border-2 ${s.bg} ${s.border}`} />
+              <span className="text-gray-500">{s.label}</span>
+            </span>
+          ))}
+          <span className="text-gray-400">· Toca una mesa libre para Walk-In</span>
+        </div>
+
+        {/* Mesa grid */}
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          {mesas.map((m) => {
+            const st = STATUS_STYLE[m.status];
+            const r = m.reserva;
+            return (
+              <button key={m.id} onClick={() => handleMesaClick(m)}
+                className={`relative rounded-xl border-2 p-3 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
+                {/* Status badge */}
+                <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${st.badge}`}>
+                  {st.label}
+                </span>
+                <p className="text-lg font-black text-gray-900">T{m.numero}</p>
+                <p className="text-[10px] text-gray-400">{m.capacidad}p · {m.zona}</p>
+
+                {m.status === "occupied" && r && (
+                  <div className="mt-1.5 space-y-0.5">
+                    <p className="truncate text-xs font-semibold text-red-700">{r.nombre}</p>
+                    <div className="flex items-center gap-1 text-[10px] text-red-500">
+                      <Users className="h-3 w-3" />{r.personas}
+                      <Clock className="ml-1 h-3 w-3" />{duracion(r.seatedAt)}
+                    </div>
+                  </div>
+                )}
+                {m.status === "reserved" && r && (
+                  <div className="mt-1.5 space-y-0.5">
+                    <p className="truncate text-xs font-semibold text-emerald-700">{r.nombre}</p>
+                    <p className="text-[10px] text-emerald-600">{r.hora} · {r.personas}p</p>
+                  </div>
+                )}
+                {m.status === "available" && (
+                  <p className="mt-1.5 text-[10px] text-gray-400">Tap → Walk-In</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Bottom summary */}
-        {!loading && personasActuales > 0 && (
-          <div className="mt-6 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
-            <span className="font-semibold text-gray-900">{personasActuales}</span> personas sentadas ahora
+        {ocupadas > 0 && (
+          <div className="mt-5 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+            <span className="font-bold text-gray-900">{mesas.filter((m) => m.status === "occupied").reduce((s, m) => s + (m.reserva?.personas ?? 0), 0)}</span>
+            {" "}personas sentadas ahora ·{" "}
+            <span className="font-bold text-red-600">{ocupadas}</span> mesas ocupadas
           </div>
         )}
       </div>
 
-      {/* Panel detalle mesa */}
-      {seleccionada && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={() => setSeleccionada(null)}>
-          <div
-            className="w-full max-w-sm rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
+      {/* ── Toast ──────────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+          {toast}
+        </div>
+      )}
+
+      {/* ── Detail modal (occupied / reserved) ────────────────────────────────── */}
+      <Modal open={!!sel} onClose={() => setSel(null)}>
+        {sel && (
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-black text-gray-900">Mesa {seleccionada.numero}</h2>
-                <p className="text-sm text-gray-500">{seleccionada.capacidad} personas · {seleccionada.zona}</p>
+                <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
+                <p className="text-sm text-gray-500">{sel.capacidad} personas · {sel.zona}</p>
               </div>
-              <button
-                onClick={() => setSeleccionada(null)}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
-              >
+              <button onClick={() => setSel(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {seleccionada.reserva ? (
-              <div className="space-y-2 text-sm">
-                <div className="rounded-xl bg-gray-50 p-4 space-y-2 border border-gray-200">
+            {sel.status === "occupied" && sel.reserva && (
+              <>
+                <div className="rounded-xl bg-red-50 p-4 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Cliente</span>
-                    <span className="font-semibold">{seleccionada.reserva.cliente_nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Hora</span>
-                    <span className="font-semibold">{seleccionada.reserva.hora_inicio.slice(0, 5)}</span>
+                    <span className="font-semibold">{sel.reserva.nombre}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Personas</span>
-                    <span className="font-semibold">{seleccionada.reserva.personas}</span>
+                    <span className="font-semibold">{sel.reserva.personas}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Estado</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${ESTADO_STYLES[seleccionada.reserva.estado]?.bg ?? ""} ${ESTADO_STYLES[seleccionada.reserva.estado]?.text ?? ""}`}>
-                      {ESTADO_STYLES[seleccionada.reserva.estado]?.label ?? seleccionada.reserva.estado}
+                    <span className="text-gray-500">Entrada</span>
+                    <span className="font-semibold">
+                      {sel.reserva.seatedAt
+                        ? new Date(sel.reserva.seatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+                        : sel.reserva.hora}
                     </span>
                   </div>
-                  {seleccionada.reserva.notas && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Tiempo</span>
+                    <span className="font-bold text-red-600">{duracion(sel.reserva.seatedAt)}</span>
+                  </div>
+                  {sel.reserva.notas && (
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Notas</span>
-                      <span className="text-right max-w-[60%]">{seleccionada.reserva.notas}</span>
+                      <span className="text-gray-500">Notas</span>
+                      <span className="text-right max-w-[60%] text-gray-700">{sel.reserva.notas}</span>
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => handleLiberar(sel.reserva!.id)}
+                  className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
+                  ✓ Liberar mesa
+                </button>
+              </>
+            )}
 
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  {seleccionada.reserva.estado === "Confirmada" && (
-                    <button
-                      onClick={() => cambiarEstado(seleccionada.reserva!.id, "Sentado")}
-                      className="col-span-2 rounded-xl bg-red-700 py-3 text-sm font-bold text-white hover:bg-red-600"
-                    >
-                      Sentar mesa
-                    </button>
-                  )}
-                  {seleccionada.reserva.estado === "Sentado" && (
-                    <button
-                      onClick={() => cambiarEstado(seleccionada.reserva!.id, "Finalizada")}
-                      className="col-span-2 rounded-xl bg-gray-700 py-3 text-sm font-bold text-white hover:bg-gray-600"
-                    >
-                      Finalizar
-                    </button>
-                  )}
-                  {(seleccionada.reserva.estado === "Confirmada" || seleccionada.reserva.estado === "WalkIn") && (
-                    <button
-                      onClick={() => cambiarEstado(seleccionada.reserva!.id, "NoShow")}
-                      className="rounded-xl bg-yellow-900 py-2.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-800"
-                    >
-                      No Show
-                    </button>
-                  )}
-                  {seleccionada.reserva.estado !== "Cancelada" && seleccionada.reserva.estado !== "Finalizada" && (
-                    <button
-                      onClick={() => cambiarEstado(seleccionada.reserva!.id, "Cancelada")}
-                      className="rounded-xl bg-gray-800 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-700"
-                    >
-                      Cancelar
-                    </button>
+            {sel.status === "reserved" && sel.reserva && (
+              <>
+                <div className="rounded-xl bg-emerald-50 p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Cliente</span>
+                    <span className="font-semibold">{sel.reserva.nombre}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Hora</span>
+                    <span className="font-semibold">{sel.reserva.hora}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Personas</span>
+                    <span className="font-semibold">{sel.reserva.personas}</span>
+                  </div>
+                  {sel.reserva.telefono && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Tel.</span>
+                      <span>{sel.reserva.telefono}</span>
+                    </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="py-4 text-center">
-                <p className="text-gray-500">Mesa libre para este servicio</p>
-              </div>
+                <button
+                  onClick={() => { openSeat(sel.reserva!); setSel(null); }}
+                  className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+                  → Sentar / Ocupar mesa
+                </button>
+              </>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
+      {/* ── Walk-In para mesa específica ───────────────────────────────────────── */}
+      <Modal open={!!wiMesa} onClose={closeWalkIn}>
+        {wiMesa && (
+          wiOk ? (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-red-50 p-4 text-center">
+                <p className="text-4xl font-black text-red-700">T{wiMesa.numero}</p>
+                <p className="mt-1 font-bold text-red-600">Mesa ocupada</p>
+                <p className="text-sm text-gray-500">{wiOk.personas} personas · {duracion(wiOk.seatedAt)}</p>
+              </div>
+              <button onClick={closeWalkIn} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white">
+                Cerrar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">T{wiMesa.numero}</h2>
+                  <p className="text-sm text-gray-500">Walk-In · {wiMesa.capacidad} pax máx · {wiMesa.zona}</p>
+                </div>
+                <button onClick={closeWalkIn} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {wiError && (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiError}</p>
+              )}
+
+              {/* Personas counter */}
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Personas <span className="text-red-400">*</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setWiPersonas(Math.max(1, wiPersonas - 1))}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl font-bold hover:bg-gray-200">−</button>
+                  <span className="flex-1 text-center text-4xl font-black">{wiPersonas}</span>
+                  <button onClick={() => setWiPersonas(Math.min(wiMesa.capacidad * 2, wiPersonas + 1))}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl font-bold hover:bg-gray-200">+</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Nombre (opcional)</label>
+                <input className={inp} placeholder="Walk-In" value={wiNombre} onChange={(e) => setWiNombre(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Teléfono (opcional)</label>
+                <input className={inp} type="tel" placeholder="+34…" value={wiTelefono} onChange={(e) => setWiTelefono(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
+                <textarea className={inp} rows={2} value={wiNotas} onChange={(e) => setWiNotas(e.target.value)} />
+              </div>
+
+              <button onClick={submitWalkIn}
+                className="w-full rounded-xl bg-red-600 py-3.5 text-base font-black text-white hover:bg-red-500">
+                Ocupar T{wiMesa.numero} ahora
+              </button>
+            </div>
+          )
+        )}
+      </Modal>
+
+      {/* ── Seat modal (select mesas) ──────────────────────────────────────────── */}
+      <Modal open={!!seatReserva} onClose={() => setSeatReserva(null)}>
+        {seatReserva && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black text-gray-900">Sentar reserva</h2>
+                <p className="text-sm text-gray-500">{seatReserva.nombre} · {seatReserva.personas} personas</p>
+              </div>
+              <button onClick={() => setSeatReserva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {seatError && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{seatError}</p>
+            )}
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Selecciona mesa(s) — puedes elegir varias para grupos
+              </p>
+              <MesaPicker
+                mesas={loadMesas()}
+                selectedIds={seatMesaIds}
+                onToggle={toggleSeatMesa}
+              />
+              {seatMesaIds.length === 0 && (
+                <p className="mt-1.5 text-xs text-gray-400">Sin selección = asignación automática</p>
+              )}
+            </div>
+
+            <button onClick={submitSeat}
+              className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+              {seatMesaIds.length ? `Sentar en ${seatMesaIds.join(", ")}` : "Sentar (auto-asignar mesa)"}
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
