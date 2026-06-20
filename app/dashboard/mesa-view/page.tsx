@@ -12,6 +12,7 @@ import {
   sentarReserva,
   liberarMesa,
   updateEstado,
+  editReserva,
   MESAS_SEED,
   type MesaConEstado,
   type MesaLocal,
@@ -127,6 +128,11 @@ export default function MesaViewPage() {
   // Cancel confirm
   const [cancelReservaId, setCancelReservaId] = useState<string | null>(null);
 
+  // Edit (personas + hora) inline en el modal de detalle
+  const [editing, setEditing]           = useState(false);
+  const [editPersonas, setEditPersonas] = useState(2);
+  const [editHora, setEditHora]         = useState("");
+
   // ── Load ─────────────────────────────────────────────────────────────────────
   const reload = useCallback(() => {
     syncAndLoadReservas(fecha).then(() => {
@@ -229,6 +235,23 @@ export default function MesaViewPage() {
     setCancelReservaId(null); setSel(null); reload(); showToast("Reserva cancelada");
   }
 
+  // ── Editar (personas + hora) ──────────────────────────────────────────────────
+  function openEdit(r: ReservaLocal) {
+    setEditPersonas(r.personas);
+    setEditHora((r.hora || "").slice(0, 5));
+    setEditing(true);
+  }
+  function submitEdit(r: ReservaLocal) {
+    editReserva(r.id, { personas: editPersonas, hora: editHora });
+    if (r.origen === "online") {
+      void fetch("/api/reservas/actualizar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "editar", id: r.id, personas: editPersonas, hora: editHora }),
+      });
+    }
+    setEditing(false); setSel(null); reload(); showToast("Reserva actualizada");
+  }
+
   // ── Sentar ───────────────────────────────────────────────────────────────────
   function openSeat(r: ReservaLocal) {
     setSeatReserva(r); setSeatMesaIds(r.mesaIds.length ? r.mesaIds : []); setSeatError("");
@@ -248,7 +271,7 @@ export default function MesaViewPage() {
 
   function handleMesaClick(m: MesaConEstado) {
     if (m.status === "available") { openWalkIn(m); return; }
-    setSel(m);
+    setEditing(false); setSel(m);
   }
 
   const mesasList: MesaLocal[] = MESAS_SEED;
@@ -363,7 +386,7 @@ export default function MesaViewPage() {
       )}
 
       {/* ── Detail modal ──────────────────────────────────────────────────────── */}
-      <Modal open={!!sel && !cancelReservaId} onClose={() => setSel(null)}>
+      <Modal open={!!sel && !cancelReservaId} onClose={() => { setSel(null); setEditing(false); }}>
         {sel && (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -371,12 +394,42 @@ export default function MesaViewPage() {
                 <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
                 <p className="text-sm text-gray-500">{sel.capacidad} personas · Interior</p>
               </div>
-              <button onClick={() => setSel(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+              <button onClick={() => { setSel(null); setEditing(false); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {sel.status === "occupied" && sel.reserva && (
+            {/* ── Edit mode (personas + hora) ───────────────────────────────── */}
+            {editing && sel.reserva && (
+              <>
+                <div className="space-y-4 rounded-xl bg-gray-50 p-4">
+                  <div>
+                    <p className="mb-1.5 text-xs font-bold text-gray-500">Personas</p>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setEditPersonas((p) => Math.max(1, p - 1))}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-gray-700 shadow-sm active:scale-95">−</button>
+                      <span className="flex-1 text-center text-3xl font-black text-gray-900">{editPersonas}</span>
+                      <button onClick={() => setEditPersonas((p) => p + 1)}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-gray-700 shadow-sm active:scale-95">+</button>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-bold text-gray-500">Hora</p>
+                    <input type="time" value={editHora} onChange={(e) => setEditHora(e.target.value)} className={inp} />
+                  </div>
+                </div>
+                <button onClick={() => submitEdit(sel.reserva!)}
+                  className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+                  Guardar cambios
+                </button>
+                <button onClick={() => setEditing(false)}
+                  className="w-full rounded-xl border border-gray-200 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+                  Volver
+                </button>
+              </>
+            )}
+
+            {!editing && sel.status === "occupied" && sel.reserva && (
               <>
                 <div className="rounded-xl bg-red-50 p-4 space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{sel.reserva.nombre}</span></div>
@@ -398,6 +451,10 @@ export default function MesaViewPage() {
                   className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
                   ✓ Liberar mesa
                 </button>
+                <button onClick={() => openEdit(sel.reserva!)}
+                  className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  ✏️ Editar personas / hora
+                </button>
                 <button onClick={() => setCancelReservaId(sel.reserva!.id)}
                   className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100">
                   Cancelar reserva
@@ -405,7 +462,7 @@ export default function MesaViewPage() {
               </>
             )}
 
-            {sel.status === "reserved" && sel.reserva && (
+            {!editing && sel.status === "reserved" && sel.reserva && (
               <>
                 <div className="rounded-xl bg-emerald-50 p-4 space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{sel.reserva.nombre}</span></div>
@@ -421,6 +478,10 @@ export default function MesaViewPage() {
                 <button onClick={() => { openSeat(sel.reserva!); setSel(null); }}
                   className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                   → Sentar / Ocupar mesa
+                </button>
+                <button onClick={() => openEdit(sel.reserva!)}
+                  className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  ✏️ Editar personas / hora
                 </button>
                 <button onClick={() => setCancelReservaId(sel.reserva!.id)}
                   className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100">

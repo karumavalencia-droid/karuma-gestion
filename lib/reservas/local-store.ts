@@ -435,6 +435,21 @@ export function desplazarReserva(
   return { ok: true };
 }
 
+// Edita datos básicos de una reserva (personas y/o hora) sin cambiar su estado.
+export function editReserva(
+  id: string, cambios: { personas?: number; hora?: string },
+): { ok: true } | { ok: false; error: string } {
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
+  const limpio: Partial<ReservaLocal> = {};
+  if (typeof cambios.personas === "number" && cambios.personas > 0) limpio.personas = cambios.personas;
+  if (cambios.hora && cambios.hora.length >= 4) limpio.hora = cambios.hora;
+  list[idx] = { ...list[idx], ...limpio };
+  saveReservas(list);
+  return { ok: true };
+}
+
 export function updateEtiquetasCliente(telefono: string, etiquetas: EtiquetaLocal[]) {
   const list = loadClientes();
   const idx = list.findIndex((c) => c.telefono === telefono.trim());
