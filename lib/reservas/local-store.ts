@@ -4,7 +4,19 @@
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
 export const TABLES_KEY   = "karuma_tables_v1";
+export const HORARIO_KEY  = "karuma_horario_v1";
 export const MAX_DIAS     = 7;
+
+// 0=domingo, 1=lunes … 6=sábado
+export interface HorarioConfig {
+  diasAbiertos: number[]; // días en que el restaurante abre
+}
+const HORARIO_DEFAULT: HorarioConfig = { diasAbiertos: [0, 1, 2, 3, 4, 5, 6] };
+
+export function loadHorario(): HorarioConfig {
+  return read<HorarioConfig>(HORARIO_KEY, HORARIO_DEFAULT);
+}
+export function saveHorario(h: HorarioConfig) { write(HORARIO_KEY, h); }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
