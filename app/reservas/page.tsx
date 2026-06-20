@@ -54,13 +54,22 @@ export default function ReservasPage() {
   maxFecha.setDate(maxFecha.getDate() + MAX_DIAS);
   const maxFechaStr = maxFecha.toISOString().split("T")[0];
 
-  // Genera los días válidos (hoy + 7) para el selector visual
+  // Genera los días válidos (hoy + 7) para el selector visual, filtrados por días de apertura
   const diasValidos = useMemo(() => {
     const lista: { valor: string; etiqueta: string }[] = [];
     const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     const DIAS_ES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+
+    // Lee días de apertura desde localStorage (sin importar el módulo para evitar SSR issues)
+    let diasAbiertos: number[] = [0,1,2,3,4,5,6];
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("karuma_horario_v1") : null;
+      if (raw) diasAbiertos = (JSON.parse(raw) as { diasAbiertos: number[] }).diasAbiertos;
+    } catch { /* usa default */ }
+
     for (let i = 0; i <= MAX_DIAS; i++) {
       const d = new Date(); d.setDate(d.getDate() + i);
+      if (!diasAbiertos.includes(d.getDay())) continue; // día cerrado, omitir
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, "0");
       const dd = String(d.getDate()).padStart(2, "0");

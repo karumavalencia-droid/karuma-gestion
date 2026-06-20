@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ReservasConfig } from "@/lib/reservas/types";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { loadHorario, saveHorario, type HorarioConfig } from "@/lib/reservas/local-store";
 import { Trash2, Plus } from "lucide-react";
 
 const DEFAULT_CONFIG: ReservasConfig = {
@@ -35,6 +36,7 @@ export default function ConfigReservasPage() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [horario, setHorario] = useState<HorarioConfig>({ diasAbiertos: [0,1,2,3,4,5,6] });
 
   // Cierres de servicio
   const [cierres, setCierres] = useState<CierreRow[]>([]);
@@ -54,6 +56,7 @@ export default function ConfigReservasPage() {
       ]);
       if (cfgData) setConfig(cfgData as ReservasConfig);
       setCierres((cierresData ?? []) as CierreRow[]);
+      setHorario(loadHorario());
       setLoading(false);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,11 +64,21 @@ export default function ConfigReservasPage() {
 
   async function guardar() {
     setGuardando(true);
-    if (!sb) { setGuardando(false); return; }
+    saveHorario(horario); // siempre guarda días en localStorage
+    if (!sb) { setGuardando(false); setOk(true); setTimeout(() => setOk(false), 2000); return; }
     await sb.from("reservas_config").update(config).eq("id", 1);
     setGuardando(false);
     setOk(true);
     setTimeout(() => setOk(false), 2000);
+  }
+
+  function toggleDia(dia: number) {
+    setHorario((prev) => {
+      const abiertos = prev.diasAbiertos.includes(dia)
+        ? prev.diasAbiertos.filter((d) => d !== dia)
+        : [...prev.diasAbiertos, dia];
+      return { diasAbiertos: abiertos };
+    });
   }
 
   async function añadirCierre() {
@@ -172,6 +185,37 @@ export default function ConfigReservasPage() {
               <input type="time" value={config.cena_fin} onChange={(e) => set("cena_fin", e.target.value)} className={inputCls} />
             </Field>
           </Section>
+
+          {/* ── DÍAS DE APERTURA ──────────────────────────────────────────── */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">Días de apertura</h2>
+            <p className="mb-4 text-xs text-gray-500">Los clientes solo podrán reservar los días marcados.</p>
+            <div className="grid grid-cols-7 gap-1.5">
+              {[
+                { dia: 1, label: "L" , nombre: "Lunes"      },
+                { dia: 2, label: "M" , nombre: "Martes"     },
+                { dia: 3, label: "X" , nombre: "Miérc."     },
+                { dia: 4, label: "J" , nombre: "Jueves"     },
+                { dia: 5, label: "V" , nombre: "Viernes"    },
+                { dia: 6, label: "S" , nombre: "Sábado"     },
+                { dia: 0, label: "D" , nombre: "Domingo"    },
+              ].map(({ dia, label, nombre }) => {
+                const activo = horario.diasAbiertos.includes(dia);
+                return (
+                  <button key={dia} onClick={() => toggleDia(dia)}
+                    className={`flex flex-col items-center rounded-xl border-2 py-2.5 transition-all ${
+                      activo ? "border-karuma-500 bg-karuma-900/50 text-karuma-300" : "border-gray-700 bg-gray-800 text-gray-600"
+                    }`}>
+                    <span className="text-sm font-bold">{label}</span>
+                    <span className="mt-0.5 text-[9px]">{nombre}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-gray-600">
+              {horario.diasAbiertos.length === 7 ? "Abierto todos los días" : `${horario.diasAbiertos.length} días activos`}
+            </p>
+          </div>
 
           <Section title="Contacto">
             <Field label="Teléfono">
