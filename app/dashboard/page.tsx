@@ -1,21 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck, Users, UserX, TableProperties, Clock, TrendingUp } from "lucide-react";
+import { CalendarCheck, Users, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
-import { getReservasDashboardStats, type ReservasDashboardStats } from "@/lib/reservas/dashboard-stats";
+import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
 
-interface SalesRecord {
-  date: string;
-  grossSales: number;
-  customers: number;
-}
-
-interface SalesResponse {
-  configured: boolean;
-  records: SalesRecord[];
-}
+interface SalesRecord { date: string; grossSales: number; customers: number; }
+interface SalesResponse { configured: boolean; records: SalesRecord[]; }
 
 function fmt(n: number) {
   return `€${n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -25,27 +17,35 @@ export default function DashboardPage() {
   const { t, locale } = useLanguage();
   const zh = locale === "zh";
 
-  const [stats, setStats] = useState<ReservasDashboardStats | null>(null);
+  const [stats, setStats] = useState<StatsLocal | null>(null);
   const [sales, setSales] = useState<SalesResponse | null>(null);
-
-  useEffect(() => {
-    getReservasDashboardStats().then(setStats);
-    fetch("/api/sales/daily?limit=31")
-      .then((r) => r.json())
-      .then((d: SalesResponse) => setSales(d))
-      .catch(() => null);
-  }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const thisMonth = todayStr.slice(0, 7);
+
+  useEffect(() => {
+    // Local-store stats (instant, no network)
+    setStats(getDashboardStats(todayStr));
+
+    // Sales from API (optional, graceful fallback)
+    fetch("/api/sales/daily?limit=31")
+      .then((r) => r.json())
+      .then((d: SalesResponse) => setSales(d))
+      .catch(() => null);
+  }, [todayStr]);
+
+  // Refresh local stats every 30 s in case reservations were added elsewhere
+  useEffect(() => {
+    const id = setInterval(() => setStats(getDashboardStats(todayStr)), 30_000);
+    return () => clearInterval(id);
+  }, [todayStr]);
 
   const todayRec = sales?.records.find((r) => r.date === todayStr);
   const yesterdayRec = sales?.records.find((r) => r.date === yesterdayStr);
   const monthTotal = sales?.records
     .filter((r) => r.date.startsWith(thisMonth))
     .reduce((s, r) => s + r.grossSales, 0) ?? 0;
-  const todayCustomers = todayRec?.customers ?? null;
 
   const salesConfigured = sales?.configured === true;
 
@@ -67,7 +67,7 @@ export default function DashboardPage() {
     },
     {
       label: t("dashboard.todayFootfall"),
-      value: salesConfigured ? (todayCustomers !== null ? String(todayCustomers) : "0") : "142",
+      value: salesConfigured ? String(todayRec?.customers ?? 0) : "142",
       live: salesConfigured,
     },
   ];
@@ -79,15 +79,16 @@ export default function DashboardPage() {
       {/* Ventas */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {salesCards.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-          >
+          <div key={item.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">{item.label}</p>
-              {item.live && (
+              {item.live ? (
                 <span className="flex items-center gap-1 text-[10px] text-emerald-500">
                   <TrendingUp className="h-3 w-3" /> live
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                  <WifiOff className="h-3 w-3" /> mock
                 </span>
               )}
             </div>
@@ -96,46 +97,53 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Reservas de hoy */}
+      {/* Reservas de hoy — live desde localStorage */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">
-          {zh ? "今日预约" : "Reservas hoy"}
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">
+            {zh ? "今日预约" : "Reservas hoy"}
+          </h2>
+          {stats !== null && (
+            <span className="flex items-center gap-1 text-[10px] text-emerald-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> live
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatCard
             title={zh ? "今日预约数" : "Reservas hoy"}
-            value={stats ? String(stats.reservasHoy) : "—"}
+            value={stats !== null ? String(stats.reservasHoy) : "—"}
             icon={CalendarCheck}
             iconColor="bg-emerald-50 text-emerald-600"
           />
           <StatCard
-            title={zh ? "预约客人数" : "Clientes reservados"}
-            value={stats ? String(stats.clientesReservados) : "—"}
+            title={zh ? "预约人数" : "Pax reservados"}
+            value={stats !== null ? String(stats.paxHoy) : "—"}
             icon={Users}
             iconColor="bg-blue-50 text-blue-600"
           />
           <StatCard
             title={zh ? "今日散客" : "Walk-ins hoy"}
-            value={stats ? String(stats.walkIns) : "—"}
+            value={stats !== null ? String(stats.walkInsHoy) : "—"}
             icon={Users}
             iconColor="bg-purple-50 text-purple-600"
           />
           <StatCard
             title={zh ? "未到店" : "No Shows"}
-            value={stats ? String(stats.noShows) : "—"}
+            value={stats !== null ? String(stats.noShowsHoy) : "—"}
             icon={UserX}
             iconColor="bg-red-50 text-red-600"
           />
           <StatCard
             title={zh ? "已占台位" : "Mesas ocupadas"}
-            value={stats ? `${stats.mesasOcupadas}/${stats.mesasTotal}` : "—"}
+            value={stats !== null ? `${stats.mesasOcupadas}/${stats.mesasTotal}` : "—"}
             icon={TableProperties}
             iconColor="bg-orange-50 text-orange-600"
           />
           <StatCard
             title={zh ? "下一预约" : "Próxima reserva"}
-            value={stats ? stats.proximaHora : "—"}
-            subtitle={stats ? stats.proximaNombre : undefined}
+            value={stats !== null ? stats.proximaHora : "—"}
+            subtitle={stats?.proximaNombre}
             icon={Clock}
             iconColor="bg-yellow-50 text-yellow-600"
           />
@@ -147,7 +155,9 @@ export default function DashboardPage() {
         <p className="mt-2 text-sm text-gray-600">{t("dashboard.systemNote")}</p>
         {!salesConfigured && (
           <p className="mt-2 text-xs text-gray-400">
-            {zh ? "销售数据为 mock，配置 RestaurantSuite 后显示真实数据。" : "Ventas en modo mock — configura RestaurantSuite para datos reales."}
+            {zh
+              ? "销售数据为 mock，配置 RestaurantSuite 后显示真实数据。"
+              : "Ventas en modo mock — configura RestaurantSuite para datos reales."}
           </p>
         )}
       </div>
