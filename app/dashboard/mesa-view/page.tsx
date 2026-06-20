@@ -32,6 +32,14 @@ const STATUS_STYLE = {
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
 function autoServicio(): ServicioLocal { return new Date().getHours() >= 15 ? "cena" : "comida"; }
+const FECHA_KEY = "karuma_shared_fecha";
+function getSharedFecha() {
+  if (typeof window === "undefined") return hoy();
+  return localStorage.getItem(FECHA_KEY) || hoy();
+}
+function setSharedFecha(f: string) {
+  if (typeof window !== "undefined") localStorage.setItem(FECHA_KEY, f);
+}
 function duracion(seatedAt?: string) {
   if (!seatedAt) return "";
   const mins = Math.floor((Date.now() - new Date(seatedAt).getTime()) / 60_000);
@@ -80,7 +88,7 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function MesaViewPage() {
-  const [fecha, setFecha]       = useState(hoy);
+  const [fecha, setFecha]       = useState(getSharedFecha);
   const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);
   const [tick, setTick]         = useState(0);
@@ -252,7 +260,7 @@ export default function MesaViewPage() {
 
         {/* Top bar */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+          <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (

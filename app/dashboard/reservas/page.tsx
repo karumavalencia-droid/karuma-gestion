@@ -35,6 +35,14 @@ const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: strin
 };
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
+const FECHA_KEY = "karuma_shared_fecha";
+function getSharedFecha() {
+  if (typeof window === "undefined") return hoy();
+  return localStorage.getItem(FECHA_KEY) || hoy();
+}
+function setSharedFecha(f: string) {
+  if (typeof window !== "undefined") localStorage.setItem(FECHA_KEY, f);
+}
 function maxFecha() {
   const d = new Date(); d.setDate(d.getDate() + MAX_DIAS);
   return d.toISOString().split("T")[0];
@@ -110,7 +118,7 @@ export default function ReservasPage() {
   const [loaded, setLoaded] = useState(false);
 
   // Filters
-  const [fecha, setFecha] = useState(hoy);
+  const [fecha, setFecha] = useState(getSharedFecha);
   const [servicio, setServicio] = useState<"" | ServicioLocal>(() => {
     const h = new Date().getHours();
     if (h >= 12 && h < 17) return "comida";
@@ -339,7 +347,7 @@ export default function ReservasPage() {
         {/* Filters */}
         <div className="mb-3 flex flex-wrap gap-2">
           <input type="date" value={fecha} min={hoy()} max={maxFecha()}
-            onChange={(e) => setFecha(e.target.value)}
+            onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" />
           <select value={servicio} onChange={(e) => setServicio(e.target.value as "" | ServicioLocal)}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
