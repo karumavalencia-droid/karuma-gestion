@@ -94,9 +94,9 @@ export const MESAS_SEED: MesaLocal[] = [
   { id: "T16", numero: 16, capacidad: 4, zona: "Terraza"  },
   { id: "T17", numero: 17, capacidad: 4, zona: "Privado"  },
   { id: "T18", numero: 18, capacidad: 2, zona: "Privado"  },
-  { id: "T19", numero: 19, capacidad: 4, zona: "Privado"  },
-  { id: "T20", numero: 20, capacidad: 2, zona: "Privado"  },
-  { id: "T21", numero: 21, capacidad: 2, zona: "Privado"  },
+  { id: "T19", numero: 19, capacidad: 2, zona: "Privado"  },
+  { id: "T20", numero: 20, capacidad: 4, zona: "Privado"  },
+  { id: "T28", numero: 28, capacidad: 2, zona: "Privado"  },
 ];
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
