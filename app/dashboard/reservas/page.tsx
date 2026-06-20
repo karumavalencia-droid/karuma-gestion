@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock } from "lucide-react";
+import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import {
   liberarMesa,
   sentarReserva,
   cambiarMesas,
+  desplazarReserva,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
@@ -28,12 +29,15 @@ import {
   type EsperaLocal,
   type CanalLocal,
 } from "@/lib/reservas/local-store";
+import { Analytics } from "./Analytics";
+import { MesCalendar } from "./MesCalendar";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: string }> = {
   pendiente:  { bg: "bg-yellow-100",  text: "text-yellow-700",  label: "Pendiente"  },
   confirmada: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Confirmada" },
+  llegada:    { bg: "bg-purple-100",  text: "text-purple-700",  label: "Llegada"    },
   sentada:    { bg: "bg-red-100",     text: "text-red-700",     label: "En mesa"    },
   walkin:     { bg: "bg-pink-100",    text: "text-pink-700",    label: "Walk-In"    },
   finished:   { bg: "bg-gray-100",    text: "text-gray-500",    label: "Finalizada" },
@@ -183,6 +187,16 @@ export default function ReservasPage() {
   const [eNotas, setENotas] = useState("");
   const [eServicio, setEServicio] = useState<ServicioLocal>(autoServicio);
 
+  // ── Vista ──────────────────────────────────────────────────────────────────
+  type PanelVista = "dia" | "mes" | "analytics";
+  const [panel, setPanel] = useState<PanelVista>("dia");
+
+  // ── Desplazar ──────────────────────────────────────────────────────────────
+  const [desplazarR, setDesplazarR] = useState<ReservaLocal | null>(null);
+  const [despHora, setDespHora] = useState("");
+  const [despFecha, setDespFecha] = useState("");
+  const [despErr, setDespErr] = useState("");
+
   // ── Sentar / Cambiar mesa ──────────────────────────────────────────────────
   const [seatR, setSeatR] = useState<ReservaLocal | null>(null);
   const [seatIds, setSeatIds] = useState<string[]>([]);
@@ -284,6 +298,22 @@ export default function ReservasPage() {
     setSeatR(null); reload(); showToast("Cliente sentado");
   }
 
+  function openDesplazar(r: ReservaLocal) {
+    setDesplazarR(r); setDespHora(r.hora); setDespFecha(r.fecha); setDespErr("");
+  }
+  function submitDesplazar() {
+    if (!desplazarR || !despHora) return;
+    const res = desplazarReserva(desplazarR.id, despHora, despFecha !== desplazarR.fecha ? despFecha : undefined);
+    if (!res.ok) { setDespErr(res.error); return; }
+    if (desplazarR.origen === "online") {
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: desplazarR.id, estado: desplazarR.estado }),
+      });
+    }
+    setDesplazarR(null); reload(); showToast("Reserva desplazada");
+  }
+
   function openChange(r: ReservaLocal) { setChangeR(r); setChangeIds(r.mesaIds); setChangeErr(""); }
   function submitChange() {
     if (!changeR) return;
@@ -364,9 +394,16 @@ export default function ReservasPage() {
       <div className="mx-auto max-w-5xl">
         <ReservasNav />
 
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 no-print">
-          <h1 className="text-xl font-black text-gray-900">Reservas</h1>
+        {/* ── Panel tabs ──────────────────────────────────────────────────── */}
+        <div className="mb-4 flex items-center justify-between no-print">
+          <div className="flex overflow-hidden rounded-lg border border-gray-300 text-sm">
+            {([["dia","📋 Día"],["mes","📅 Mes"],["analytics","📊 Analytics"]] as [PanelVista,string][]).map(([v,l]) => (
+              <button key={v} onClick={() => setPanel(v)}
+                className={`px-4 py-2 font-medium transition-colors ${panel === v ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-2">
             <button onClick={handlePrint}
               className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
@@ -391,6 +428,25 @@ export default function ReservasPage() {
             </button>
           </div>
         </div>
+
+        {/* ── Panel Mes ───────────────────────────────────────────────────── */}
+        {panel === "mes" && (
+          <MesCalendar
+            reservas={reservas.concat(
+              // load all reservas for current month
+              (() => { try { return JSON.parse(localStorage.getItem("karuma_reservas_v1") ?? "[]") as ReservaLocal[]; } catch { return []; } })()
+                .filter((r) => !reservas.find((x) => x.id === r.id))
+            )}
+            fechaSeleccionada={fecha}
+            onSelectFecha={(f) => { setFecha(f); setSharedFecha(f); setPanel("dia"); }}
+          />
+        )}
+
+        {/* ── Panel Analytics ─────────────────────────────────────────────── */}
+        {panel === "analytics" && <Analytics />}
+
+        {panel !== "dia" && null}
+        {panel === "dia" && (<>
 
         {/* ── Stats doble (como CoverManager) ─────────────────────────────── */}
         <div className="mb-4 grid grid-cols-2 gap-3">
@@ -567,6 +623,12 @@ export default function ReservasPage() {
                           </button>
                         )}
                         {(r.estado === "confirmada" || r.estado === "pendiente") && (
+                          <button onClick={() => handleEstado(r, "llegada")}
+                            className="rounded-lg bg-purple-700 px-2.5 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-600">
+                            Llegada
+                          </button>
+                        )}
+                        {(r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada") && (
                           <button onClick={() => openSeat(r)}
                             className="rounded-lg bg-red-800 px-2.5 py-1 text-xs font-semibold text-red-200 hover:bg-red-700">
                             Sentar
@@ -578,6 +640,10 @@ export default function ReservasPage() {
                             Liberar
                           </button>
                         )}
+                        <button onClick={() => openDesplazar(r)}
+                          className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-200">
+                          Desplazar
+                        </button>
                         <button onClick={() => openChange(r)}
                           className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-200">
                           Mesa
@@ -609,6 +675,7 @@ export default function ReservasPage() {
             })}
           </div>
         )}
+        </>)}
       </div>
 
       {/* Toast */}
@@ -617,6 +684,27 @@ export default function ReservasPage() {
           {toast}
         </div>
       )}
+
+      {/* ── Desplazar modal ───────────────────────────────────────────────────── */}
+      <Modal open={!!desplazarR} title="Desplazar reserva" onClose={() => setDesplazarR(null)}>
+        {desplazarR && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">{desplazarR.nombre} · {desplazarR.hora} · {desplazarR.personas} pax</p>
+            {despErr && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{despErr}</p>}
+            <Field label="Nueva fecha">
+              <input type="date" value={despFecha} min={hoy()} max={maxFecha()}
+                onChange={(e) => setDespFecha(e.target.value)} className={inp} />
+            </Field>
+            <Field label="Nueva hora">
+              <input type="time" value={despHora} onChange={(e) => setDespHora(e.target.value)} className={inp} />
+            </Field>
+            <button onClick={submitDesplazar}
+              className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+              Confirmar desplazamiento
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* ── Nueva Reserva ─────────────────────────────────────────────────────── */}
       <Modal open={showNueva} title="Nueva Reserva" onClose={cerrarNueva}>

@@ -26,6 +26,7 @@ export function saveHorario(h: HorarioConfig) { write(HORARIO_KEY, h); }
 export type EstadoLocal =
   | "pendiente"
   | "confirmada"
+  | "llegada"
   | "sentada"
   | "walkin"
   | "finished"
@@ -79,6 +80,8 @@ export interface MesaConEstado extends MesaLocal {
   reserva?: ReservaLocal;
 }
 
+export type EtiquetaLocal = "vip" | "alergico" | "cumpleanos" | "regular" | "problematico";
+
 export interface ClienteLocal {
   id: string;
   nombre: string;
@@ -87,6 +90,7 @@ export interface ClienteLocal {
   ultimaVisita: string;
   totalPersonas: number;
   notas: string;
+  etiquetas?: EtiquetaLocal[];
 }
 
 export interface StatsLocal {
@@ -418,6 +422,85 @@ export function updateEstado(id: string, estado: EstadoLocal) {
 
 export function deleteReserva(id: string) {
   saveReservas(loadReservas().filter((r) => r.id !== id));
+}
+
+export function desplazarReserva(
+  id: string, nuevaHora: string, nuevaFecha?: string,
+): { ok: true } | { ok: false; error: string } {
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
+  list[idx] = { ...list[idx], hora: nuevaHora, ...(nuevaFecha ? { fecha: nuevaFecha } : {}) };
+  saveReservas(list);
+  return { ok: true };
+}
+
+export function updateEtiquetasCliente(telefono: string, etiquetas: EtiquetaLocal[]) {
+  const list = loadClientes();
+  const idx = list.findIndex((c) => c.telefono === telefono.trim());
+  if (idx >= 0) { list[idx] = { ...list[idx], etiquetas }; saveClientes(list); }
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export interface AnalyticsData {
+  porCanal: Record<string, number>;
+  porDiaSemana: number[];     // 0=Dom…6=Sab
+  porHora: Record<string, number>;
+  topClientes: { nombre: string; telefono: string; visitas: number }[];
+  tasaCancelacion: number;    // 0-1
+  tasaNoShow: number;
+  paxPromedio: number;
+  totalReservas: number;
+  totalPax: number;
+}
+
+export function getAnalytics(diasAtras = 30): AnalyticsData {
+  const desde = new Date();
+  desde.setDate(desde.getDate() - diasAtras);
+  const desdeStr = desde.toISOString().split("T")[0];
+
+  const todas = loadReservas().filter((r) => r.fecha >= desdeStr);
+  const activas = todas.filter((r) => r.estado !== "cancelada" && r.estado !== "no-show");
+  const canceladas = todas.filter((r) => r.estado === "cancelada").length;
+  const noShows = todas.filter((r) => r.estado === "no-show").length;
+
+  const porCanal: Record<string, number> = {};
+  for (const r of todas) {
+    const c = r.canal ?? (r.origen === "online" ? "web" : "telefono");
+    porCanal[c] = (porCanal[c] ?? 0) + 1;
+  }
+
+  const porDiaSemana = [0, 0, 0, 0, 0, 0, 0];
+  for (const r of activas) {
+    const dia = new Date(r.fecha + "T12:00:00").getDay();
+    porDiaSemana[dia]++;
+  }
+
+  const porHora: Record<string, number> = {};
+  for (const r of activas) {
+    const h = r.hora.slice(0, 5);
+    porHora[h] = (porHora[h] ?? 0) + 1;
+  }
+
+  const clientes = loadClientes()
+    .sort((a, b) => b.visitas - a.visitas)
+    .slice(0, 5)
+    .map(({ nombre, telefono, visitas }) => ({ nombre, telefono, visitas }));
+
+  const totalPax = activas.reduce((s, r) => s + r.personas, 0);
+
+  return {
+    porCanal,
+    porDiaSemana,
+    porHora,
+    topClientes: clientes,
+    tasaCancelacion: todas.length ? canceladas / todas.length : 0,
+    tasaNoShow: todas.length ? noShows / todas.length : 0,
+    paxPromedio: activas.length ? totalPax / activas.length : 0,
+    totalReservas: activas.length,
+    totalPax,
+  };
 }
 
 // ─── Dashboard stats ──────────────────────────────────────────────────────────
