@@ -21,9 +21,15 @@ export default function GestionReservasPage() {
   const [reservas, setReservas] = useState<(Reserva & { cliente_nombre?: string; cliente_telefono?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
-  const [servicio, setServicio] = useState<"" | "comida" | "cena">("");
+  const [servicio, setServicio] = useState<"" | "comida" | "cena">(() => {
+    const h = new Date().getHours();
+    if (h >= 12 && h < 17) return "comida";
+    if (h >= 19) return "cena";
+    return "";
+  });
   const [googleReviewLink, setGoogleReviewLink] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoReserva | "">("");
 
   // Walk-in modal
   const [showWalkIn, setShowWalkIn] = useState(false);
@@ -208,6 +214,7 @@ export default function GestionReservasPage() {
   }
 
   const filtradas = reservas.filter((r) => {
+    if (estadoFiltro && r.estado !== estadoFiltro) return false;
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
     return (
@@ -215,6 +222,14 @@ export default function GestionReservasPage() {
       (r.cliente_telefono ?? "").includes(q)
     );
   });
+
+  // Summary stats for the current view
+  const totalPax = reservas
+    .filter((r) => r.estado !== "Cancelada" && r.estado !== "NoShow")
+    .reduce((s, r) => s + r.personas, 0);
+  const confirmadas = reservas.filter((r) => r.estado === "Confirmada").length;
+  const sentados = reservas.filter((r) => r.estado === "Sentado" || r.estado === "WalkIn").length;
+  const noShows = reservas.filter((r) => r.estado === "NoShow").length;
 
   return (
     <div className="-m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
@@ -238,8 +253,25 @@ export default function GestionReservasPage() {
           </div>
         </div>
 
+        {/* Resumen del día */}
+        {!loading && reservas.length > 0 && (
+          <div className="mb-4 grid grid-cols-4 gap-2">
+            {[
+              { label: "Pax esperados", value: totalPax, color: "text-white" },
+              { label: "Confirmadas", value: confirmadas, color: "text-emerald-400" },
+              { label: "En mesa", value: sentados, color: "text-red-400" },
+              { label: "No Show", value: noShows, color: "text-yellow-400" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl bg-gray-900 px-3 py-2.5 text-center border border-gray-800">
+                <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Filtros */}
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-3 flex flex-wrap gap-2">
           <input
             type="date"
             value={fecha}
@@ -259,12 +291,41 @@ export default function GestionReservasPage() {
             <Search className="h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar nombre o teléfono…"
+              placeholder="Buscar…"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="bg-transparent text-sm focus:outline-none"
+              className="bg-transparent text-sm focus:outline-none w-32"
             />
           </div>
+        </div>
+
+        {/* Filtros rápidos por estado */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {([
+            { val: "", label: "Todos" },
+            { val: "Confirmada", label: "Confirmadas" },
+            { val: "Sentado", label: "En mesa" },
+            { val: "WalkIn", label: "Walk-In" },
+            { val: "NoShow", label: "No Show" },
+            { val: "Cancelada", label: "Canceladas" },
+          ] as { val: EstadoReserva | ""; label: string }[]).map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setEstadoFiltro(val)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                estadoFiltro === val
+                  ? "bg-karuma-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {label}
+              {val !== "" && (
+                <span className="ml-1.5 opacity-70">
+                  {reservas.filter((r) => r.estado === val).length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Tabla */}
