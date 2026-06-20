@@ -97,6 +97,8 @@ export default function MesaViewPage() {
   const [wiNotas, setWiNotas]       = useState("");
   const [wiError, setWiError]       = useState("");
   const [wiOk, setWiOk]             = useState(false);
+  const [wiGeneral, setWiGeneral]   = useState(false); // true = opened from top bar, needs mesa picker
+  const [wiSelectedId, setWiSelectedId] = useState<string>(""); // mesa selected in general mode
 
   // Nueva Reserva modal
   const [showNueva, setShowNueva]     = useState(false);
@@ -157,15 +159,21 @@ export default function MesaViewPage() {
   // ── Walk-In ──────────────────────────────────────────────────────────────────
   function openWalkIn(m: MesaConEstado) {
     setWiMesa(m); setWiPersonas(m.capacidad); setWiNombre(""); setWiTelefono("");
-    setWiNotas(""); setWiError(""); setWiOk(false);
+    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(false); setWiSelectedId("");
+  }
+  function openWalkInGeneral() {
+    setWiMesa({} as MesaConEstado); setWiPersonas(2); setWiNombre(""); setWiTelefono("");
+    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiSelectedId("");
   }
   function submitWalkIn() {
-    if (!wiMesa) return;
-    const res = createWalkInForMesa(wiMesa.id, wiPersonas, wiNombre, wiTelefono, wiNotas);
+    const mesaId = wiGeneral ? wiSelectedId : wiMesa?.id;
+    if (!mesaId) { setWiError("Selecciona una mesa"); return; }
+    const res = createWalkInForMesa(mesaId, wiPersonas, wiNombre, wiTelefono, wiNotas);
     if (!res.ok) { setWiError(res.error); return; }
-    setWiOk(true); reload(); showToast(`T${wiMesa.numero} — Walk-In registrado`);
+    const mesaNum = mesaId.replace("T", "");
+    setWiOk(true); reload(); showToast(`T${mesaNum} — Walk-In registrado`);
   }
-  function closeWalkIn() { setWiMesa(null); setWiOk(false); setWiError(""); }
+  function closeWalkIn() { setWiMesa(null); setWiOk(false); setWiError(""); setWiGeneral(false); setWiSelectedId(""); }
 
   // ── Nueva Reserva ────────────────────────────────────────────────────────────
   function openNueva() {
@@ -256,10 +264,16 @@ export default function MesaViewPage() {
               </button>
             ))}
           </div>
-          <button onClick={openNueva}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
-            <Plus className="h-4 w-4" /> Nueva reserva
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={openWalkInGeneral}
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">
+              🚶 Walk-In
+            </button>
+            <button onClick={openNueva}
+              className="flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
+              <Plus className="h-4 w-4" /> Nueva reserva
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -437,8 +451,8 @@ export default function MesaViewPage() {
           wiOk ? (
             <div className="space-y-4 text-center">
               <div className="rounded-xl bg-red-50 p-6">
-                <p className="text-5xl font-black text-red-700">T{wiMesa.numero}</p>
-                <p className="mt-2 font-bold text-red-600">Mesa ocupada</p>
+                <p className="text-5xl font-black text-red-700">{wiGeneral ? wiSelectedId : `T${wiMesa.numero}`}</p>
+                <p className="mt-2 font-bold text-red-600">Mesa ocupada · Walk-In</p>
                 <p className="text-sm text-gray-500">{wiPersonas} personas</p>
               </div>
               <button onClick={closeWalkIn} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white">Cerrar</button>
@@ -447,12 +461,37 @@ export default function MesaViewPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900">T{wiMesa.numero} — Walk-In</h2>
-                  <p className="text-sm text-gray-500">{wiMesa.capacidad} pax máx · Interior</p>
+                  <h2 className="text-2xl font-black text-gray-900">
+                    {wiGeneral ? "Walk-In" : `T${wiMesa.numero} — Walk-In`}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {wiGeneral ? "Selecciona mesa y registra entrada directa" : `${wiMesa.capacidad} pax máx · Interior`}
+                  </p>
                 </div>
                 <button onClick={closeWalkIn} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               {wiError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiError}</p>}
+              {wiGeneral && (
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Mesa *</label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {mesasList.filter((m) => {
+                      const mc = mesas.find((x) => x.id === m.id);
+                      return !mc || mc.status === "available";
+                    }).map((m) => (
+                      <button key={m.id} onClick={() => setWiSelectedId(m.id)}
+                        className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
+                          wiSelectedId === m.id
+                            ? "border-red-500 bg-red-50 text-red-700 font-bold"
+                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400"
+                        }`}>
+                        <p className="text-xs font-bold">T{m.numero}</p>
+                        <p className="text-[10px] text-gray-500">{m.capacidad}p</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Personas *</label>
                 <div className="flex items-center gap-3">
@@ -477,7 +516,9 @@ export default function MesaViewPage() {
               </div>
               <button onClick={submitWalkIn}
                 className="w-full rounded-xl bg-red-600 py-3.5 text-base font-black text-white hover:bg-red-500">
-                Ocupar T{wiMesa.numero} ahora
+                {wiGeneral
+                  ? wiSelectedId ? `Ocupar ${wiSelectedId} ahora` : "Ocupar mesa ahora"
+                  : `Ocupar T${wiMesa.numero} ahora`}
               </button>
             </div>
           )
