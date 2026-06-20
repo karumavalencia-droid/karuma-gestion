@@ -53,13 +53,13 @@ function mapEstadoToSb(e: EstadoLocal): EstadoReserva {
 }
 
 const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: string }> = {
-  pendiente:  { bg: "bg-yellow-900/40",  text: "text-yellow-300",  label: "Pendiente"  },
-  confirmada: { bg: "bg-emerald-900/40", text: "text-emerald-300", label: "Confirmada" },
-  sentada:    { bg: "bg-red-900/40",     text: "text-red-300",     label: "En mesa"    },
-  walkin:     { bg: "bg-pink-900/40",    text: "text-pink-300",    label: "Walk-In"    },
-  finished:   { bg: "bg-gray-700",       text: "text-gray-400",    label: "Finalizada" },
-  "no-show":  { bg: "bg-gray-700",       text: "text-gray-500",    label: "No Show"    },
-  cancelada:  { bg: "bg-gray-800",       text: "text-gray-500",    label: "Cancelada"  },
+  pendiente:  { bg: "bg-yellow-100",  text: "text-yellow-700",  label: "Pendiente"  },
+  confirmada: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Confirmada" },
+  sentada:    { bg: "bg-red-100",     text: "text-red-700",     label: "En mesa"    },
+  walkin:     { bg: "bg-pink-100",    text: "text-pink-700",    label: "Walk-In"    },
+  finished:   { bg: "bg-gray-100",    text: "text-gray-500",    label: "Finalizada" },
+  "no-show":  { bg: "bg-gray-100",    text: "text-gray-500",    label: "No Show"    },
+  cancelada:  { bg: "bg-gray-100",    text: "text-gray-400",    label: "Cancelada"  },
 };
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
@@ -81,11 +81,11 @@ function Modal({ open, title, onClose, children }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
          onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 sm:rounded-2xl"
            onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          <button onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800">
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <button onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -98,7 +98,7 @@ function Modal({ open, title, onClose, children }: {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500">
         {label}{required && <span className="ml-1 text-red-400">*</span>}
       </label>
       {children}
@@ -106,7 +106,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-const inp = "w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:border-karuma-500 focus:outline-none";
+const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none";
 
 // Mesa picker (for seat / change-table modals)
 function MesaPicker({ mesas, selected, onToggle }: {
@@ -120,7 +120,7 @@ function MesaPicker({ mesas, selected, onToggle }: {
           <button key={m.id} onClick={() => onToggle(m.id)}
             className={`rounded-lg border-2 py-1.5 text-center transition-colors ${
               sel ? "border-karuma-500 bg-karuma-900/50 text-karuma-300 font-bold"
-                  : "border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500"
+                  : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-400"
             }`}>
             <p className="text-xs font-bold">T{m.numero}</p>
             <p className="text-[9px] text-gray-500">{m.capacidad}p</p>
@@ -338,13 +338,13 @@ export default function ReservasPage() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="-m-3 min-h-dvh bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
+    <div className="-m-3 min-h-dvh bg-white p-4 text-gray-900 sm:-m-4 md:-m-6 md:p-6">
       <div className="mx-auto max-w-5xl">
         <ReservasNav />
 
         {/* Header */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-black text-white">Reservas</h1>
+          <h1 className="text-xl font-black text-gray-900">Reservas</h1>
           <div className="flex gap-2">
             <button onClick={() => setShowWI(true)}
               className="rounded-xl bg-pink-700 px-4 py-2 text-sm font-bold text-white hover:bg-pink-600">
@@ -361,12 +361,12 @@ export default function ReservasPage() {
         {stats && (
           <div className="mb-4 grid grid-cols-4 gap-2">
             {[
-              { label: "Reservas", value: stats.reservasHoy,  color: "text-white"        },
+              { label: "Reservas", value: stats.reservasHoy,  color: "text-gray-900"     },
               { label: "Pax",      value: stats.paxHoy,       color: "text-emerald-400"  },
               { label: "En mesa",  value: stats.sentadasHoy,  color: "text-red-400"      },
               { label: "No Show",  value: stats.noShowsHoy,   color: "text-yellow-400"   },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-gray-800 bg-gray-900 px-3 py-2.5 text-center">
+              <div key={s.label} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-center shadow-sm">
                 <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
                 <p className="mt-0.5 text-[10px] text-gray-500">{s.label}</p>
               </div>
@@ -378,19 +378,19 @@ export default function ReservasPage() {
         <div className="mb-3 flex flex-wrap gap-2">
           <input type="date" value={fecha} min={hoy()} max={maxFecha()}
             onChange={(e) => setFecha(e.target.value)}
-            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white" />
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" />
           <select value={servicio} onChange={(e) => setServicio(e.target.value as "" | ServicioLocal)}
-            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white">
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
             <option value="">Todos</option>
             <option value="comida">🍱 Comida</option>
             <option value="cena">🍣 Cena</option>
           </select>
-          <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2">
             <Search className="h-4 w-4 text-gray-400" />
             <input placeholder="Buscar…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-              className="w-24 bg-transparent text-sm focus:outline-none" />
+              className="w-24 bg-transparent text-sm text-gray-900 focus:outline-none" />
           </div>
-          <button onClick={reload} className="rounded-lg border border-gray-700 bg-gray-800 p-2 text-gray-400 hover:bg-gray-700">
+          <button onClick={reload} className="rounded-lg border border-gray-300 bg-white p-2 text-gray-400 hover:bg-gray-50">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -411,7 +411,7 @@ export default function ReservasPage() {
             return (
               <button key={val} onClick={() => setEstadoFiltro(val)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  estadoFiltro === val ? "bg-karuma-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  estadoFiltro === val ? "bg-karuma-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                 }`}>
                 {label}{count !== null && <span className="ml-1 opacity-70">{count}</span>}
               </button>
@@ -437,7 +437,7 @@ export default function ReservasPage() {
               const mesa = mesaLabel(r.mesaIds);
               const isActive = r.estado !== "finished" && r.estado !== "cancelada" && r.estado !== "no-show";
               return (
-                <div key={r.id} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+                <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -490,14 +490,14 @@ export default function ReservasPage() {
                         {/* Liberar */}
                         {(r.estado === "sentada" || r.estado === "walkin") && (
                           <button onClick={() => handleLiberar(r)}
-                            className="rounded-lg bg-gray-700 px-2.5 py-1 text-xs font-semibold text-gray-300 hover:bg-gray-600">
+                            className="rounded-lg bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-300">
                             Liberar
                           </button>
                         )}
                         {/* Change mesa */}
                         {!r._sbId && (
                           <button onClick={() => openChange(r)}
-                            className="rounded-lg bg-gray-800 px-2.5 py-1 text-xs text-gray-400 hover:bg-gray-700">
+                            className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-200">
                             Mesa
                           </button>
                         )}
@@ -514,11 +514,11 @@ export default function ReservasPage() {
                             <button onClick={() => handleEstado(r, "cancelada")}
                               className="rounded-lg bg-red-700 px-2.5 py-1 text-xs font-bold text-white">¿Seguro?</button>
                             <button onClick={() => setCancelId(null)}
-                              className="rounded-lg bg-gray-700 px-2.5 py-1 text-xs text-gray-300">No</button>
+                              className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-600">No</button>
                           </>
                         ) : (
                           <button onClick={() => setCancelId(r.id)}
-                            className="rounded-lg bg-gray-800 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-700">
+                            className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-200">
                             Cancelar
                           </button>
                         )}
@@ -534,7 +534,7 @@ export default function ReservasPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-800 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
           {toast}
         </div>
       )}
@@ -550,7 +550,7 @@ export default function ReservasPage() {
                 <p className="text-sm text-emerald-400">{mesaLabel(nExito.mesaIds)} asignada</p>
               </div>
             </div>
-            <div className="rounded-xl bg-gray-800 p-4 text-sm space-y-1.5">
+            <div className="rounded-xl bg-gray-50 p-4 text-sm space-y-1.5 border border-gray-200">
               <div className="flex justify-between"><span className="text-gray-400">Nombre</span><span className="font-semibold">{nExito.nombre}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Fecha</span><span className="font-semibold">{nExito.fecha} · {nExito.hora}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Personas</span><span className="font-semibold">{nExito.personas}</span></div>
@@ -621,9 +621,9 @@ export default function ReservasPage() {
                 <p className="text-sm text-pink-400">Mesa: {mesaLabel(wExito.mesaIds)}</p>
               </div>
             </div>
-            <div className="rounded-xl bg-gray-800 p-4 text-center">
-              <p className="text-4xl font-black text-pink-400">{mesaLabel(wExito.mesaIds)}</p>
-              <p className="text-sm text-gray-400">{wExito.personas} personas</p>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-center">
+              <p className="text-4xl font-black text-pink-600">{mesaLabel(wExito.mesaIds)}</p>
+              <p className="text-sm text-gray-500">{wExito.personas} personas</p>
             </div>
             <button onClick={cerrarWI} className="w-full rounded-xl bg-pink-700 py-3 font-bold text-white hover:bg-pink-600">Cerrar</button>
           </div>
@@ -668,10 +668,10 @@ export default function ReservasPage() {
       <Modal open={!!seatR} title="Sentar cliente" onClose={() => setSeatR(null)}>
         {seatR && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-300">{seatR.nombre} · {seatR.personas} personas · {seatR.hora}</p>
-            {seatErr && <p className="rounded-xl bg-red-900/40 px-3 py-2 text-sm text-red-300">{seatErr}</p>}
+            <p className="text-sm text-gray-600">{seatR.nombre} · {seatR.personas} personas · {seatR.hora}</p>
+            {seatErr && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{seatErr}</p>}
             <div>
-              <p className="mb-2 text-xs text-gray-400">Selecciona mesa(s) o deja vacío para auto-asignar:</p>
+              <p className="mb-2 text-xs text-gray-500">Selecciona mesa(s) o deja vacío para auto-asignar:</p>
               <MesaPicker mesas={mesas} selected={seatIds}
                 onToggle={(id) => setSeatIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
@@ -687,10 +687,10 @@ export default function ReservasPage() {
       <Modal open={!!changeR} title="Cambiar mesa" onClose={() => setChangeR(null)}>
         {changeR && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-300">{changeR.nombre} · Mesa actual: {mesaLabel(changeR.mesaIds)}</p>
-            {changeErr && <p className="rounded-xl bg-red-900/40 px-3 py-2 text-sm text-red-300">{changeErr}</p>}
+            <p className="text-sm text-gray-600">{changeR.nombre} · Mesa actual: {mesaLabel(changeR.mesaIds)}</p>
+            {changeErr && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{changeErr}</p>}
             <div>
-              <p className="mb-2 text-xs text-gray-400">Selecciona la nueva mesa (puedes elegir varias):</p>
+              <p className="mb-2 text-xs text-gray-500">Selecciona la nueva mesa (puedes elegir varias):</p>
               <MesaPicker mesas={mesas} selected={changeIds}
                 onToggle={(id) => setChangeIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>

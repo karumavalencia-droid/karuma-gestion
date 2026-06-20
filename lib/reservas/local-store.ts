@@ -3,7 +3,7 @@
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
-export const TABLES_KEY   = "karuma_tables_v1";
+export const TABLES_KEY   = "karuma_tables_v2"; // bumped to force reseed (T19→2p, T20→4p, T28)
 export const HORARIO_KEY  = "karuma_horario_v1";
 export const MAX_DIAS     = 7;
 
@@ -150,11 +150,15 @@ function isReserved(r: ReservaLocal): boolean {
   return r.estado === "confirmada" || r.estado === "pendiente";
 }
 
-export function getMesasConEstado(fecha: string, servicio: string): MesaConEstado[] {
+export function getMesasConEstado(
+  fecha: string, servicio: string,
+  extra: ReservaLocal[] = [],
+): MesaConEstado[] {
   const mesas = loadMesas();
-  const reservas = loadReservas().filter(
-    (r) => r.fecha === fecha && r.servicio === servicio && isActive(r),
-  );
+  const reservas = [
+    ...loadReservas().filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
+    ...extra.filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
+  ];
   return mesas.map((m) => {
     const occ = reservas.find((r) => isOccupied(r) && r.mesaIds.includes(m.id));
     if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ };
