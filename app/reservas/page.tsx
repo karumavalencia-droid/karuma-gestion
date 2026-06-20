@@ -1,17 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Phone, MessageCircle, MapPin, Instagram, ChevronRight, ChevronLeft, CheckCircle2, Users } from "lucide-react";
 
 type Servicio = "comida" | "cena";
 type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
 
-const TELEFONO = "+34676706776";
-const WHATSAPP = "+34676706776";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
-const MAX_DIAS_ANTELACION = 7;
+const FALLBACK_TEL = "+34676706776";
+
+interface PublicConfig {
+  reservas_online_activas: boolean;
+  max_personas_online: number;
+  dias_max_antelacion: number;
+  telefono: string | null;
+  whatsapp: string | null;
+  comida_inicio: string;
+  comida_fin: string;
+  cena_inicio: string;
+  cena_fin: string;
+}
 
 export default function ReservasPage() {
+  const [config, setConfig] = useState<PublicConfig | null>(null);
   const [step, setStep] = useState<Step>("personas");
   const [personas, setPersonas] = useState(0);
   const [fecha, setFecha] = useState("");
@@ -27,9 +38,20 @@ export default function ReservasPage() {
   const [mesasAsignadas, setMesasAsignadas] = useState<number[]>([]);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    fetch("/api/reservas/config")
+      .then((r) => r.json())
+      .then(setConfig)
+      .catch(() => null);
+  }, []);
+
+  const TELEFONO = config?.telefono?.replace(/\s/g, "") || FALLBACK_TEL;
+  const WHATSAPP = config?.whatsapp?.replace(/\s/g, "") || FALLBACK_TEL;
+  const MAX_DIAS = config?.dias_max_antelacion ?? 7;
+
   const hoy = new Date().toISOString().split("T")[0];
   const maxFecha = new Date();
-  maxFecha.setDate(maxFecha.getDate() + MAX_DIAS_ANTELACION);
+  maxFecha.setDate(maxFecha.getDate() + MAX_DIAS);
   const maxFechaStr = maxFecha.toISOString().split("T")[0];
 
   async function cargarSlots(f: string, s: Servicio, p: number) {
@@ -306,7 +328,7 @@ export default function ReservasPage() {
               <ChevronLeft className="h-4 w-4" /> Volver
             </button>
             <h2 className="mb-2 text-xl font-bold text-gray-900">¿Qué día?</h2>
-            <p className="mb-6 text-sm text-gray-500">Puedes reservar hasta {MAX_DIAS_ANTELACION} días de antelación</p>
+            <p className="mb-6 text-sm text-gray-500">Puedes reservar hasta {MAX_DIAS} días de antelación</p>
             <input
               type="date"
               min={hoy}
@@ -351,7 +373,9 @@ export default function ReservasPage() {
                   <span className="text-3xl">{s === "comida" ? "🍱" : "🍣"}</span>
                   <p className="mt-2 text-base font-bold text-gray-900 capitalize">{s}</p>
                   <p className="mt-1 text-xs text-gray-400">
-                    {s === "comida" ? "13:00 – 15:30" : "20:00 – 23:00"}
+                    {s === "comida"
+                      ? `${config?.comida_inicio ?? "13:00"} – ${config?.comida_fin ?? "15:30"}`
+                      : `${config?.cena_inicio ?? "20:00"} – ${config?.cena_fin ?? "23:00"}`}
                   </p>
                 </button>
               ))}

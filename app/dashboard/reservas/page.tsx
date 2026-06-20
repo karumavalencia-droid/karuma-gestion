@@ -30,6 +30,10 @@ export default function GestionReservasPage() {
   const [wiTelefono, setWiTelefono] = useState("");
   const [wiPersonas, setWiPersonas] = useState(2);
   const [wiNotas, setWiNotas] = useState("");
+  const [wiEnviando, setWiEnviando] = useState(false);
+  const [wiError, setWiError] = useState("");
+
+  const [cancelConfirm, setCancelConfirm] = useState<string | null>(null);
 
   // Manual reservation modal
   const [showManual, setShowManual] = useState(false);
@@ -84,31 +88,35 @@ export default function GestionReservasPage() {
   }
 
   async function crearWalkIn() {
-    const sb = getSupabaseClient();
-    if (!sb) return;
+    setWiEnviando(true);
+    setWiError("");
     const hora = new Date().toTimeString().slice(0, 5);
     const serv: "comida" | "cena" = hora < "17:00" ? "comida" : "cena";
-    const { data: cli } = await sb
-      .from("clientes_reservas")
-      .upsert({ nombre: wiNombre, telefono: wiTelefono, visitas: 1 }, { onConflict: "telefono" })
-      .select("id")
-      .single();
-    if (!cli) return;
-    await sb.from("reservas").insert({
-      cliente_id: cli.id,
-      fecha,
-      hora_inicio: hora,
-      duracion_min: wiPersonas <= 2 ? 90 : 120,
-      servicio: serv,
-      personas: wiPersonas,
-      mesa_ids: [],
-      estado: "WalkIn",
-      notas: wiNotas || null,
-      origen: "walkin",
-    });
-    setShowWalkIn(false);
-    setWiNombre(""); setWiTelefono(""); setWiPersonas(2); setWiNotas("");
-    cargar();
+    try {
+      const res = await fetch("/api/reservas/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: wiNombre,
+          telefono: wiTelefono || "000000000",
+          personas: wiPersonas,
+          fecha,
+          hora,
+          servicio: serv,
+          notas: wiNotas || null,
+          origen: "walkin",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error");
+      setShowWalkIn(false);
+      setWiNombre(""); setWiTelefono(""); setWiPersonas(2); setWiNotas(""); setWiError("");
+      cargar();
+    } catch (e: unknown) {
+      setWiError(e instanceof Error ? e.message : "Error al registrar");
+    } finally {
+      setWiEnviando(false);
+    }
   }
 
   async function cargarSlotsManual() {
@@ -312,12 +320,29 @@ export default function GestionReservasPage() {
                           </button>
                         )}
                         {r.estado !== "Cancelada" && r.estado !== "Finalizada" && (
-                          <button
-                            onClick={() => cambiarEstado(r.id, "Cancelada")}
-                            className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-400 hover:bg-gray-700"
-                          >
-                            Cancelar
-                          </button>
+                          cancelConfirm === r.id ? (
+                            <span className="flex items-center gap-1">
+                              <button
+                                onClick={() => { cambiarEstado(r.id, "Cancelada"); setCancelConfirm(null); }}
+                                className="rounded bg-red-900 px-2 py-1 text-xs text-red-300 hover:bg-red-800"
+                              >
+                                ¿Seguro?
+                              </button>
+                              <button
+                                onClick={() => setCancelConfirm(null)}
+                                className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-400"
+                              >
+                                No
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setCancelConfirm(r.id)}
+                              className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-400 hover:bg-gray-700"
+                            >
+                              Cancelar
+                            </button>
+                          )
                         )}
                       </div>
                     </td>
@@ -368,19 +393,22 @@ export default function GestionReservasPage() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
               />
             </div>
+            {wiError && (
+              <p className="mt-2 rounded-lg bg-red-900/40 px-3 py-2 text-sm text-red-300">{wiError}</p>
+            )}
             <div className="mt-4 flex gap-3">
               <button
-                onClick={() => setShowWalkIn(false)}
+                onClick={() => { setShowWalkIn(false); setWiError(""); }}
                 className="flex-1 rounded-lg border border-gray-700 py-2 text-sm text-gray-400"
               >
                 Cancelar
               </button>
               <button
                 onClick={crearWalkIn}
-                disabled={!wiNombre || !wiTelefono}
+                disabled={!wiNombre || wiEnviando}
                 className="flex-1 rounded-lg bg-karuma-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                Registrar
+                {wiEnviando ? "Registrando…" : "Registrar"}
               </button>
             </div>
           </div>
