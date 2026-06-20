@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { CalendarCheck, Users, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
-import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
+import { fetchStatsSb } from "@/lib/reservas/sb-store";
+import type { StatsLocal } from "@/lib/reservas/local-store";
 
 interface SalesRecord { date: string; grossSales: number; customers: number; }
 interface SalesResponse { configured: boolean; records: SalesRecord[]; }
@@ -25,8 +26,8 @@ export default function DashboardPage() {
   const thisMonth = todayStr.slice(0, 7);
 
   useEffect(() => {
-    // Local-store stats (instant, no network)
-    setStats(getDashboardStats(todayStr));
+    // Supabase stats
+    void fetchStatsSb(todayStr).then(setStats);
 
     // Sales from API (optional, graceful fallback)
     fetch("/api/sales/daily?limit=31")
@@ -35,9 +36,9 @@ export default function DashboardPage() {
       .catch(() => null);
   }, [todayStr]);
 
-  // Refresh local stats every 30 s in case reservations were added elsewhere
+  // Refresh Supabase stats every 30 s
   useEffect(() => {
-    const id = setInterval(() => setStats(getDashboardStats(todayStr)), 30_000);
+    const id = setInterval(() => { void fetchStatsSb(todayStr).then(setStats); }, 30_000);
     return () => clearInterval(id);
   }, [todayStr]);
 
