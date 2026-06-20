@@ -1,5 +1,9 @@
 // Syncs online Supabase reservations into localStorage so admin operations work uniformly.
-// Called from admin dashboard on every reload. Never overwrites existing localStorage entries.
+// Sync rules:
+//   - New entry in Supabase not in localStorage → add it
+//   - Existing entry: terminal states (cancelada/finished/no-show) from Supabase always win
+//     because they can only be set by an admin action that also updates both sides.
+//     Non-terminal Supabase state (confirmada/sentada) never overwrites local changes.
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -21,6 +25,11 @@ function mapEstadoSb(e: EstadoReserva): EstadoLocal {
     case "WalkIn":     return "walkin";
     default:           return "confirmada";
   }
+}
+
+// Terminal states can only be set by an explicit admin action — always trust Supabase for these
+function isTerminal(e: EstadoLocal): boolean {
+  return e === "cancelada" || e === "finished" || e === "no-show";
 }
 
 type SbRow = Record<string, unknown>;
@@ -46,11 +55,6 @@ function mapSbRow(r: SbRow): ReservaLocal {
   };
 }
 
-/**
- * Fetches reservations from Supabase for the given date and merges them into
- * localStorage. Returns the full merged list for that date.
- * Supabase entries that already exist in localStorage (by id) are skipped.
- */
 export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]> {
   const sb = getSupabaseClient();
   if (sb) {
@@ -62,19 +66,26 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
 
       if (data && data.length > 0) {
         const local = loadReservas();
-        // Build map of online-sourced entries by id for fast lookup
         const localMap = new Map(local.map((r) => [r.id, r]));
         let changed = false;
+
         for (const row of data as SbRow[]) {
           const mapped = mapSbRow(row);
           const existing = localMap.get(mapped.id);
+
           if (!existing) {
             // New entry from Supabase — add it
             localMap.set(mapped.id, mapped);
             changed = true;
+          } else if (existing.origen === "online" && isTerminal(mapped.estado) && !isTerminal(existing.estado)) {
+            // Supabase has a terminal state but local is still active:
+            // another device/session cancelled/finished this reservation — sync it
+            localMap.set(mapped.id, { ...existing, estado: mapped.estado });
+            changed = true;
           }
-          // Never overwrite existing entries: admin changes take priority over Supabase
+          // In all other cases local state wins (non-terminal Supabase never overwrites local)
         }
+
         if (changed) {
           saveReservas([...localMap.values()]);
         }
