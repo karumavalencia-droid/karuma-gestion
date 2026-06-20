@@ -162,7 +162,15 @@ export default function MesaViewPage() {
   }
 
   function handleLiberar(reservaId: string) {
+    const reserva = sel?.reserva;
     liberarMesa(reservaId);
+    if (reserva?.origen === "online") {
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: reservaId, estado: "finished" }),
+      });
+    }
     setSel(null);
     reload();
     showToast("Mesa liberada");

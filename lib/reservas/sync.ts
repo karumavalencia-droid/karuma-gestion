@@ -69,14 +69,11 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
           const mapped = mapSbRow(row);
           const existing = localMap.get(mapped.id);
           if (!existing) {
-            // New entry from Supabase
+            // New entry from Supabase — add it
             localMap.set(mapped.id, mapped);
             changed = true;
-          } else if (existing.origen === "online" && existing.estado !== mapped.estado) {
-            // Update estado for online entries if changed in Supabase
-            localMap.set(mapped.id, { ...existing, estado: mapped.estado });
-            changed = true;
           }
+          // Never overwrite existing entries: admin changes take priority over Supabase
         }
         if (changed) {
           saveReservas([...localMap.values()]);

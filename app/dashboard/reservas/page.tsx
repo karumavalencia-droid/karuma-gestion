@@ -204,12 +204,27 @@ export default function ReservasPage() {
   function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
     updateEstado(r.id, estado);
     setCancelId(null);
+    // Sync estado back to Supabase for online reservations
+    if (r.origen === "online") {
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, estado }),
+      });
+    }
     reload();
     showToast("Estado actualizado");
   }
 
   function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
+    if (r.origen === "online") {
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, estado: "finished" }),
+      });
+    }
     reload();
     showToast("Mesa liberada");
   }
