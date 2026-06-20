@@ -2,7 +2,7 @@ import { empleados } from "@/lib/data/empleados";
 import { turnos, diasSemana } from "@/lib/data/turnos";
 import { DiaSemana, EmpleadoPersonal, EstadoEmpleado, HorarioDia } from "@/lib/types";
 
-export const STORAGE_KEY = "karuma_personal_v1";
+export const STORAGE_KEY = "karuma_staff_v1";
 export const HORAS_MES_BASE = 160;
 export const SEMANAS_MES = 4.33;
 
