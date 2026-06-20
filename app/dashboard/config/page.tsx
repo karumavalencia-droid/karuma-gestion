@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ReservasConfig } from "@/lib/reservas/types";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { Trash2, Plus } from "lucide-react";
 
 const DEFAULT_CONFIG: ReservasConfig = {
   reservas_online_activas: true,
@@ -11,16 +12,23 @@ const DEFAULT_CONFIG: ReservasConfig = {
   intervalo_min: 15,
   duracion_1_2_min: 90,
   duracion_3_4_min: 120,
-  dias_max_antelacion: 30,
+  dias_max_antelacion: 7,
   capacidad_online_pct: 70,
   comida_inicio: "13:00",
-  comida_fin: "15:00",
+  comida_fin: "15:30",
   cena_inicio: "20:00",
-  cena_fin: "22:00",
+  cena_fin: "23:00",
   telefono: "",
   whatsapp: "",
   google_review_link: null,
 };
+
+interface CierreRow {
+  id: number;
+  fecha: string;
+  servicio: string;
+  motivo: string | null;
+}
 
 export default function ConfigReservasPage() {
   const [config, setConfig] = useState<ReservasConfig>(DEFAULT_CONFIG);
@@ -28,24 +36,57 @@ export default function ConfigReservasPage() {
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
 
+  // Cierres de servicio
+  const [cierres, setCierres] = useState<CierreRow[]>([]);
+  const [cFecha, setCFecha] = useState(new Date().toISOString().split("T")[0]);
+  const [cServicio, setCServicio] = useState<"comida" | "cena" | "todo">("todo");
+  const [cMotivo, setCMotivo] = useState("");
+  const [cGuardando, setCGuardando] = useState(false);
+
+  const sb = getSupabaseClient();
+
   useEffect(() => {
     (async () => {
-      const sb = getSupabaseClient();
       if (!sb) { setLoading(false); return; }
-      const { data } = await sb.from("reservas_config").select("*").eq("id", 1).single();
-      if (data) setConfig(data as ReservasConfig);
+      const [{ data: cfgData }, { data: cierresData }] = await Promise.all([
+        sb.from("reservas_config").select("*").eq("id", 1).single(),
+        sb.from("cierres_servicio").select("*").order("fecha", { ascending: false }).limit(30),
+      ]);
+      if (cfgData) setConfig(cfgData as ReservasConfig);
+      setCierres((cierresData ?? []) as CierreRow[]);
       setLoading(false);
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function guardar() {
     setGuardando(true);
-    const sb = getSupabaseClient();
     if (!sb) { setGuardando(false); return; }
     await sb.from("reservas_config").update(config).eq("id", 1);
     setGuardando(false);
     setOk(true);
     setTimeout(() => setOk(false), 2000);
+  }
+
+  async function añadirCierre() {
+    if (!sb || !cFecha) return;
+    setCGuardando(true);
+    const { data } = await sb
+      .from("cierres_servicio")
+      .upsert({ fecha: cFecha, servicio: cServicio, motivo: cMotivo || null }, { onConflict: "fecha,servicio" })
+      .select("*")
+      .single();
+    if (data) {
+      setCierres((prev) => [data as CierreRow, ...prev.filter((c) => !(c.fecha === cFecha && c.servicio === cServicio))]);
+    }
+    setCMotivo("");
+    setCGuardando(false);
+  }
+
+  async function eliminarCierre(id: number) {
+    if (!sb) return;
+    await sb.from("cierres_servicio").delete().eq("id", id);
+    setCierres((prev) => prev.filter((c) => c.id !== id));
   }
 
   function set<K extends keyof ReservasConfig>(k: K, v: ReservasConfig[K]) {
@@ -67,7 +108,7 @@ export default function ConfigReservasPage() {
               value={config.reservas_online_activas}
               onChange={(v) => set("reservas_online_activas", v)}
             />
-            <Field label="Máx. personas online" type="number">
+            <Field label="Máx. personas online">
               <input
                 type="number" min={1} max={20}
                 value={config.max_personas_online}
@@ -75,7 +116,7 @@ export default function ConfigReservasPage() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Intervalo (min)" type="number">
+            <Field label="Intervalo (min)">
               <input
                 type="number" min={5} max={60} step={5}
                 value={config.intervalo_min}
@@ -134,15 +175,89 @@ export default function ConfigReservasPage() {
 
           <Section title="Contacto">
             <Field label="Teléfono">
-              <input type="tel" value={config.telefono ?? ""} onChange={(e) => set("telefono", e.target.value)} className={inputCls} placeholder="+34 963 000 000" />
+              <input type="tel" value={config.telefono ?? ""} onChange={(e) => set("telefono", e.target.value)} className={inputCls} placeholder="+34 676 70 67 76" />
             </Field>
             <Field label="WhatsApp">
-              <input type="tel" value={config.whatsapp ?? ""} onChange={(e) => set("whatsapp", e.target.value)} className={inputCls} placeholder="+34 600 000 000" />
+              <input type="tel" value={config.whatsapp ?? ""} onChange={(e) => set("whatsapp", e.target.value)} className={inputCls} placeholder="+34 676 70 67 76" />
             </Field>
             <Field label="Link Google Review">
               <input type="url" value={config.google_review_link ?? ""} onChange={(e) => set("google_review_link", e.target.value || null)} className={inputCls} placeholder="https://g.page/r/…" />
             </Field>
           </Section>
+
+          {/* ── CIERRES DE SERVICIO ──────────────────────────────────────── */}
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Cierres de servicio
+            </h2>
+            <p className="mb-4 text-xs text-gray-500">
+              Los clientes no podrán reservar en las fechas cerradas.
+            </p>
+
+            {/* Añadir cierre */}
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={cFecha}
+                onChange={(e) => setCFecha(e.target.value)}
+                className={`${inputCls} col-span-1`}
+              />
+              <select
+                value={cServicio}
+                onChange={(e) => setCServicio(e.target.value as "comida" | "cena" | "todo")}
+                className={`${inputCls} col-span-1`}
+              >
+                <option value="todo">Todo el día</option>
+                <option value="comida">Solo comida</option>
+                <option value="cena">Solo cena</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Motivo (opcional)"
+                value={cMotivo}
+                onChange={(e) => setCMotivo(e.target.value)}
+                className={`${inputCls} col-span-2`}
+              />
+              <button
+                onClick={añadirCierre}
+                disabled={!cFecha || cGuardando}
+                className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-karuma-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {cGuardando ? "Guardando…" : "Añadir cierre"}
+              </button>
+            </div>
+
+            {/* Lista de cierres */}
+            {cierres.length === 0 ? (
+              <p className="py-2 text-center text-xs text-gray-600">No hay cierres programados</p>
+            ) : (
+              <div className="space-y-2">
+                {cierres.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between rounded-lg bg-gray-800 px-3 py-2.5"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {c.fecha}{" "}
+                        <span className="rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
+                          {c.servicio === "todo" ? "Todo el día" : c.servicio === "comida" ? "Comida" : "Cena"}
+                        </span>
+                      </p>
+                      {c.motivo && <p className="mt-0.5 text-xs text-gray-500">{c.motivo}</p>}
+                    </div>
+                    <button
+                      onClick={() => eliminarCierre(c.id)}
+                      className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-700 hover:text-red-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <button
@@ -168,7 +283,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, children }: { label: string; type?: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <label className="text-sm text-gray-300">{label}</label>

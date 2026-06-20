@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Reserva, EstadoReserva } from "@/lib/reservas/types";
-import { MessageCircle, Plus, Search, CalendarPlus } from "lucide-react";
+import { MessageCircle, Plus, Search, CalendarPlus, Star } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 
 const ESTADO_COLORES: Record<EstadoReserva, string> = {
@@ -22,6 +22,7 @@ export default function GestionReservasPage() {
   const [loading, setLoading] = useState(true);
   const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
   const [servicio, setServicio] = useState<"" | "comida" | "cena">("");
+  const [googleReviewLink, setGoogleReviewLink] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
   // Walk-in modal
@@ -72,6 +73,13 @@ export default function GestionReservasPage() {
   }, [fecha, servicio]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    fetch("/api/reservas/config")
+      .then((r) => r.json())
+      .then((d: { google_review_link?: string | null }) => setGoogleReviewLink(d.google_review_link ?? null))
+      .catch(() => null);
+  }, []);
 
   // Realtime: refresh list when any reservation changes
   useEffect(() => {
@@ -323,6 +331,17 @@ export default function GestionReservasPage() {
                           >
                             Finalizar
                           </button>
+                        )}
+                        {r.estado === "Finalizada" && googleReviewLink && r.cliente_telefono && (
+                          <a
+                            href={`https://wa.me/${r.cliente_telefono.replace(/\D/g, "")}?text=${encodeURIComponent(`¡Hola ${r.cliente_nombre ?? ""}! Esperamos que hayas disfrutado en Karuma. Si te apetece, nos ayudaría mucho con una reseña: ${googleReviewLink} ¡Gracias! 🍣`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded bg-yellow-900 p-1.5 text-yellow-300 hover:bg-yellow-800"
+                            title="Pedir reseña Google"
+                          >
+                            <Star className="h-3.5 w-3.5" />
+                          </a>
                         )}
                         {(r.estado === "Confirmada" || r.estado === "WalkIn") && (
                           <button
