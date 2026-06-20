@@ -29,7 +29,7 @@ const STATUS_STYLE = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
-function autoServicio(): ServicioLocal { return new Date().getHours() >= 17 ? "cena" : "comida"; }
+function autoServicio(): ServicioLocal { return new Date().getHours() >= 15 ? "cena" : "comida"; }
 
 function duracion(seatedAt?: string): string {
   if (!seatedAt) return "";
