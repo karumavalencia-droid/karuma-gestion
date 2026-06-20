@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Phone, MessageCircle, MapPin, Instagram, ChevronRight, ChevronLeft, CheckCircle2, Users } from "lucide-react";
 
 type Servicio = "comida" | "cena";
@@ -47,12 +47,34 @@ export default function ReservasPage() {
 
   const TELEFONO = config?.telefono?.replace(/\s/g, "") || FALLBACK_TEL;
   const WHATSAPP = config?.whatsapp?.replace(/\s/g, "") || FALLBACK_TEL;
-  const MAX_DIAS = config?.dias_max_antelacion ?? 7;
+  const MAX_DIAS = 7; // máximo permitido por política del restaurante
 
   const hoy = new Date().toISOString().split("T")[0];
   const maxFecha = new Date();
   maxFecha.setDate(maxFecha.getDate() + MAX_DIAS);
   const maxFechaStr = maxFecha.toISOString().split("T")[0];
+
+  // Genera los días válidos (hoy + 7) para el selector visual
+  const diasValidos = useMemo(() => {
+    const lista: { valor: string; etiqueta: string }[] = [];
+    const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    const DIAS_ES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+    for (let i = 0; i <= MAX_DIAS; i++) {
+      const d = new Date(); d.setDate(d.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const valor = `${yyyy}-${mm}-${dd}`;
+      const etiqueta = i === 0
+        ? `Hoy, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
+        : i === 1
+        ? `Mañana, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
+        : `${DIAS_ES[d.getDay()].charAt(0).toUpperCase() + DIAS_ES[d.getDay()].slice(1)}, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`;
+      lista.push({ valor, etiqueta });
+    }
+    return lista;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function cargarSlots(f: string, s: Servicio, p: number) {
     setLoadingSlots(true);
@@ -327,20 +349,30 @@ export default function ReservasPage() {
             >
               <ChevronLeft className="h-4 w-4" /> Volver
             </button>
-            <h2 className="mb-2 text-xl font-bold text-gray-900">¿Qué día?</h2>
-            <p className="mb-6 text-sm text-gray-500">Puedes reservar hasta {MAX_DIAS} días de antelación</p>
-            <input
-              type="date"
-              min={hoy}
-              max={maxFechaStr}
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="w-full rounded-2xl border-2 border-gray-200 px-4 py-4 text-lg focus:border-karuma-600 focus:outline-none"
-            />
+            <h2 className="mb-2 text-xl font-bold text-gray-900">¿Qué día quieres reservar?</h2>
+            <p className="mb-6 text-sm text-gray-500">Puedes reservar hasta 7 días de antelación</p>
+
+            <div className="space-y-3">
+              {diasValidos.map(({ valor, etiqueta }) => (
+                <button
+                  key={valor}
+                  onClick={() => { setFecha(valor); setError(""); }}
+                  className={`flex w-full items-center justify-between rounded-2xl border-2 px-5 py-4 text-left transition-all ${
+                    fecha === valor
+                      ? "border-karuma-600 bg-karuma-50 text-karuma-700"
+                      : "border-gray-200 text-gray-800 hover:border-karuma-400"
+                  }`}
+                >
+                  <span className="text-base font-semibold">{etiqueta}</span>
+                  {fecha === valor && <ChevronRight className="h-5 w-5 text-karuma-600" />}
+                </button>
+              ))}
+            </div>
+
             {fecha && (
               <button
                 onClick={() => setStep("servicio")}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-karuma-600 py-4 text-base font-bold text-white hover:bg-karuma-700"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-karuma-600 py-4 text-base font-bold text-white hover:bg-karuma-700"
               >
                 Continuar <ChevronRight className="h-5 w-5" />
               </button>
