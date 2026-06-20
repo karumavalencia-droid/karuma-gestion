@@ -18,14 +18,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
   }
 
-  const [{ data: mesas }, { data: reservas }, { data: configData }] = await Promise.all([
+  const [{ data: mesas }, { data: reservas }, { data: configData }, { data: cierres }] = await Promise.all([
     supabase.from("mesas").select("*").eq("activa", true),
     supabase.from("reservas").select("*").eq("fecha", fecha),
     supabase.from("reservas_config").select("*").eq("id", 1).single(),
+    supabase.from("cierres_servicio").select("servicio").eq("fecha", fecha),
   ]);
 
   if (!mesas || !configData) {
     return NextResponse.json({ error: "Error al cargar datos" }, { status: 500 });
+  }
+
+  // Check if this service is closed for the day
+  const cerrado = (cierres ?? []).some(
+    (c) => c.servicio === servicio || c.servicio === "todo",
+  );
+  if (cerrado) {
+    return NextResponse.json({ slots: [], cerrado: true });
   }
 
   let slots = calcularSlotsDisponibles(
