@@ -13,5 +13,5 @@ export const viewport: Viewport = {
 };
 
 export default function ReservasLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-[100dvh] overflow-x-hidden bg-white text-gray-900 antialiased">{children}</div>;
+  return <div lang="es" className="min-h-[100dvh] overflow-x-hidden bg-white text-gray-900 antialiased">{children}</div>;
 }
