@@ -1,14 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarCheck,
   CalendarDays,
+  ChevronDown,
   LayoutDashboard,
   Megaphone,
   PackageSearch,
+  ShoppingBasket,
   Snowflake,
   Timer,
   Truck,
@@ -31,6 +34,19 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
 
 const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
 
+const SUPPLIER_LINKS = [
+  {
+    href: "/dashboard/cominport",
+    labelKey: "cominport",
+    icon: PackageSearch,
+  },
+  {
+    href: "/dashboard/jet-extramar",
+    labelKey: "jetExtramar",
+    icon: Snowflake,
+  },
+] as const;
+
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
@@ -39,6 +55,14 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const supplierRouteActive = SUPPLIER_LINKS.some(
+    ({ href }) => pathname === href || pathname.startsWith(`${href}/`),
+  );
+  const [supplierMenuOpen, setSupplierMenuOpen] = useState(supplierRouteActive);
+
+  useEffect(() => {
+    if (supplierRouteActive) setSupplierMenuOpen(true);
+  }, [supplierRouteActive]);
 
   return (
     <>
@@ -96,34 +120,54 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             );
           })}
 
-          <div className="pt-4">
-            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-              {t("nav.compras")}
-            </p>
-            <Link
-              href="/dashboard/cominport"
-              onClick={onClose}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                pathname === "/dashboard/cominport"
-                  ? "bg-karuma-600 text-white"
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setSupplierMenuOpen((current) => !current)}
+              aria-expanded={supplierMenuOpen}
+              aria-controls="supplier-ordering-menu"
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                supplierRouteActive
+                  ? "bg-gray-800 text-white"
                   : "text-gray-300 hover:bg-gray-800 hover:text-white"
               }`}
             >
-              <PackageSearch className="h-5 w-5 shrink-0 opacity-90" />
-              {t("nav.cominport")}
-            </Link>
-            <Link
-              href="/dashboard/jet-extramar"
-              onClick={onClose}
-              className={`mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                pathname === "/dashboard/jet-extramar"
-                  ? "bg-karuma-600 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
-              }`}
-            >
-              <Snowflake className="h-5 w-5 shrink-0 opacity-90" />
-              {t("nav.jetExtramar")}
-            </Link>
+              <ShoppingBasket className="h-5 w-5 shrink-0 opacity-90" />
+              <span className="min-w-0 flex-1 truncate text-left">
+                {t("nav.supplierOrders")}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 transition-transform ${
+                  supplierMenuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {supplierMenuOpen && (
+              <div
+                id="supplier-ordering-menu"
+                className="ml-5 mt-1 space-y-1 border-l border-gray-700 pl-2"
+              >
+                {SUPPLIER_LINKS.map(({ href, labelKey, icon: Icon }) => {
+                  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={onClose}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-karuma-600 text-white"
+                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                      {t(`nav.${labelKey}`)}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </nav>
 
