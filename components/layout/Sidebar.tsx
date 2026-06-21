@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X, Timer } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
+import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
@@ -44,14 +45,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-gray-800 px-4 sm:h-16 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-sm font-bold text-white sm:h-9 sm:w-9">
-              K
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">{t("header.appName")}</p>
-              <p className="truncate text-[10px] text-gray-400 sm:text-xs">v1.0 · Sushi & Grill</p>
-            </div>
+          <div className="flex min-w-0 items-center">
+            <KarumaLogo tone="light" />
           </div>
           <button
             type="button"
