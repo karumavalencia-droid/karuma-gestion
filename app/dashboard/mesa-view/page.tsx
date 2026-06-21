@@ -201,6 +201,12 @@ export default function MesaViewPage() {
     setNHora(nowHHMM()); setNServicio(autoServicio()); setNMesaIds([]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
+  // Nueva reserva pre-rellenada para una mesa concreta (al tocar mesa libre en una fecha futura)
+  function openNuevaParaMesa(m: MesaConEstado) {
+    setNNombre(""); setNTelefono(""); setNPersonas(Math.min(m.capacidad, 2));
+    setNHora(horaPlano); setNServicio(servicio); setNMesaIds([m.id]);
+    setNNotas(""); setNError(""); setShowNueva(true);
+  }
   function submitNueva() {
     if (!nNombre.trim()) { setNError("El nombre es obligatorio"); return; }
     const res = createReserva({
@@ -276,7 +282,12 @@ export default function MesaViewPage() {
   }
 
   function handleMesaClick(m: MesaConEstado) {
-    if (m.status === "available") { openWalkIn(m); return; }
+    if (m.status === "available") {
+      // Walk-In sólo tiene sentido HOY (es sentar a alguien ahora). Otra fecha → nueva reserva.
+      if (fecha === hoy()) openWalkIn(m);
+      else openNuevaParaMesa(m);
+      return;
+    }
     setEditing(false); setSel(m);
   }
 
@@ -359,7 +370,7 @@ export default function MesaViewPage() {
               <span className="text-gray-500">{s.label}</span>
             </span>
           ))}
-          <span className="text-gray-400">· Mesa libre → Walk-In directo</span>
+          <span className="text-gray-400">· Mesa libre → {fecha === hoy() ? "Walk-In directo" : "Nueva reserva"}</span>
         </div>
 
         {/* Mesa grid */}
@@ -391,7 +402,7 @@ export default function MesaViewPage() {
                   </div>
                 )}
                 {m.status === "available" && (
-                  <p className="mt-1.5 text-[10px] text-gray-400">+ Walk-In</p>
+                  <p className="mt-1.5 text-[10px] text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
                 )}
               </button>
             );
