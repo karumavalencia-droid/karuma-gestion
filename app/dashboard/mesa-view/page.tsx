@@ -424,7 +424,12 @@ export default function MesaViewPage() {
                 )}
                 {m.status === "available" && (
                   agenda.length > 0
-                    ? <p className="mt-2 truncate text-sm font-semibold text-gray-500" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>Reservada: {agenda.map((a) => a.hora).join(", ")}</p>
+                    ? <div className="mt-2 space-y-0.5">
+                        <p className="truncate text-base font-bold text-gray-600">{agenda[0].nombre}</p>
+                        <p className="truncate text-sm font-semibold text-gray-400" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          Próx · {agenda[0].hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
+                        </p>
+                      </div>
                     : <p className="mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
                 )}
                 {/* Otros turnos del día (翻台) */}
