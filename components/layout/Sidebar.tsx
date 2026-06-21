@@ -3,7 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarCheck, CalendarDays, LayoutDashboard, Megaphone, Truck, Users, X, Timer } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  LayoutDashboard,
+  Megaphone,
+  PackageSearch,
+  Snowflake,
+  Timer,
+  Truck,
+  Users,
+  X,
+} from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -84,6 +95,36 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </Link>
             );
           })}
+
+          <div className="pt-4">
+            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              {t("nav.compras")}
+            </p>
+            <Link
+              href="/dashboard/cominport"
+              onClick={onClose}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                pathname === "/dashboard/cominport"
+                  ? "bg-karuma-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <PackageSearch className="h-5 w-5 shrink-0 opacity-90" />
+              {t("nav.cominport")}
+            </Link>
+            <Link
+              href="/dashboard/jet-extramar"
+              onClick={onClose}
+              className={`mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                pathname === "/dashboard/jet-extramar"
+                  ? "bg-karuma-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <Snowflake className="h-5 w-5 shrink-0 opacity-90" />
+              {t("nav.jetExtramar")}
+            </Link>
+          </div>
         </nav>
 
         <div className="border-t border-gray-800 px-3 py-3">

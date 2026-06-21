@@ -36,6 +36,8 @@ export const translations = {
       pedidos: "Pedidos",
       inventario: "Inventario",
       compras: "Compras",
+      cominport: "Cominport",
+      jetExtramar: "Jet Extramar",
       facturas: "Facturas",
       personal: "Personal",
       finanzas: "Finanzas",
@@ -382,6 +384,8 @@ export const translations = {
       pedidos: "订单",
       inventario: "库存",
       compras: "采购",
+      cominport: "Cominport",
+      jetExtramar: "Jet Extramar",
       facturas: "发票",
       personal: "员工",
       finanzas: "财务",
@@ -740,6 +744,8 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
 /** Route path → nav translation key */
 export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/dashboard": "dashboard",
+  "/dashboard/cominport": "cominport",
+  "/dashboard/jet-extramar": "jetExtramar",
   "/sales": "sales",
   "/food-cost": "foodCost",
   "/invoices": "invoices",
