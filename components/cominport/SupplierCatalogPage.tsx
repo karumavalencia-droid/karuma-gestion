@@ -22,6 +22,7 @@ import type {
 } from "@/src/data/cominportProducts";
 
 type Tab = "catalogo" | "favoritos" | "historial" | "carrito";
+const CATALOG_PAGE_SIZE = 48;
 
 interface SupplierCatalogPageProps {
   supplierName: string;
@@ -103,6 +104,7 @@ export function SupplierCatalogPage({
   const [activeTab, setActiveTab] = useState<Tab>("catalogo");
   const [configMessage, setConfigMessage] = useState("");
   const [toast, setToast] = useState("");
+  const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
 
   useEffect(() => {
     const validCodes = new Set(products.map((product) => product.codigo));
@@ -146,6 +148,15 @@ export function SupplierCatalogPage({
       return matchesCategory && matchesSearch;
     });
   }, [category, products, search]);
+
+  useEffect(() => {
+    setVisibleCount(CATALOG_PAGE_SIZE);
+  }, [category, search]);
+
+  const visibleProducts = useMemo(
+    () => filteredProducts.slice(0, visibleCount),
+    [filteredProducts, visibleCount],
+  );
 
   const favoriteProducts = useMemo(() => {
     const favorites = new Set(favoriteCodes);
@@ -478,17 +489,35 @@ export function SupplierCatalogPage({
                 </button>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.codigo}
-                    product={product}
-                    isFavorite={favoriteCodes.includes(product.codigo)}
-                    lowStock={lowStockCodes.has(product.codigo)}
-                    onAdd={addProduct}
-                    onToggleFavorite={toggleFavorite}
-                  />
-                ))}
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Mostrando {visibleProducts.length} de {filteredProducts.length} productos
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {visibleProducts.map((product) => (
+                    <ProductCard
+                      key={product.codigo}
+                      product={product}
+                      isFavorite={favoriteCodes.includes(product.codigo)}
+                      lowStock={lowStockCodes.has(product.codigo)}
+                      onAdd={addProduct}
+                      onToggleFavorite={toggleFavorite}
+                    />
+                  ))}
+                </div>
+                {visibleProducts.length < filteredProducts.length && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleCount((current) =>
+                        Math.min(current + CATALOG_PAGE_SIZE, filteredProducts.length),
+                      )
+                    }
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    Mostrar más ({filteredProducts.length - visibleProducts.length})
+                  </button>
+                )}
               </div>
             )}
           </div>
