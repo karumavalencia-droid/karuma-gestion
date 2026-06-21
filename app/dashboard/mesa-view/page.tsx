@@ -106,6 +106,7 @@ export default function MesaViewPage() {
 
   // Selected mesa detail modal
   const [sel, setSel] = useState<MesaConEstado | null>(null);
+  const [focusReservaId, setFocusReservaId] = useState<string | null>(null); // turno enfocado dentro de la mesa
 
   // Walk-In modal
   const [wiMesa, setWiMesa]         = useState<MesaConEstado | null>(null);
@@ -288,13 +289,17 @@ export default function MesaViewPage() {
   }
 
   function handleMesaClick(m: MesaConEstado) {
-    if (m.status === "available") {
-      // Walk-In sólo tiene sentido HOY (es sentar a alguien ahora). Otra fecha → nueva reserva.
-      if (fecha === hoy()) openWalkIn(m);
-      else openNuevaParaMesa(m);
+    const agenda = m.agenda ?? [];
+    // Mesa libre SIN ninguna reserva del día → crear directamente
+    if (m.status === "available" && agenda.length === 0) {
+      if (fecha === hoy()) openWalkIn(m);   // hoy → walk-in (ahora)
+      else openNuevaParaMesa(m);            // otra fecha → nueva reserva
       return;
     }
-    setEditing(false); setSel(m);
+    // Mesa con reservas (en este momento o en otros turnos del día) → abrir detalle
+    setEditing(false);
+    setFocusReservaId(m.reserva?.id ?? agenda[0]?.id ?? null);
+    setSel(m);
   }
 
   const mesasList: MesaLocal[] = MESAS_SEED;
@@ -451,7 +456,11 @@ export default function MesaViewPage() {
 
       {/* ── Detail modal ──────────────────────────────────────────────────────── */}
       <Modal open={!!sel && !cancelReservaId} onClose={() => { setSel(null); setEditing(false); }}>
-        {sel && (
+        {sel && (() => {
+          const agenda = sel.agenda ?? [];
+          const focusR = agenda.find((a) => a.id === focusReservaId) ?? sel.reserva ?? agenda[0] ?? null;
+          const focusOcc = !!focusR && (focusR.estado === "sentada" || focusR.estado === "walkin");
+          return (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
@@ -463,24 +472,24 @@ export default function MesaViewPage() {
               </button>
             </div>
 
-            {/* ── Agenda del día (varios turnos / 翻台) ──────────────────────── */}
-            {!editing && (sel.agenda?.length ?? 0) > 1 && (
+            {/* ── Agenda del día: turnos (翻台). Toca un turno para verlo/editarlo ── */}
+            {!editing && agenda.length > 1 && (
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
-                  Reservas del día · {sel.agenda!.length} turnos
+                  Reservas del día · {agenda.length} turnos
                 </p>
                 <div className="space-y-1.5">
-                  {sel.agenda!.map((a) => {
-                    const actual = a.id === sel.reserva?.id;
+                  {agenda.map((a) => {
+                    const actual = a.id === focusR?.id;
                     return (
-                      <div key={a.id}
-                        className={`flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-sm ${actual ? "ring-2 ring-karuma-400" : "border border-gray-100"}`}>
+                      <button key={a.id} onClick={() => setFocusReservaId(a.id)}
+                        className={`flex w-full items-center justify-between rounded-lg bg-white px-2.5 py-2 text-sm transition-all ${actual ? "ring-2 ring-karuma-400" : "border border-gray-100 hover:bg-gray-50"}`}>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="font-black text-gray-900">{a.hora}</span>
                           <span className="truncate text-gray-600">{a.nombre}</span>
                         </div>
                         <span className="shrink-0 text-xs text-gray-400">{a.personas}p · {ESTADO_CORTO[a.estado] ?? a.estado}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -488,8 +497,9 @@ export default function MesaViewPage() {
             )}
 
             {/* ── Edit mode (personas + hora) ───────────────────────────────── */}
-            {editing && sel.reserva && (
+            {editing && focusR && (
               <>
+                <div className="mb-1 text-sm font-semibold text-gray-500">Editando turno de las {focusR.hora}</div>
                 <div className="space-y-4 rounded-xl bg-gray-50 p-4">
                   <div>
                     <p className="mb-1.5 text-xs font-bold text-gray-500">Personas</p>
@@ -506,7 +516,7 @@ export default function MesaViewPage() {
                     <input type="time" value={editHora} onChange={(e) => setEditHora(e.target.value)} className={inp} />
                   </div>
                 </div>
-                <button onClick={() => submitEdit(sel.reserva!)}
+                <button onClick={() => submitEdit(focusR)}
                   className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                   Guardar cambios
                 </button>
@@ -517,80 +527,69 @@ export default function MesaViewPage() {
               </>
             )}
 
-            {!editing && sel.status === "occupied" && sel.reserva && (
+            {/* ── Turno enfocado: info + acciones ───────────────────────────── */}
+            {!editing && focusR && (
               <>
-                <div className="rounded-xl bg-red-50 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{sel.reserva.nombre}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Personas</span><span className="font-semibold">{sel.reserva.personas}</span></div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Entrada</span>
-                    <span className="font-semibold">
-                      {sel.reserva.seatedAt
-                        ? new Date(sel.reserva.seatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
-                        : sel.reserva.hora}
-                    </span>
-                  </div>
-                  <div className="flex justify-between"><span className="text-gray-500">Tiempo</span><span className="font-bold text-red-600">{duracion(sel.reserva.seatedAt)}</span></div>
-                  {sel.reserva.notas && (
-                    <div className="flex justify-between"><span className="text-gray-500">Notas</span><span className="text-right max-w-[60%] text-gray-700">{sel.reserva.notas}</span></div>
+                <div className={`rounded-xl p-4 space-y-2 text-sm ${focusOcc ? "bg-red-50" : "bg-emerald-50"}`}>
+                  <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{focusR.nombre}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Hora</span><span className="font-semibold">{focusR.hora}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Personas</span><span className="font-semibold">{focusR.personas}</span></div>
+                  {focusOcc && (
+                    <div className="flex justify-between"><span className="text-gray-500">Tiempo</span><span className="font-bold text-red-600">{duracion(focusR.seatedAt)}</span></div>
+                  )}
+                  {focusR.telefono && (
+                    <div className="flex justify-between"><span className="text-gray-500">Tel.</span><span>{focusR.telefono}</span></div>
+                  )}
+                  {focusR.notas && (
+                    <div className="flex justify-between"><span className="text-gray-500">Notas</span><span className="text-right max-w-[60%] text-gray-700">{focusR.notas}</span></div>
                   )}
                 </div>
-                <button onClick={() => handleLiberar(sel.reserva!)}
-                  className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
-                  ✓ Liberar mesa
-                </button>
-                <button onClick={() => openEdit(sel.reserva!)}
+                {focusOcc ? (
+                  <button onClick={() => handleLiberar(focusR)}
+                    className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
+                    ✓ Liberar mesa
+                  </button>
+                ) : (
+                  <button onClick={() => { openSeat(focusR); setSel(null); }}
+                    className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+                    → Sentar / Ocupar mesa
+                  </button>
+                )}
+                <button onClick={() => openEdit(focusR)}
                   className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   ✏️ Editar personas / hora
                 </button>
-                <button onClick={() => setCancelReservaId(sel.reserva!.id)}
+                <button onClick={() => setCancelReservaId(focusR.id)}
                   className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100">
                   Cancelar reserva
                 </button>
               </>
             )}
 
-            {!editing && sel.status === "reserved" && sel.reserva && (
-              <>
-                <div className="rounded-xl bg-emerald-50 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{sel.reserva.nombre}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Hora</span><span className="font-semibold">{sel.reserva.hora}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Personas</span><span className="font-semibold">{sel.reserva.personas}</span></div>
-                  {sel.reserva.telefono && (
-                    <div className="flex justify-between"><span className="text-gray-500">Tel.</span><span>{sel.reserva.telefono}</span></div>
-                  )}
-                  {sel.reserva.notas && (
-                    <div className="flex justify-between"><span className="text-gray-500">Notas</span><span className="text-right max-w-[60%] text-gray-700">{sel.reserva.notas}</span></div>
-                  )}
-                </div>
-                <button onClick={() => { openSeat(sel.reserva!); setSel(null); }}
-                  className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-                  → Sentar / Ocupar mesa
-                </button>
-                <button onClick={() => openEdit(sel.reserva!)}
-                  className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                  ✏️ Editar personas / hora
-                </button>
-                <button onClick={() => setCancelReservaId(sel.reserva!.id)}
-                  className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100">
-                  Cancelar reserva
-                </button>
-              </>
+            {/* Crear otra reserva en esta mesa (libre en el momento mostrado) */}
+            {!editing && sel.status === "available" && (
+              <button onClick={() => { openNuevaParaMesa(sel); setSel(null); }}
+                className="w-full rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">
+                + Nueva reserva en T{sel.numero}
+              </button>
             )}
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* ── Cancel confirm modal ─────────────────────────────────────────────── */}
       <Modal open={!!cancelReservaId} onClose={() => setCancelReservaId(null)}>
-        {cancelReservaId && sel?.reserva && (
+        {(() => {
+          const cancelR = (sel?.agenda ?? []).find((a) => a.id === cancelReservaId) ?? sel?.reserva ?? null;
+          return cancelReservaId && cancelR && (
           <div className="space-y-4">
             <h2 className="text-lg font-black text-gray-900">¿Cancelar reserva?</h2>
             <p className="text-sm text-gray-600">
-              <span className="font-semibold">{sel.reserva.nombre}</span> · {sel.reserva.hora} · {sel.reserva.personas} pax
+              <span className="font-semibold">{cancelR.nombre}</span> · {cancelR.hora} · {cancelR.personas} pax
             </p>
             <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
-            <button onClick={() => handleCancelar(sel.reserva!)}
+            <button onClick={() => handleCancelar(cancelR)}
               className="w-full rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-500">
               Sí, cancelar
             </button>
@@ -599,7 +598,8 @@ export default function MesaViewPage() {
               Volver
             </button>
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* ── Walk-In modal ────────────────────────────────────────────────────── */}
