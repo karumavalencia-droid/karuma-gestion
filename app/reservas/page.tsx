@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Phone, MessageCircle, MapPin, Instagram, ChevronRight, ChevronLeft, CheckCircle2, Users } from "lucide-react";
+import { KarumaLogo } from "@/components/brand/KarumaLogo";
 
 type Servicio = "comida" | "cena";
 type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
@@ -139,11 +140,8 @@ export default function ReservasPage() {
         <div className="w-full max-w-sm">
           {/* Logo */}
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-karuma-600 text-2xl font-black text-white">
-              K
-            </div>
-            <p className="text-xs font-bold uppercase tracking-widest text-karuma-600">Karuma</p>
-            <p className="text-sm text-gray-500">Sushi & Grill · Valencia</p>
+            <div className="mb-2 flex justify-center"><KarumaLogo tone="dark" /></div>
+            <p className="text-sm text-gray-500">Valencia</p>
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
@@ -221,12 +219,9 @@ export default function ReservasPage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-100 bg-white px-4 py-5 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-karuma-600 text-lg font-black text-white">
-          K
-        </div>
-        <p className="text-xs font-bold uppercase tracking-widest text-karuma-600">Karuma</p>
-        <h1 className="text-lg font-bold text-gray-900">Sushi & Grill · Valencia</h1>
-        <p className="text-sm text-gray-500">Reserva tu mesa online</p>
+        <div className="mb-2 flex justify-center"><KarumaLogo tone="dark" /></div>
+        <h1 className="sr-only">Karuma Sushi & Grill · Valencia</h1>
+        <p className="text-sm text-gray-500">Valencia · Reserva tu mesa online</p>
       </header>
 
       {/* Progress dots */}
