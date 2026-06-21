@@ -10,6 +10,9 @@ type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
 const FALLBACK_TEL = "+34676706776";
 
+// "13:00:00" → "13:00" (quita los segundos para mostrar la hora limpia)
+const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
+
 interface PublicConfig {
   reservas_online_activas: boolean;
   max_personas_online: number;
@@ -401,8 +404,8 @@ export default function ReservasPage() {
                   <p className="mt-2 text-base font-bold text-gray-900 capitalize">{s}</p>
                   <p className="mt-1 text-xs text-gray-400">
                     {s === "comida"
-                      ? `${config?.comida_inicio ?? "13:00"} – ${config?.comida_fin ?? "15:30"}`
-                      : `${config?.cena_inicio ?? "20:00"} – ${config?.cena_fin ?? "23:00"}`}
+                      ? `${hhmm(config?.comida_inicio) || "13:00"} – ${hhmm(config?.comida_fin) || "15:30"}`
+                      : `${hhmm(config?.cena_inicio) || "19:30"} – ${hhmm(config?.cena_fin) || "22:00"}`}
                   </p>
                 </button>
               ))}
