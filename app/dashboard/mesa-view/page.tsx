@@ -41,6 +41,11 @@ const ESTADO_CORTO: Record<string, string> = {
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
 function autoServicio(): ServicioLocal { return new Date().getHours() >= 15 ? "cena" : "comida"; }
+function fechaLarga(f: string): string {
+  const s = new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  return s.charAt(0).toUpperCase() + s.slice(1);  // "Domingo, 22 de junio"
+}
+const SERVICIO_LABEL: Record<ServicioLocal, string> = { comida: "Comida", cena: "Cena" };
 const FECHA_KEY = "karuma_shared_fecha";
 function getSharedFecha() {
   if (typeof window === "undefined") return hoy();
@@ -182,6 +187,8 @@ export default function MesaViewPage() {
   const ocupadas  = mesas.filter((m) => m.status === "occupied").length;
   const reservadas = mesas.filter((m) => m.status === "reserved").length;
   const libres    = mesas.filter((m) => m.status === "available").length;
+  // Nº total de reservas del servicio (todos los turnos del día), para el estado vacío
+  const reservasDia = mesas.reduce((n, m) => n + (m.agenda?.length ?? 0), 0);
 
   // ── Walk-In ──────────────────────────────────────────────────────────────────
   function openWalkIn(m: MesaConEstado) {
@@ -309,82 +316,112 @@ export default function MesaViewPage() {
       <div className="mx-auto max-w-4xl">
         <ReservasNav />
 
-        {/* Top bar */}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+        {/* ── Encabezado: tarea principal + acciones ─────────────────────────── */}
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-gray-900">Plano de mesas</h1>
+            <p className="mt-0.5 text-sm text-gray-500">{fechaLarga(fecha)} · {SERVICIO_LABEL[servicio]}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={openWalkInGeneral}
+              className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">
+              🚶 Walk-In
+            </button>
+            <button onClick={openNueva}
+              className="flex items-center gap-2 rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-karuma-700">
+              <Plus className="h-4 w-4" /> Nueva reserva
+            </button>
+          </div>
+        </div>
+
+        {/* ── Controles: fecha + servicio ────────────────────────────────────── */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-karuma-500 focus:outline-none" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
               <button key={s} onClick={() => setServicio(s)}
-                className={`px-5 py-2 text-sm font-medium transition-colors ${
+                className={`px-5 py-2 text-sm font-semibold transition-colors ${
                   servicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                 }`}>
                 {s === "comida" ? "🍱 Comida" : "🍣 Cena"}
               </button>
             ))}
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button onClick={openWalkInGeneral}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">
-              🚶 Walk-In
-            </button>
-            <button onClick={openNueva}
-              className="flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
-              <Plus className="h-4 w-4" /> Nueva reserva
-            </button>
-          </div>
         </div>
 
-        {/* Time selector — 翻台 / turn-over */}
+        {/* ── Eje de tiempo: estado del plano por franja (翻台 / turn-over) ───── */}
         <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-              Plano a las <span className="text-karuma-600">{horaPlano}</span>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Estado del plano a las <span className="text-base font-black text-karuma-600">{horaPlano}</span>
             </p>
             <button onClick={() => setHoraPlano(defaultHoraPlano(fecha, servicio))}
-              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200">
+              className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200">
               {fecha === hoy() ? "● Ahora" : "↻ Apertura"}
             </button>
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {slotsPlano(servicio).map((t) => (
-              <button key={t} onClick={() => setHoraPlano(t)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
-                  horaPlano === t ? "bg-karuma-600 text-white" : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-                }`}>
-                {t}
-              </button>
-            ))}
+            {slotsPlano(servicio).map((t) => {
+              const esAhora = fecha === hoy() && t === defaultHoraPlano(fecha, servicio);
+              return (
+                <button key={t} onClick={() => setHoraPlano(t)}
+                  className={`relative shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                    horaPlano === t ? "bg-karuma-600 text-white"
+                      : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                  }`}>
+                  {t}
+                  {esAhora && horaPlano !== t && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-karuma-500 ring-2 ring-white" title="Ahora" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="mb-5 grid grid-cols-4 gap-2">
+        {/* ── Tarjetas de estado (mismos colores que el plano = leyenda) ─────── */}
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
-            { label: "Total",      val: total,      cls: "text-gray-900"    },
-            { label: "Ocupadas",   val: ocupadas,   cls: "text-red-600"     },
-            { label: "Reservadas", val: reservadas, cls: "text-emerald-600" },
-            { label: "Libres",     val: libres,     cls: "text-gray-500"    },
+            { label: "Libres",     val: libres,     bar: "bg-gray-300",    num: "text-gray-700"    },
+            { label: "Reservadas", val: reservadas, bar: "bg-emerald-400", num: "text-emerald-600" },
+            { label: "Ocupadas",   val: ocupadas,   bar: "bg-red-400",     num: "text-red-600"     },
+            { label: "Total",      val: total,      bar: "bg-gray-800",    num: "text-gray-900"    },
           ].map((s) => (
-            <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm">
-              <p className={`text-2xl font-bold ${s.cls}`}>{s.val}</p>
-              <p className="text-xs text-gray-400">{s.label}</p>
+            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              <span className={`h-9 w-1.5 shrink-0 rounded-full ${s.bar}`} />
+              <div className="min-w-0">
+                <p className={`text-2xl font-black leading-none ${s.num}`}>{s.val}</p>
+                <p className="mt-1 text-xs font-medium text-gray-400">{s.label}</p>
+              </div>
             </div>
           ))}
         </div>
+        <p className="mb-4 text-xs text-gray-400">
+          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una mesa reservada u ocupada para gestionarla.
+        </p>
 
-        {/* Legend */}
-        <div className="mb-5 flex flex-wrap gap-3 text-xs">
-          {(Object.entries(STATUS_STYLE) as [keyof typeof STATUS_STYLE, (typeof STATUS_STYLE)[keyof typeof STATUS_STYLE]][]).map(([key, s]) => (
-            <span key={key} className="flex items-center gap-1.5">
-              <span className={`h-3 w-3 rounded-sm border-2 ${s.bg} ${s.border}`} />
-              <span className="text-gray-500">{s.label}</span>
-            </span>
-          ))}
-          <span className="text-gray-400">· Mesa libre → {fecha === hoy() ? "Walk-In directo" : "Nueva reserva"}</span>
-        </div>
+        {/* Estado vacío: sin reservas en el servicio */}
+        {reservasDia === 0 && (
+          <div className="mb-4 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 px-5 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
+            <div>
+              <p className="text-base font-bold text-gray-900">Aún no hay reservas para {servicio === "comida" ? "la comida" : "la cena"}</p>
+              <p className="mt-0.5 text-sm text-gray-500">Las {total} mesas están libres. Crea la primera reserva o registra un walk-in para empezar.</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button onClick={openWalkInGeneral}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                🚶 Walk-In
+              </button>
+              <button onClick={openNueva}
+                className="rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
+                + Nueva reserva
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Mesa grid */}
+        {/* Plano: cuadrícula de mesas */}
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {mesas.map((m) => {
             const st = STATUS_STYLE[m.status];
