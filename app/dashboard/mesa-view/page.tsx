@@ -398,7 +398,8 @@ export default function MesaViewPage() {
           ))}
         </div>
         <p className="mb-4 text-xs text-gray-400">
-          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una mesa reservada u ocupada para gestionarla.
+          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una reservada u ocupada para gestionarla.
+          <span className="ml-1 text-amber-600">Ámbar = libre ahora, reservada más tarde.</span>
         </p>
 
         {/* Estado vacío: sin reservas en el servicio */}
@@ -424,10 +425,14 @@ export default function MesaViewPage() {
         {/* Plano: cuadrícula de mesas */}
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {mesas.map((m) => {
-            const st = STATUS_STYLE[m.status];
             const r = m.reserva;
             const agenda = m.agenda ?? [];
             const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
+            // Libre AHORA pero con una reserva más tarde en el servicio → estado "próxima" (ámbar)
+            const proxima = m.status === "available" ? (agenda.find((a) => a.hora >= horaPlano) ?? null) : null;
+            const st = proxima
+              ? { bg: "bg-amber-50", border: "border-amber-300", badge: "bg-amber-100 text-amber-700", label: `Próx ${proxima.hora}` }
+              : STATUS_STYLE[m.status];
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
                 className={`relative rounded-xl border-2 p-3.5 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
@@ -460,11 +465,11 @@ export default function MesaViewPage() {
                   </div>
                 )}
                 {m.status === "available" && (
-                  agenda.length > 0
+                  proxima
                     ? <div className="mt-2 space-y-0.5">
-                        <p className="truncate text-base font-bold text-gray-600">{agenda[0].nombre}</p>
-                        <p className="truncate text-sm font-semibold text-gray-400" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          Próx · {agenda[0].hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
+                        <p className="truncate text-base font-bold text-amber-800">{proxima.nombre}</p>
+                        <p className="truncate text-sm font-semibold text-amber-600" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          Reservada · {proxima.hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
                         </p>
                       </div>
                     : <p className="mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
