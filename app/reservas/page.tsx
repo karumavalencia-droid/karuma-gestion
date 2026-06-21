@@ -360,7 +360,7 @@ export default function ReservasPage() {
               {diasValidos.map(({ valor, etiqueta }) => (
                 <button
                   key={valor}
-                  onClick={() => { setFecha(valor); setError(""); }}
+                  onClick={() => { setFecha(valor); setError(""); setStep("servicio"); }}
                   className={`flex w-full items-center justify-between rounded-2xl border-2 px-5 py-4 text-left transition-all ${
                     fecha === valor
                       ? "border-karuma-600 bg-karuma-50 text-karuma-700"
@@ -368,19 +368,10 @@ export default function ReservasPage() {
                   }`}
                 >
                   <span className="text-base font-semibold">{etiqueta}</span>
-                  {fecha === valor && <ChevronRight className="h-5 w-5 text-karuma-600" />}
+                  <ChevronRight className={`h-5 w-5 ${fecha === valor ? "text-karuma-600" : "text-gray-300"}`} />
                 </button>
               ))}
             </div>
-
-            {fecha && (
-              <button
-                onClick={() => setStep("servicio")}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-karuma-600 py-4 text-base font-bold text-white hover:bg-karuma-700"
-              >
-                Continuar <ChevronRight className="h-5 w-5" />
-              </button>
-            )}
           </section>
         )}
 
