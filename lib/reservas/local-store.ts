@@ -199,18 +199,63 @@ function isOccupied(r: ReservaLocal): boolean {
   return r.estado === "sentada" || r.estado === "walkin";
 }
 function isReserved(r: ReservaLocal): boolean {
-  return r.estado === "confirmada" || r.estado === "pendiente";
+  return r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada";
+}
+
+// ─── Turno / 翻台 (table turn-over) ─────────────────────────────────────────────
+// Cuánto tiempo ocupa una mesa una reserva, según el tamaño del grupo.
+// Debe coincidir con reservas_config (duracion_1_2_min / duracion_3_4_min).
+export const DURACION_1_2_MIN = 90;   // 1-2 personas → 90 min
+export const DURACION_3_4_MIN = 120;  // 3+ personas  → 120 min
+export function duracionReserva(personas: number): number {
+  return personas <= 2 ? DURACION_1_2_MIN : DURACION_3_4_MIN;
+}
+// ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [hora, hora+turno)
+function cubreMomento(r: ReservaLocal, tMin: number): boolean {
+  const ini = toMin(r.hora);
+  return tMin >= ini && tMin < ini + duracionReserva(r.personas);
+}
+
+// Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
+export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: string }> = {
+  comida: { inicio: "13:00", fin: "16:00" },
+  cena:   { inicio: "19:30", fin: "23:00" },
+};
+// Horas del selector del plano, en pasos de 30 min.
+export function slotsPlano(servicio: ServicioLocal): string[] {
+  const { inicio, fin } = SERVICIO_VENTANA[servicio];
+  const [hI, mI] = inicio.split(":").map(Number);
+  const [hF, mF] = fin.split(":").map(Number);
+  const out: string[] = [];
+  for (let t = hI * 60 + mI; t <= hF * 60 + mF; t += 30) {
+    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
+// Hora por defecto del plano: "ahora" si es hoy y dentro del servicio; si no, la apertura.
+export function defaultHoraPlano(fecha: string, servicio: ServicioLocal): string {
+  const slots = slotsPlano(servicio);
+  const hoyStr = new Date().toISOString().split("T")[0];
+  if (fecha === hoyStr) {
+    const now = new Date().toTimeString().slice(0, 5);
+    const previos = slots.filter((s) => s <= now);
+    if (previos.length && now <= slots[slots.length - 1]) return previos[previos.length - 1];
+  }
+  return slots[0];
 }
 
 export function getMesasConEstado(
   fecha: string, servicio: string,
+  hora?: string,                    // si se pasa, estado "en ese momento" (翻台); si no, todo el servicio
   extra: ReservaLocal[] = [],
 ): MesaConEstado[] {
   const mesas = loadMesas();
+  const tMin = hora ? toMin(hora) : null;
+  const enMomento = (r: ReservaLocal) => tMin === null || cubreMomento(r, tMin);
   const reservas = [
     ...loadReservas().filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
     ...extra.filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
-  ];
+  ].filter(enMomento);
   return mesas.map((m) => {
     const occ = reservas.find((r) => isOccupied(r) && r.mesaIds.includes(m.id));
     if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ };
@@ -228,14 +273,18 @@ function toMin(hora: string): number {
 }
 
 export function ocupadasEn(
-  fecha: string, hora: string, servicio: string, excludeId?: string,
+  fecha: string, hora: string, servicio: string, personas: number, excludeId?: string,
 ): Set<string> {
-  const min = toMin(hora);
+  const nuevaIni = toMin(hora);
+  const nuevaFin = nuevaIni + duracionReserva(personas);
   const taken = new Set<string>();
   for (const r of loadReservas()) {
     if (r.id === excludeId || !isActive(r)) continue;
     if (r.fecha !== fecha || r.servicio !== servicio) continue;
-    if (Math.abs(toMin(r.hora) - min) < 90) r.mesaIds.forEach((id) => taken.add(id));
+    const ini = toMin(r.hora);
+    const fin = ini + duracionReserva(r.personas);
+    // Solapan [nuevaIni,nuevaFin) ∩ [ini,fin) ≠ ∅  → la mesa no está libre en ese turno
+    if (nuevaIni < fin && ini < nuevaFin) r.mesaIds.forEach((id) => taken.add(id));
   }
   return taken;
 }
@@ -243,7 +292,7 @@ export function ocupadasEn(
 export function asignarMesa(
   personas: number, fecha: string, hora: string, servicio: string, excludeId?: string,
 ): string[] | null {
-  const taken = ocupadasEn(fecha, hora, servicio, excludeId);
+  const taken = ocupadasEn(fecha, hora, servicio, personas, excludeId);
   const avail = loadMesas()
     .filter((m) => !taken.has(m.id) && m.capacidad >= personas)
     .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);

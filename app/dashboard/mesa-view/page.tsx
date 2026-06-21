@@ -13,6 +13,8 @@ import {
   liberarMesa,
   updateEstado,
   editReserva,
+  slotsPlano,
+  defaultHoraPlano,
   MESAS_SEED,
   type MesaConEstado,
   type MesaLocal,
@@ -91,6 +93,7 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 export default function MesaViewPage() {
   const [fecha, setFecha]       = useState(getSharedFecha);
   const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
+  const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);
   const [tick, setTick]         = useState(0);
   const [toast, setToast]       = useState("");
@@ -136,13 +139,16 @@ export default function MesaViewPage() {
   // ── Load ─────────────────────────────────────────────────────────────────────
   const reload = useCallback(() => {
     syncAndLoadReservas(fecha).then(() => {
-      setMesas(getMesasConEstado(fecha, servicio));
+      setMesas(getMesasConEstado(fecha, servicio, horaPlano));
     }).catch(() => {
-      setMesas(getMesasConEstado(fecha, servicio));
+      setMesas(getMesasConEstado(fecha, servicio, horaPlano));
     });
-  }, [fecha, servicio]);
+  }, [fecha, servicio, horaPlano]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Al cambiar fecha o servicio, recolocar el visor del plano en su hora por defecto
+  useEffect(() => { setHoraPlano(defaultHoraPlano(fecha, servicio)); }, [fecha, servicio]);
 
   // Realtime
   useEffect(() => {
@@ -304,6 +310,29 @@ export default function MesaViewPage() {
               className="flex items-center gap-2 rounded-lg bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
               <Plus className="h-4 w-4" /> Nueva reserva
             </button>
+          </div>
+        </div>
+
+        {/* Time selector — 翻台 / turn-over */}
+        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+              Plano a las <span className="text-karuma-600">{horaPlano}</span>
+            </p>
+            <button onClick={() => setHoraPlano(defaultHoraPlano(fecha, servicio))}
+              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200">
+              {fecha === hoy() ? "● Ahora" : "↻ Apertura"}
+            </button>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {slotsPlano(servicio).map((t) => (
+              <button key={t} onClick={() => setHoraPlano(t)}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                  horaPlano === t ? "bg-karuma-600 text-white" : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                }`}>
+                {t}
+              </button>
+            ))}
           </div>
         </div>
 

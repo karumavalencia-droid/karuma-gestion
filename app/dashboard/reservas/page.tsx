@@ -15,6 +15,8 @@ import {
   desplazarReserva,
   getMesasConEstado,
   createWalkInForMesa,
+  slotsPlano,
+  defaultHoraPlano,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
@@ -160,6 +162,7 @@ export default function ReservasPage() {
   const [busqueda, setBusqueda] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
+  const [horaPanel, setHoraPanel] = useState(() => defaultHoraPlano(getSharedFecha(), "cena"));
 
   const [toast, setToast] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
@@ -226,19 +229,22 @@ export default function ReservasPage() {
       setReservas(all);
       setStats(getDashboardStats(fecha));
       setEspera(loadEspera().filter((e) => e.fecha === fecha));
-      setMesas(getMesasConEstado(fecha, servicioPlano));
+      setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
       setLoaded(true);
     }).catch(() => {
       const all = loadReservas().filter((r) => r.fecha === fecha);
       setReservas(all);
       setStats(getDashboardStats(fecha));
       setEspera(loadEspera().filter((e) => e.fecha === fecha));
-      setMesas(getMesasConEstado(fecha, servicioPlano));
+      setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
       setLoaded(true);
     });
-  }, [fecha, servicioPlano]);
+  }, [fecha, servicioPlano, horaPanel]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Visor del plano por hora (翻台) en el panel lateral
+  useEffect(() => { setHoraPanel(defaultHoraPlano(fecha, servicioPlano)); }, [fecha, servicioPlano]);
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -708,6 +714,14 @@ export default function ReservasPage() {
                   </button>
                 ))}
               </div>
+            </div>
+            {/* Selector de hora — 翻台 */}
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">A las</span>
+              <select value={horaPanel} onChange={(e) => setHoraPanel(e.target.value)}
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-bold text-karuma-600">
+                {slotsPlano(servicioPlano).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               {mesas.map((m) => {
