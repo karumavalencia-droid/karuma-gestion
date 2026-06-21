@@ -3,7 +3,7 @@
 import { Menu, Bell } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
-import { normalizeRole, ROLE_LABELS } from "@/lib/auth/permissions";
+import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 interface HeaderProps {
@@ -51,11 +51,11 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         <div className="flex items-center gap-2">
           <div className="hidden text-right sm:block">
             <p className="text-xs font-medium text-gray-900">{displayName}</p>
-            <p className="text-[10px] text-gray-500">{ROLE_LABELS[role]}</p>
+            <p className="text-[10px] text-gray-500">{roleLabel(role, locale)}</p>
           </div>
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full bg-karuma-600 text-xs font-bold text-white sm:h-9 sm:w-9"
-            title={`${displayName} · ${ROLE_LABELS[role]}`}
+            title={`${displayName} · ${roleLabel(role, locale)}`}
           >
             {getUserInitials(displayName)}
           </div>

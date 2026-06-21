@@ -3,8 +3,10 @@ import { marketingEs, marketingZh } from "@/lib/marketing/content";
 
 export type Locale = "zh" | "es";
 
-export const DEFAULT_LOCALE: Locale = "zh";
-export const STORAGE_KEY = "karuma_language";
+export const DEFAULT_LOCALE: Locale = "es";
+// v2: al cambiar el idioma por defecto a español, ignoramos preferencias antiguas
+// guardadas como "zh" para que toda la app arranque en español.
+export const STORAGE_KEY = "karuma_language_v2";
 
 export const i18n = {
   zh: {

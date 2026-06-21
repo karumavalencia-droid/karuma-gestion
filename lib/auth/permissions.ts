@@ -31,6 +31,16 @@ export type Permission = {
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
+  owner: "Propietario",
+  manager: "Encargado",
+  kitchen: "Cocina",
+  sushi: "Sushi",
+  waiter: "Camarero",
+  cashier: "Cajero",
+  dishwasher: "Friegaplatos",
+};
+
+export const ROLE_LABELS_ZH: Record<Role, string> = {
   owner: "老板",
   manager: "店长",
   kitchen: "厨房",
@@ -39,6 +49,10 @@ export const ROLE_LABELS: Record<Role, string> = {
   cashier: "收银",
   dishwasher: "洗碗",
 };
+
+export function roleLabel(role: Role, locale: "es" | "zh" = "es"): string {
+  return (locale === "zh" ? ROLE_LABELS_ZH : ROLE_LABELS)[role] ?? role;
+}
 
 const ALL_MODULES: Module[] = [
   "dashboard",
