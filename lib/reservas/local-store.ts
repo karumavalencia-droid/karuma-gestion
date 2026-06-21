@@ -77,7 +77,8 @@ export interface EsperaLocal {
 
 export interface MesaConEstado extends MesaLocal {
   status: MesaStatus;
-  reserva?: ReservaLocal;
+  reserva?: ReservaLocal;            // la reserva activa en el momento mostrado (horaPlano)
+  agenda?: ReservaLocal[];           // TODAS las reservas de esa mesa ese día+servicio (varios turnos), ordenadas por hora
 }
 
 export type EtiquetaLocal = "vip" | "alergico" | "cumpleanos" | "regular" | "problematico";
@@ -252,16 +253,21 @@ export function getMesasConEstado(
   const mesas = loadMesas();
   const tMin = hora ? toMin(hora) : null;
   const enMomento = (r: ReservaLocal) => tMin === null || cubreMomento(r, tMin);
-  const reservas = [
+  const delDia = [
     ...loadReservas().filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
     ...extra.filter((r) => r.fecha === fecha && r.servicio === servicio && isActive(r)),
-  ].filter(enMomento);
+  ];
   return mesas.map((m) => {
-    const occ = reservas.find((r) => isOccupied(r) && r.mesaIds.includes(m.id));
-    if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ };
-    const res = reservas.find((r) => isReserved(r) && r.mesaIds.includes(m.id));
-    if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res };
-    return { ...m, status: "available" as MesaStatus };
+    // Todas las reservas de esta mesa ese día (varios turnos), ordenadas por hora
+    const agenda = delDia
+      .filter((r) => r.mesaIds.includes(m.id))
+      .sort((a, b) => toMin(a.hora) - toMin(b.hora));
+    const ahora = agenda.filter(enMomento);
+    const occ = ahora.find((r) => isOccupied(r));
+    if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ, agenda };
+    const res = ahora.find((r) => isReserved(r));
+    if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res, agenda };
+    return { ...m, status: "available" as MesaStatus, agenda };
   });
 }
 

@@ -731,14 +731,19 @@ export default function ReservasPage() {
                   occupied:  "border-red-400 bg-red-50 text-red-700",
                   cleaning:  "border-yellow-400 bg-yellow-50 text-yellow-700",
                 };
+                const nTurnos = m.agenda?.length ?? 0;
                 return (
                   <button key={m.id} onClick={() => setMesaSel(m)}
                     className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${colors[m.status]}`}>
+                    {nTurnos > 1 && (
+                      <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gray-900 px-0.5 text-[8px] font-bold text-white"
+                        title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
+                    )}
                     <p className="text-xs font-black">T{m.numero}</p>
                     <p className="text-[9px] opacity-70">{m.capacidad}p</p>
-                    {m.reserva && (
-                      <p className="truncate text-[8px] font-semibold leading-tight">{m.reserva.nombre.split(" ")[0]}</p>
-                    )}
+                    {m.reserva
+                      ? <p className="truncate text-[8px] font-semibold leading-tight">{m.reserva.nombre.split(" ")[0]}</p>
+                      : nTurnos > 0 && <p className="truncate text-[8px] font-semibold leading-tight text-gray-400">{m.agenda![0].hora}</p>}
                   </button>
                 );
               })}
@@ -772,6 +777,20 @@ export default function ReservasPage() {
                 <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{mesaSel.reserva.nombre}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Hora</span><span>{mesaSel.reserva.hora}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Personas</span><span>{mesaSel.reserva.personas}</span></div>
+              </div>
+            )}
+            {/* Agenda del día — varios turnos (翻台) */}
+            {(mesaSel.agenda?.length ?? 0) > 1 && (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Reservas del día · {mesaSel.agenda!.length} turnos</p>
+                <div className="space-y-1.5">
+                  {mesaSel.agenda!.map((a) => (
+                    <div key={a.id} className={`flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-sm ${a.id === mesaSel.reserva?.id ? "ring-2 ring-karuma-400" : "border border-gray-100"}`}>
+                      <div className="flex min-w-0 items-center gap-2"><span className="font-black text-gray-900">{a.hora}</span><span className="truncate text-gray-600">{a.nombre}</span></div>
+                      <span className="shrink-0 text-xs text-gray-400">{a.personas}p</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {mesaSel.status === "available" && (

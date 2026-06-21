@@ -31,6 +31,12 @@ const STATUS_STYLE = {
   cleaning:  { bg: "bg-yellow-50",    border: "border-yellow-400",  badge: "bg-yellow-100 text-yellow-700",   label: "Limpieza"  },
 };
 
+const ESTADO_CORTO: Record<string, string> = {
+  pendiente: "Pendiente", confirmada: "Confirmada", llegada: "Llegada",
+  sentada: "En mesa", walkin: "Walk-In", finished: "Finalizada",
+  "no-show": "No Show", cancelada: "Cancelada",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
@@ -378,12 +384,20 @@ export default function MesaViewPage() {
           {mesas.map((m) => {
             const st = STATUS_STYLE[m.status];
             const r = m.reserva;
+            const agenda = m.agenda ?? [];
+            const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
                 className={`relative rounded-xl border-2 p-3 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
                 <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${st.badge}`}>
                   {st.label}
                 </span>
+                {agenda.length > 1 && (
+                  <span className="absolute left-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gray-900 px-1 text-[9px] font-bold text-white"
+                    title={`${agenda.length} reservas hoy`}>
+                    {agenda.length}
+                  </span>
+                )}
                 <p className="text-lg font-black text-gray-900">T{m.numero}</p>
                 <p className="text-[10px] text-gray-400">{m.capacidad}p</p>
                 {m.status === "occupied" && r && (
@@ -402,7 +416,15 @@ export default function MesaViewPage() {
                   </div>
                 )}
                 {m.status === "available" && (
-                  <p className="mt-1.5 text-[10px] text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
+                  agenda.length > 0
+                    ? <p className="mt-1.5 truncate text-[10px] font-semibold text-gray-500" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>Reservada: {agenda.map((a) => a.hora).join(", ")}</p>
+                    : <p className="mt-1.5 text-[10px] text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
+                )}
+                {/* Otros turnos del día (翻台) */}
+                {m.status !== "available" && otras.length > 0 && (
+                  <p className="mt-0.5 truncate text-[9px] text-gray-400" title={otras.map((o) => `${o.hora} ${o.nombre}`).join(" · ")}>
+                    +{otras.length}: {otras.map((o) => o.hora).join(", ")}
+                  </p>
                 )}
               </button>
             );
@@ -438,6 +460,30 @@ export default function MesaViewPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* ── Agenda del día (varios turnos / 翻台) ──────────────────────── */}
+            {!editing && (sel.agenda?.length ?? 0) > 1 && (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Reservas del día · {sel.agenda!.length} turnos
+                </p>
+                <div className="space-y-1.5">
+                  {sel.agenda!.map((a) => {
+                    const actual = a.id === sel.reserva?.id;
+                    return (
+                      <div key={a.id}
+                        className={`flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-sm ${actual ? "ring-2 ring-karuma-400" : "border border-gray-100"}`}>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="font-black text-gray-900">{a.hora}</span>
+                          <span className="truncate text-gray-600">{a.nombre}</span>
+                        </div>
+                        <span className="shrink-0 text-xs text-gray-400">{a.personas}p · {ESTADO_CORTO[a.estado] ?? a.estado}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── Edit mode (personas + hora) ───────────────────────────────── */}
             {editing && sel.reserva && (
