@@ -388,41 +388,43 @@ export default function MesaViewPage() {
             const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
-                className={`relative rounded-xl border-2 p-3 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
-                <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${st.badge}`}>
+                className={`relative rounded-xl border-2 p-3.5 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
+                <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-xs font-bold ${st.badge}`}>
                   {st.label}
                 </span>
-                {agenda.length > 1 && (
-                  <span className="absolute left-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gray-900 px-1 text-[9px] font-bold text-white"
-                    title={`${agenda.length} reservas hoy`}>
-                    {agenda.length}
-                  </span>
-                )}
-                <p className="text-lg font-black text-gray-900">T{m.numero}</p>
-                <p className="text-[10px] text-gray-400">{m.capacidad}p</p>
+                <p className="text-2xl font-black text-gray-900">T{m.numero}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm text-gray-400">{m.capacidad}p</p>
+                  {agenda.length > 1 && (
+                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[11px] font-bold text-white"
+                      title={`${agenda.length} reservas hoy`}>
+                      {agenda.length} turnos
+                    </span>
+                  )}
+                </div>
                 {m.status === "occupied" && r && (
-                  <div className="mt-1.5 space-y-0.5">
-                    <p className="truncate text-xs font-semibold text-red-700">{r.nombre}</p>
-                    <div className="flex items-center gap-1 text-[10px] text-red-500">
-                      <Users className="h-3 w-3" />{r.personas}
-                      <Clock className="ml-1 h-3 w-3" />{duracion(r.seatedAt)}
+                  <div className="mt-2 space-y-1">
+                    <p className="truncate text-base font-bold text-red-700">{r.nombre}</p>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
+                      <Users className="h-4 w-4" />{r.personas}
+                      <Clock className="ml-1.5 h-4 w-4" />{duracion(r.seatedAt)}
                     </div>
                   </div>
                 )}
                 {m.status === "reserved" && r && (
-                  <div className="mt-1.5 space-y-0.5">
-                    <p className="truncate text-xs font-semibold text-emerald-700">{r.nombre}</p>
-                    <p className="text-[10px] text-emerald-600">{r.hora} · {r.personas}p</p>
+                  <div className="mt-2 space-y-0.5">
+                    <p className="truncate text-base font-bold text-emerald-700">{r.nombre}</p>
+                    <p className="text-sm font-semibold text-emerald-600">{r.hora} · {r.personas}p</p>
                   </div>
                 )}
                 {m.status === "available" && (
                   agenda.length > 0
-                    ? <p className="mt-1.5 truncate text-[10px] font-semibold text-gray-500" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>Reservada: {agenda.map((a) => a.hora).join(", ")}</p>
-                    : <p className="mt-1.5 text-[10px] text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
+                    ? <p className="mt-2 truncate text-sm font-semibold text-gray-500" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>Reservada: {agenda.map((a) => a.hora).join(", ")}</p>
+                    : <p className="mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
                 )}
                 {/* Otros turnos del día (翻台) */}
                 {m.status !== "available" && otras.length > 0 && (
-                  <p className="mt-0.5 truncate text-[9px] text-gray-400" title={otras.map((o) => `${o.hora} ${o.nombre}`).join(" · ")}>
+                  <p className="mt-1 truncate text-sm font-medium text-gray-500" title={otras.map((o) => `${o.hora} ${o.nombre}`).join(" · ")}>
                     +{otras.length}: {otras.map((o) => o.hora).join(", ")}
                   </p>
                 )}
