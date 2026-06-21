@@ -10,8 +10,9 @@
 
 const USAR_IMAGEN = false;
 
-const SERIF = '"Didot","Bodoni 72","Bodoni MT","Playfair Display",Georgia,serif';
-const SCRIPT = '"Snell Roundhand","Brush Script MT","Segoe Script","Apple Chancery",cursive';
+// KARUMA: humanista elegante sin serifas (estilo Optima), no un serif de alto contraste
+const WORDMARK = '"Optima","Optima Nova LT Pro","Gill Sans","Gill Sans MT","Albertus MT","Trebuchet MS",sans-serif';
+const SCRIPT = '"Snell Roundhand","Apple Chancery","Brush Script MT","Segoe Script",cursive';
 
 export function KarumaLogo({
   tone = "light",
@@ -31,10 +32,10 @@ export function KarumaLogo({
 
   return (
     <div className={`flex select-none flex-col justify-center leading-none ${className}`}>
-      <span className={`text-xl font-semibold tracking-[0.22em] ${main}`} style={{ fontFamily: SERIF }}>
+      <span className={`text-[1.35rem] font-medium tracking-[0.16em] ${main}`} style={{ fontFamily: WORDMARK }}>
         KARUMA
       </span>
-      <span className={`-mt-1 self-end text-base ${sub}`} style={{ fontFamily: SCRIPT }}>
+      <span className={`-mt-0.5 self-end pr-0.5 text-[0.95rem] ${sub}`} style={{ fontFamily: SCRIPT }}>
         Sushi &amp; grill
       </span>
     </div>
