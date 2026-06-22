@@ -11,13 +11,13 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !user) return;
     if (ADMIN_ROLES.has(user.role)) {
       router.replace("/dashboard");
     } else {
       router.replace("/kiosk");
     }
-  }, [ready, user.role, router]);
+  }, [ready, user, router]);
 
   return null;
 }

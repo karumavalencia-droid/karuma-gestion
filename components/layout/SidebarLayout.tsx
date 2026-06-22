@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY, ROUTE_PAGE_TITLE } from "@/lib/i18n/translations";
 
@@ -22,10 +23,27 @@ function resolvePageTitle(pathname: string, t: (key: string) => string): string 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, ready } = useAuth();
   const { t } = useLanguage();
+  const standalone = STANDALONE_ROUTES.includes(pathname);
 
-  if (STANDALONE_ROUTES.includes(pathname)) {
+  useEffect(() => {
+    if (ready && !user && !standalone) {
+      router.replace("/login");
+    }
+  }, [ready, user, standalone, router]);
+
+  if (standalone) {
     return <>{children}</>;
+  }
+
+  if (!ready || !user) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 text-sm text-gray-500">
+        正在验证登录状态…
+      </div>
+    );
   }
 
   const title = resolvePageTitle(pathname, t);

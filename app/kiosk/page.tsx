@@ -64,7 +64,7 @@ const ADMIN_ROLES = new Set(["owner", "manager"]);
 export default function KioskPage() {
   const { locale, t } = useLanguage();
   const { user } = useAuth();
-  const isAdmin = ADMIN_ROLES.has(user.role);
+  const isAdmin = user ? ADMIN_ROLES.has(user.role) : false;
   const [selected, setSelected] = useState<KioskEmployee | null>(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");

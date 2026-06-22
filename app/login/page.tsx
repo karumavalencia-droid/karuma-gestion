@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getDefaultRoute, ROLE_LABELS, type Role } from "@/lib/auth/permissions";
+import { getDefaultRoute } from "@/lib/auth/permissions";
 
 const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
-
-type AccountPreview = { email: string; name: string; role: Role };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,20 +15,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [accounts, setAccounts] = useState<AccountPreview[]>([]);
 
   useEffect(() => {
     if (ready && user) {
       router.replace(getDefaultRoute(user.role));
     }
   }, [ready, user, router]);
-
-  useEffect(() => {
-    fetch("/api/auth/accounts")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: AccountPreview[]) => setAccounts(data))
-      .catch(() => setAccounts([]));
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +38,6 @@ export default function LoginPage() {
     router.push(getDefaultRoute(loggedIn.role));
   };
 
-  const quickLogin = (accountEmail: string) => {
-    setEmail(accountEmail);
-    setPassword("123456");
-  };
-
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
@@ -61,7 +46,7 @@ export default function LoginPage() {
             K
           </div>
           <h1 className="text-xl font-bold text-gray-900">登录 Karuma ERP</h1>
-          <p className="mt-1 text-sm text-gray-500">Supabase 数据库账号 · 选择角色登录</p>
+          <p className="mt-1 text-sm text-gray-500">请输入后台管理员账号</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -72,7 +57,8 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={inputClass}
-              placeholder="manager@karuma.es"
+              placeholder="admin@karuma.es"
+              autoComplete="username"
               required
             />
           </label>
@@ -83,7 +69,8 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={inputClass}
-              placeholder="123456"
+              placeholder="请输入密码"
+              autoComplete="current-password"
               required
             />
           </label>
@@ -101,22 +88,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 rounded-lg bg-gray-50 p-3">
-          <p className="mb-2 text-xs font-medium text-gray-500">快速选择账号（密码 123456）</p>
-          <ul className="space-y-1">
-            {accounts.map((a) => (
-              <li key={a.email}>
-                <button
-                  type="button"
-                  onClick={() => quickLogin(a.email)}
-                  className="w-full rounded-md px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-white"
-                >
-                  {a.name} · {ROLE_LABELS[a.role]} · {a.email}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
     </div>
   );

@@ -9,10 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { findAccount } from "./accounts";
-import { normalizeRole, type Role } from "./permissions";
-
-export const AUTH_STORAGE_KEY = "karuma_auth_user";
+import { isValidRole, type Role } from "./permissions";
 
 export type AuthUser = {
   name: string;
@@ -20,50 +17,54 @@ export type AuthUser = {
   role: Role;
 };
 
-export const DEFAULT_AUTH_USER: AuthUser = {
-  name: "Zhou",
-  email: "owner@karuma.es",
-  role: "owner",
-};
-
 type AuthContextValue = {
-  user: AuthUser;
+  user: AuthUser | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<AuthUser | null>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function normalizeUser(raw: Partial<AuthUser> | null | undefined): AuthUser {
-  if (!raw) return DEFAULT_AUTH_USER;
+function normalizeUser(raw: Partial<AuthUser> | null | undefined): AuthUser | null {
+  if (
+    !raw ||
+    typeof raw.name !== "string" ||
+    typeof raw.email !== "string" ||
+    !isValidRole(raw.role)
+  ) {
+    return null;
+  }
+
   return {
-    name: raw.name?.trim() || DEFAULT_AUTH_USER.name,
-    email: raw.email?.trim().toLowerCase() || DEFAULT_AUTH_USER.email,
-    role: normalizeRole(raw.role),
+    name: raw.name.trim(),
+    email: raw.email.trim().toLowerCase(),
+    role: raw.role,
   };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(DEFAULT_AUTH_USER);
-  const [ready, setReady] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (raw) {
-        setUser(normalizeUser(JSON.parse(raw) as Partial<AuthUser>));
-      } else {
-        setUser(DEFAULT_AUTH_USER);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEFAULT_AUTH_USER));
-      }
-    } catch {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      setUser(DEFAULT_AUTH_USER);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEFAULT_AUTH_USER));
-    } finally {
-      setReady(true);
-    }
+    let active = true;
+
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return normalizeUser((await response.json()) as Partial<AuthUser>);
+      })
+      .catch(() => null)
+      .then((nextUser) => {
+        if (!active) return;
+        setUser(nextUser);
+        setReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -76,42 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (res.ok) {
         const next = normalizeUser((await res.json()) as Partial<AuthUser>);
+        if (!next) return null;
         setUser(next);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-        return next;
-      }
-
-      if (res.status === 503) {
-        const account = findAccount(email, password);
-        if (!account) return null;
-        const next: AuthUser = {
-          name: account.name,
-          email: account.email,
-          role: account.role,
-        };
-        setUser(next);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
         return next;
       }
 
       return null;
     } catch {
-      const account = findAccount(email, password);
-      if (!account) return null;
-      const next: AuthUser = {
-        name: account.name,
-        email: account.email,
-        role: account.role,
-      };
-      setUser(next);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-      return next;
+      return null;
     }
   }, []);
 
-  const logout = useCallback(() => {
-    setUser(DEFAULT_AUTH_USER);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEFAULT_AUTH_USER));
+  const logout = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo(

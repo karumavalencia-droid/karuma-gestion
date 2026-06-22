@@ -1,6 +1,7 @@
 "use client";
 
-import { Menu, Bell } from "lucide-react";
+import { Menu, Bell, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
@@ -12,7 +13,8 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, title }: HeaderProps) {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const { locale, t } = useLanguage();
   const role = normalizeRole(user?.role);
   const displayName = user?.name ?? "Zhou";
@@ -47,6 +49,18 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         >
           <Bell className="h-5 w-5" />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-karuma-500" />
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            await logout();
+            router.replace("/login");
+          }}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          aria-label="退出登录"
+          title="退出登录"
+        >
+          <LogOut className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
           <div className="hidden text-right sm:block">
