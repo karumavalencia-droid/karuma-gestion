@@ -1,10 +1,10 @@
 -- Built-in administrator account.
--- Email: admin@karuma.es
+-- Login username: karuma
 -- The password hash is bcrypt cost 12. Change it after first access.
 INSERT INTO users (email, password_hash, name, role_id)
 VALUES (
   'admin@karuma.es',
-  '$2b$12$OzAUQHSAaO3utbaRjztr3.ml.nQCue8f179MlvbwiDHkwqzc3SoTK',
+  '$2b$12$9FsIkdLeg57Lccg94zxxAeFeLS3L2ACMtHIXA4Axc6R3jE7zzMnO.',
   'Karuma Admin',
   'owner'
 )

@@ -42,14 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请求格式错误" }, { status: 400 });
   }
 
-  const email = body.email?.trim().toLowerCase();
+  const username = body.email?.trim().toLowerCase();
   const password = body.password ?? "";
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "邮箱和密码不能为空" }, { status: 400 });
+  if (!username || !password) {
+    return NextResponse.json({ error: "账号和密码不能为空" }, { status: 400 });
   }
 
-  const builtInAdmin = await authenticateBuiltInAdmin(email, password);
+  const builtInAdmin = await authenticateBuiltInAdmin(username, password);
   if (builtInAdmin) return createLoginResponse(builtInAdmin);
 
   if (process.env.NODE_ENV === "production" && password === "123456") {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   if (!isSupabaseConfigured()) {
-    const account = findAccount(email, password);
+    const account = findAccount(username, password);
     if (!account) {
       return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 });
     }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   const { data: user, error } = await supabase
     .from("users")
     .select("email, name, role_id, password_hash")
-    .eq("email", email)
+    .eq("email", username)
     .maybeSingle()
     .returns<LoginUser>();
 

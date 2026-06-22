@@ -11,7 +11,7 @@ const inputClass =
 export default function LoginPage() {
   const router = useRouter();
   const { user, ready, login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -27,11 +27,11 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
 
-    const loggedIn = await login(email, password);
+    const loggedIn = await login(username, password);
     setSubmitting(false);
 
     if (!loggedIn) {
-      setError("邮箱或密码错误");
+      setError("账号或密码错误");
       return;
     }
 
@@ -51,13 +51,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">邮箱</span>
+            <span className="text-sm font-medium text-gray-700">账号</span>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className={inputClass}
-              placeholder="admin@karuma.es"
+              placeholder="karuma"
               autoComplete="username"
               required
             />
