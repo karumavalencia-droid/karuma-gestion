@@ -10,6 +10,7 @@ export type DbUser = {
   password_hash: string;
   name: string;
   role_id: string;
+  employee_key: string | null;
   created_at: string;
 };
 
@@ -59,6 +60,51 @@ export type DbUserInsert = {
   password_hash: string;
   name: string;
   role_id: string;
+  employee_key?: string | null;
+};
+
+export type DbAttendanceCredential = {
+  employee_key: string;
+  pin_hash: string;
+  active: boolean;
+  updated_at: string;
+};
+
+export type DbAttendanceEvent = {
+  id: string;
+  request_id: string;
+  employee_key: string;
+  employee_name: string;
+  event_type: "in" | "out";
+  occurred_at: string;
+  received_at: string;
+  business_date: string;
+  source: "kiosk" | "mobile" | "admin";
+  offline: boolean;
+  device_id: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_accuracy: number | null;
+  distance_from_store: number | null;
+  created_at: string;
+};
+
+export type DbAttendanceEventInsert = {
+  id?: string;
+  request_id: string;
+  employee_key: string;
+  employee_name: string;
+  event_type: "in" | "out";
+  occurred_at: string;
+  received_at?: string;
+  business_date: string;
+  source?: "kiosk" | "mobile" | "admin";
+  offline?: boolean;
+  device_id?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_accuracy?: number | null;
+  distance_from_store?: number | null;
 };
 
 // ── Reservas types ──────────────────────────────────────────────────────────
@@ -104,6 +150,7 @@ export type DbReserva = {
   estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
+  review_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -113,6 +160,7 @@ export type DbReservasConfig = {
   reservas_online_activas: boolean;
   max_personas_online: number;
   intervalo_min: number;
+  turno_gap_min: number;
   duracion_1_2_min: number;
   duracion_3_4_min: number;
   dias_max_antelacion: number;
@@ -157,6 +205,18 @@ export type Database = {
         Update: DbStaffUpdate;
         Relationships: [];
       };
+      attendance_credentials: {
+        Row: DbAttendanceCredential;
+        Insert: Omit<DbAttendanceCredential, "updated_at"> & { updated_at?: string };
+        Update: Partial<Omit<DbAttendanceCredential, "employee_key">>;
+        Relationships: [];
+      };
+      attendance_events: {
+        Row: DbAttendanceEvent;
+        Insert: DbAttendanceEventInsert;
+        Update: Partial<DbAttendanceEventInsert>;
+        Relationships: [];
+      };
       mesas: {
         Row: DbMesa;
         Insert: Omit<DbMesa, "id">;
@@ -182,7 +242,10 @@ export type Database = {
       };
       reservas: {
         Row: DbReserva;
-        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at"> & { id?: string };
+        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at" | "review_email_sent_at"> & {
+          id?: string;
+          review_email_sent_at?: string | null;
+        };
         Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
         Relationships: [];
       };

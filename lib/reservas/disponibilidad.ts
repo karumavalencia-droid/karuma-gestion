@@ -16,8 +16,12 @@ export function generarSlots(inicio: string, fin: string, intervaloMin: number):
   return slots;
 }
 
-/** Comprueba si dos intervalos [a, a+durA) y [b, b+durB) se solapan */
-function solapan(horaA: string, durA: number, horaB: string, durB: number): boolean {
+function configTurnoGapMin(config: ReservasConfig): number {
+  return Math.max(0, Number(config.turno_gap_min ?? 30));
+}
+
+/** Comprueba si dos turnos no dejan el margen mínimo entre fin e inicio */
+function solapan(horaA: string, durA: number, horaB: string, durB: number, gapMin = 0): boolean {
   const toMin = (h: string) => {
     const [hh, mm] = h.split(":").map(Number);
     return hh * 60 + mm;
@@ -26,7 +30,7 @@ function solapan(horaA: string, durA: number, horaB: string, durB: number): bool
   const aFin = aIni + durA;
   const bIni = toMin(horaB);
   const bFin = bIni + durB;
-  return aIni < bFin && bIni < aFin;
+  return aIni < bFin + gapMin && bIni < aFin + gapMin;
 }
 
 /** Devuelve ids de mesas ocupadas en un slot concreto */
@@ -35,12 +39,13 @@ export function mesasOcupadasEnSlot(
   fecha: string,
   hora: string,
   duracionMin: number,
+  turnoGapMin = 0,
 ): Set<number> {
   const ocupadas = new Set<number>();
   for (const r of reservas) {
     if (r.fecha !== fecha) continue;
     if (r.estado === "Cancelada" || r.estado === "NoShow") continue;
-    if (solapan(hora, duracionMin, r.hora_inicio, r.duracion_min)) {
+    if (solapan(hora, duracionMin, r.hora_inicio, r.duracion_min, turnoGapMin)) {
       r.mesa_ids.forEach((id) => ocupadas.add(id));
     }
   }
@@ -57,7 +62,8 @@ export function asignarMesa(
   personas: number,
   config: ReservasConfig,
 ): number[] | null {
-  const ocupadas = mesasOcupadasEnSlot(reservas, fecha, hora, duracionMin);
+  const turnoGapMin = configTurnoGapMin(config);
+  const ocupadas = mesasOcupadasEnSlot(reservas, fecha, hora, duracionMin, turnoGapMin);
 
   // Calcular aforo online disponible
   const totalCapacidad = mesas
@@ -71,7 +77,7 @@ export function asignarMesa(
         r.origen === "online" &&
         r.estado !== "Cancelada" &&
         r.estado !== "NoShow" &&
-        solapan(hora, duracionMin, r.hora_inicio, r.duracion_min),
+        solapan(hora, duracionMin, r.hora_inicio, r.duracion_min, turnoGapMin),
     )
     .reduce((sum, r) => sum + r.personas, 0);
   if (personasYaOnline + personas > maxOnline) return null;

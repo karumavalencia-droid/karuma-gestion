@@ -13,14 +13,14 @@ function clearServiceWorker() {
   });
 }
 
-/** 开发环境 /kiosk 禁用 SW，避免样式与页面被离线缓存干扰 */
+/** 生产环境注册 SW；开发环境清理缓存，避免热更新受影响。 */
 export function PwaRegister() {
   const pathname = usePathname();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (process.env.NODE_ENV === "development" || pathname.startsWith("/kiosk")) {
+    if (process.env.NODE_ENV === "development") {
       clearServiceWorker();
       return;
     }

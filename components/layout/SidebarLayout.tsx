@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY, ROUTE_PAGE_TITLE } from "@/lib/i18n/translations";
 
-const STANDALONE_ROUTES = ["/login"];
+const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance"];
 
 function resolvePageTitle(pathname: string, t: (key: string) => string): string {
   const pageTitleKey = ROUTE_PAGE_TITLE[pathname];
@@ -26,15 +26,16 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, ready } = useAuth();
   const { t } = useLanguage();
-  const standalone = STANDALONE_ROUTES.includes(pathname);
+  const noSidebar = NO_SIDEBAR_ROUTES.includes(pathname);
+  const publicPage = pathname === "/login";
 
   useEffect(() => {
-    if (ready && !user && !standalone) {
+    if (ready && !user && !publicPage) {
       router.replace("/login");
     }
-  }, [ready, user, standalone, router]);
+  }, [ready, user, publicPage, router]);
 
-  if (standalone) {
+  if (publicPage || (noSidebar && ready && user)) {
     return <>{children}</>;
   }
 

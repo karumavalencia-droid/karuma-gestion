@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ReservasConfig, HorarioDia } from "@/lib/reservas/types";
+import { RESERVAS_CONFIG_KEY } from "@/lib/reservas/local-store";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { Trash2, Plus } from "lucide-react";
 
@@ -10,6 +11,7 @@ const DEFAULT_CONFIG: ReservasConfig = {
   reservas_online_activas: true,
   max_personas_online: 4,
   intervalo_min: 15,
+  turno_gap_min: 30,
   duracion_1_2_min: 90,
   duracion_3_4_min: 120,
   dias_max_antelacion: 7,
@@ -65,7 +67,10 @@ export default function ConfigReservasPage() {
         sb.from("reservas_config").select("*").eq("id", 1).single(),
         sb.from("cierres_servicio").select("*").order("fecha", { ascending: false }).limit(30),
       ]);
-      if (cfgData) setConfig(cfgData as ReservasConfig);
+      if (cfgData) {
+        setConfig(cfgData as ReservasConfig);
+        localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(cfgData));
+      }
       setCierres((cierresData ?? []) as CierreRow[]);
 
       // Load per-day schedule from API
@@ -90,6 +95,7 @@ export default function ConfigReservasPage() {
         body: JSON.stringify(horario),
       }),
     ]);
+    localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(config));
     setGuardando(false);
     setOk(true);
     setTimeout(() => setOk(false), 2000);
@@ -148,6 +154,10 @@ export default function ConfigReservasPage() {
             <Field label="Intervalo (min)">
               <input type="number" min={5} max={60} step={5} value={config.intervalo_min}
                 onChange={(e) => set("intervalo_min", Number(e.target.value))} className={inputCls} />
+            </Field>
+            <Field label="Margen entre turnos (min)">
+              <input type="number" min={0} max={90} step={5} value={config.turno_gap_min ?? 30}
+                onChange={(e) => set("turno_gap_min", Number(e.target.value))} className={inputCls} />
             </Field>
             <Field label="Duración 1–2 personas (min)">
               <input type="number" min={30} max={240} step={15} value={config.duracion_1_2_min}

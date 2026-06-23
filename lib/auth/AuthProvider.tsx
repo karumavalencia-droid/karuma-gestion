@@ -15,6 +15,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: Role;
+  employeeId: string | null;
 };
 
 type AuthContextValue = {
@@ -40,6 +41,10 @@ function normalizeUser(raw: Partial<AuthUser> | null | undefined): AuthUser | nu
     name: raw.name.trim(),
     email: raw.email.trim().toLowerCase(),
     role: raw.role,
+    employeeId:
+      typeof raw.employeeId === "string" && raw.employeeId.trim()
+        ? raw.employeeId.trim()
+        : null,
   };
 }
 

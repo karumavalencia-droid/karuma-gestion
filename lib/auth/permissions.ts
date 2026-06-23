@@ -98,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 /** 路由 → 权限模块 */
 export const ROUTE_MODULES: Record<string, Module> = {
   "/dashboard": "dashboard",
+  "/attendance": "staff",
   "/sales": "sales",
   "/food-cost": "foodCost",
   "/staff": "staff",
@@ -154,7 +155,8 @@ export function getAllowedRoutes(role: Role): string[] {
     .filter((route, index, arr) => arr.indexOf(route) === index);
 }
 
-export function getDefaultRoute(role: Role): string {
+export function getDefaultRoute(role: Role, employeeId?: string | null): string {
+  if (employeeId) return "/my-attendance";
   const allowed = getAllowedRoutes(role);
   if (allowed.includes("/dashboard")) return "/dashboard";
   // Employees without dashboard access go to kiosk

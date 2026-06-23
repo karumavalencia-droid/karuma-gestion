@@ -21,5 +21,6 @@ export async function authenticateBuiltInAdmin(
     name: "Karuma Admin",
     email: "karuma@local",
     role: "owner",
+    employeeId: null,
   };
 }

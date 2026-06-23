@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
 import { findAccount } from "@/lib/auth/accounts";
 import type { Role } from "@/lib/auth/permissions";
 import { authenticateBuiltInAdmin } from "@/lib/auth/server-accounts";
@@ -9,10 +10,15 @@ import {
   SESSION_MAX_AGE_SECONDS,
   type SessionUser,
 } from "@/lib/auth/session";
+import { findKioskEmployee } from "@/lib/kiosk/employees";
+import { findStaffMember } from "@/lib/staff/data";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DbUser } from "@/lib/supabase/types";
 
-type LoginUser = Pick<DbUser, "email" | "name" | "role_id" | "password_hash">;
+type LoginUser = Pick<
+  DbUser,
+  "email" | "name" | "role_id" | "password_hash" | "employee_key"
+>;
 
 async function createLoginResponse(user: SessionUser) {
   try {
@@ -52,6 +58,20 @@ export async function POST(request: Request) {
   const builtInAdmin = await authenticateBuiltInAdmin(username, password);
   if (builtInAdmin) return createLoginResponse(builtInAdmin);
 
+  if (/^\d{4}$/.test(username) && username === password.trim()) {
+    const employeeId = findEmployeeIdByAttendancePin(username);
+    const employee = employeeId ? findKioskEmployee(employeeId) : null;
+    const staff = employeeId ? findStaffMember(employeeId) : null;
+    if (employee && staff) {
+      return createLoginResponse({
+        name: employee.name,
+        email: `${employeeId}@karuma.local`,
+        role: staff.role as Role,
+        employeeId,
+      });
+    }
+  }
+
   if (process.env.NODE_ENV === "production" && password === "123456") {
     return NextResponse.json(
       { error: "默认演示密码已禁用" },
@@ -68,6 +88,7 @@ export async function POST(request: Request) {
       name: account.name,
       email: account.email,
       role: account.role,
+      employeeId: account.employeeId ?? null,
     });
   }
 
@@ -78,7 +99,7 @@ export async function POST(request: Request) {
 
   const { data: user, error } = await supabase
     .from("users")
-    .select("email, name, role_id, password_hash")
+    .select("email, name, role_id, password_hash, employee_key")
     .eq("email", username)
     .maybeSingle()
     .returns<LoginUser>();
@@ -96,5 +117,6 @@ export async function POST(request: Request) {
     name: user.name,
     email: user.email,
     role: user.role_id as Role,
+    employeeId: user.employee_key,
   });
 }

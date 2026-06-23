@@ -16,6 +16,7 @@ export const translations = {
   es: {
     nav: {
       dashboard: "Dashboard",
+      attendance: "Asistencia",
       sales: "Sales",
       foodCost: "Food Cost",
       invoices: "Invoices",
@@ -365,6 +366,7 @@ export const translations = {
   zh: {
     nav: {
       dashboard: "首页",
+      attendance: "考勤",
       sales: "销售分析",
       foodCost: "菜品成本",
       invoices: "发票中心",
@@ -718,6 +720,7 @@ export type TranslationTree = typeof translations.es;
 /** Route path → page title translation key */
 export const ROUTE_PAGE_TITLE: Record<string, string> = {
   "/dashboard": "dashboard.title",
+  "/attendance": "nav.attendance",
   "/kiosk": "kiosk.title",
   "/reviews": "pages.googleReviews.title",
   "/sales": "pages.sales.title",
@@ -746,6 +749,7 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
 /** Route path → nav translation key */
 export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/dashboard": "dashboard",
+  "/attendance": "attendance",
   "/dashboard/cominport": "cominport",
   "/dashboard/jet-extramar": "jetExtramar",
   "/sales": "sales",

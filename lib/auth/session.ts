@@ -8,6 +8,7 @@ export type SessionUser = {
   name: string;
   email: string;
   role: Role;
+  employeeId: string | null;
 };
 
 type SessionPayload = SessionUser & {
@@ -64,6 +65,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     name: user.name,
     email: user.email,
     role: user.role,
+    employeeId: user.employeeId,
     expiresAt: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
   };
   const encodedPayload = encodeBase64Url(
@@ -107,6 +109,11 @@ export async function verifySessionToken(
       typeof payload.name !== "string" ||
       typeof payload.email !== "string" ||
       !isValidRole(payload.role) ||
+      !(
+        payload.employeeId === null ||
+        typeof payload.employeeId === "string" ||
+        typeof payload.employeeId === "undefined"
+      ) ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt <= Date.now()
     ) {
@@ -117,6 +124,8 @@ export async function verifySessionToken(
       name: payload.name,
       email: payload.email,
       role: payload.role,
+      employeeId:
+        typeof payload.employeeId === "string" ? payload.employeeId : null,
     };
   } catch {
     return null;

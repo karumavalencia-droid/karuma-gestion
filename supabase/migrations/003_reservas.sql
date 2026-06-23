@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS reservas_config (
   reservas_online_activas BOOLEAN NOT NULL DEFAULT true,
   max_personas_online     INTEGER NOT NULL DEFAULT 4,
   intervalo_min           INTEGER NOT NULL DEFAULT 15,
+  turno_gap_min           INTEGER NOT NULL DEFAULT 30,
   duracion_1_2_min        INTEGER NOT NULL DEFAULT 90,
   duracion_3_4_min        INTEGER NOT NULL DEFAULT 120,
   dias_max_antelacion     INTEGER NOT NULL DEFAULT 30,

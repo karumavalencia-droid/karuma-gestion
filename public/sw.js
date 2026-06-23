@@ -1,4 +1,4 @@
-const CACHE_NAME = "karuma-pwa-v2";
+const CACHE_NAME = "karuma-pwa-v3";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -32,14 +32,46 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // 不拦截 Next.js 静态资源（CSS / JS），避免样式丢失
+  // Next.js 静态资源带内容哈希，可安全缓存，供店内平板离线刷新。
   if (url.pathname.startsWith("/_next/")) {
+    if (event.request.method !== "GET") return;
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        });
+      }),
+    );
     return;
   }
 
   if (event.request.method !== "GET") return;
 
   if (event.request.mode === "navigate") {
+    if (url.pathname === "/kiosk" || url.pathname.startsWith("/kiosk/")) {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              void caches.open(CACHE_NAME).then((cache) => cache.put("/kiosk", copy));
+            }
+            return response;
+          })
+          .catch(() =>
+            caches
+              .match("/kiosk")
+              .then((cached) => cached || caches.match(OFFLINE_URL))
+              .then((cached) => cached || Response.error()),
+          ),
+      );
+      return;
+    }
     event.respondWith(
       fetch(event.request).catch(() =>
         caches.match(OFFLINE_URL).then((cached) => cached || Response.error()),

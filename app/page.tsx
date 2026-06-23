@@ -12,6 +12,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!ready || !user) return;
+    if (user.employeeId) {
+      router.replace("/my-attendance");
+      return;
+    }
     if (ADMIN_ROLES.has(user.role)) {
       router.replace("/dashboard");
     } else {

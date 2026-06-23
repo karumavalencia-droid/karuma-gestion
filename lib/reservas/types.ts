@@ -39,6 +39,7 @@ export interface Reserva {
   estado: EstadoReserva;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
+  review_email_sent_at: string | null;
   created_at: string;
 }
 
@@ -46,6 +47,7 @@ export interface ReservasConfig {
   reservas_online_activas: boolean;
   max_personas_online: number;
   intervalo_min: number;
+  turno_gap_min: number;
   duracion_1_2_min: number;
   duracion_3_4_min: number;
   dias_max_antelacion: number;

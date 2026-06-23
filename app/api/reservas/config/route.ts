@@ -9,6 +9,7 @@ export async function GET() {
       reservas_online_activas: true,
       max_personas_online: 4,
       dias_max_antelacion: 7,
+      turno_gap_min: 30,
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",
@@ -21,7 +22,7 @@ export async function GET() {
   const { data } = await supabase
     .from("reservas_config")
     .select(
-      "reservas_online_activas, max_personas_online, dias_max_antelacion, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin",
+      "reservas_online_activas, max_personas_online, dias_max_antelacion, turno_gap_min, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin",
     )
     .eq("id", 1)
     .single();
@@ -31,6 +32,7 @@ export async function GET() {
       reservas_online_activas: true,
       max_personas_online: 4,
       dias_max_antelacion: 7,
+      turno_gap_min: 30,
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",

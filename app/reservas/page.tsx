@@ -36,10 +36,12 @@ export default function ReservasPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
   const [notas, setNotas] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [reservaId, setReservaId] = useState("");
   const [mesasAsignadas, setMesasAsignadas] = useState<number[]>([]);
+  const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -108,18 +110,27 @@ export default function ReservasPage() {
       setError("El teléfono es obligatorio");
       return;
     }
+    if (!email.trim()) {
+      setError("El email es obligatorio para enviar la confirmación");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Introduce un email válido");
+      return;
+    }
     setEnviando(true);
     setError("");
     try {
       const res = await fetch("/api/reservas/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, telefono, personas, fecha, hora, servicio, notas, origen: "online" }),
+        body: JSON.stringify({ nombre, telefono, email: email.trim(), personas, fecha, hora, servicio, notas, origen: "online" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error al reservar");
       setReservaId(data.reservaId);
       setMesasAsignadas(data.mesaIds ?? []);
+      setEmailSent(Boolean(data.emailSent));
       setStep("confirmado");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al reservar");
@@ -151,6 +162,9 @@ export default function ReservasPage() {
             <div className="mb-4 text-center">
               <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-500" />
               <h1 className="text-xl font-bold text-gray-900">Reserva confirmada</h1>
+              <p className="mt-2 text-sm text-gray-500">
+                {emailSent ? `Hemos enviado la confirmación a ${email}` : "Guarda esta pantalla como confirmación de tu reserva."}
+              </p>
             </div>
 
             <div className="space-y-3 rounded-xl bg-gray-50 p-4 text-sm">
@@ -174,6 +188,16 @@ export default function ReservasPage() {
                 <span className="text-gray-500">Nombre</span>
                 <span className="font-semibold text-gray-900">{nombre}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Email</span>
+                <span className="ml-3 truncate text-right font-semibold text-gray-900">{email}</span>
+              </div>
+              {reservaId && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Reserva</span>
+                  <span className="font-semibold text-gray-900">{reservaId}</span>
+                </div>
+              )}
               {mesasAsignadas.length > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Mesa</span>
@@ -204,9 +228,11 @@ export default function ReservasPage() {
                 setHora("");
                 setNombre("");
                 setTelefono("");
+                setEmail("");
                 setNotas("");
                 setReservaId("");
                 setMesasAsignadas([]);
+                setEmailSent(false);
               }}
               className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
@@ -513,6 +539,19 @@ export default function ReservasPage() {
                 />
               </div>
               <div>
+                <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                  Email para confirmación *
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border-2 border-gray-200 px-4 py-3.5 text-base focus:border-karuma-600 focus:outline-none"
+                />
+              </div>
+              <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-600">
                   Notas <span className="text-gray-400">(opcional)</span>
                 </label>
@@ -544,14 +583,14 @@ export default function ReservasPage() {
 
             <button
               onClick={confirmarReserva}
-              disabled={!nombre.trim() || !telefono.trim() || enviando}
+              disabled={!nombre.trim() || !telefono.trim() || !email.trim() || enviando}
               className="mt-5 w-full rounded-2xl bg-karuma-600 py-4 text-base font-bold text-white disabled:opacity-40 hover:bg-karuma-700"
             >
               {enviando ? "Confirmando reserva…" : "Confirmar reserva"}
             </button>
 
             <p className="mt-3 text-center text-xs text-gray-400">
-              Al confirmar aceptas que usaremos tu teléfono para gestionar tu reserva.
+              Al confirmar aceptas que usaremos tu teléfono y email para gestionar tu reserva.
             </p>
           </section>
         )}

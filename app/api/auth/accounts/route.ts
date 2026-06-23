@@ -4,7 +4,7 @@ import type { Role } from "@/lib/auth/permissions";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DbUser } from "@/lib/supabase/types";
 
-type UserPreview = Pick<DbUser, "email" | "name" | "role_id">;
+type UserPreview = Pick<DbUser, "email" | "name" | "role_id" | "employee_key">;
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -13,6 +13,7 @@ export async function GET() {
         email: a.email,
         name: a.name,
         role: a.role,
+        employeeId: a.employeeId ?? null,
       })),
     );
   }
@@ -24,7 +25,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("users")
-    .select("email, name, role_id")
+    .select("email, name, role_id, employee_key")
     .order("name")
     .returns<UserPreview[]>();
 
@@ -37,6 +38,7 @@ export async function GET() {
       email: u.email,
       name: u.name,
       role: u.role_id as Role,
+      employeeId: u.employee_key,
     })),
   );
 }

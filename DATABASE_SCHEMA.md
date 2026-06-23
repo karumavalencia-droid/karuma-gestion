@@ -63,9 +63,10 @@
 | estado | TEXT | Confirmada / Sentado / Finalizada / Cancelada / NoShow / WalkIn |
 | notas | TEXT | Customer-entered or staff notes |
 | origen | TEXT | 'online' / 'telefono' / 'walkin' / 'manual' |
+| review_email_sent_at | TIMESTAMPTZ | Set after post-visit Google review email is sent |
 | created_at, updated_at | TIMESTAMPTZ | updated_at via trigger |
 
-**Indexes:** `idx_reservas_fecha`, `idx_reservas_cliente`
+**Indexes:** `idx_reservas_fecha`, `idx_reservas_cliente`, `idx_reservas_review_email_pending`
 
 ---
 
@@ -75,6 +76,7 @@
 | reservas_online_activas | true | Master switch for /reservas page |
 | max_personas_online | 4 | Max guests allowed via online booking |
 | intervalo_min | 15 | Time slot interval in minutes |
+| turno_gap_min | 30 | Minimum gap between two reservations on the same table |
 | duracion_1_2_min | 90 | Duration for 1–2 guests |
 | duracion_3_4_min | 120 | Duration for 3–4 guests |
 | dias_max_antelacion | 30 | (UI overrides with 7-day constant) |
@@ -83,7 +85,7 @@
 | cena_inicio / cena_fin | 20:00 / 22:00 | Dinner service window |
 | telefono | — | Restaurant phone (shown in UI) |
 | whatsapp | — | WhatsApp number |
-| google_review_link | — | For future post-visit review request |
+| google_review_link | — | Used by post-visit review request emails |
 
 ---
 

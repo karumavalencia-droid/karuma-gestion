@@ -16,6 +16,7 @@ import {
   Timer,
   Truck,
   Users,
+  UserCheck,
   X,
 } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
@@ -25,6 +26,7 @@ import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
+  "/attendance": UserCheck,
   "/staff": Users,
   "/schedule": CalendarDays,
   "/marketing": Megaphone,

@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (ready && user) {
-      router.replace(getDefaultRoute(user.role));
+      router.replace(getDefaultRoute(user.role, user.employeeId));
     }
   }, [ready, user, router]);
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push(getDefaultRoute(loggedIn.role));
+    router.push(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
   };
 
   return (
@@ -46,7 +46,7 @@ export default function LoginPage() {
             K
           </div>
           <h1 className="text-xl font-bold text-gray-900">登录 Karuma ERP</h1>
-          <p className="mt-1 text-sm text-gray-500">请输入后台管理员账号</p>
+          <p className="mt-1 text-sm text-gray-500">员工输入PIN；管理员输入账号</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,7 +57,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className={inputClass}
-              placeholder="karuma"
+              placeholder="员工PIN 或 karuma"
               autoComplete="username"
               required
             />

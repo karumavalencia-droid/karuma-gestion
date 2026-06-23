@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { asignarMesa } from "@/lib/reservas/disponibilidad";
+import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
+import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
-    nombre, telefono, personas, fecha, hora, servicio, notas,
+    nombre, telefono, email, personas, fecha, hora, servicio, notas,
     origen = "online",
     forceMesaIds,  // number[] | undefined — skip auto-assign if provided
   } = body as {
-    nombre: string; telefono: string; personas: number;
+    nombre: string; telefono: string; email?: string; personas: number;
     fecha: string; hora: string; servicio: string; notas?: string;
     origen?: string; forceMesaIds?: number[];
   };
+  const emailCliente = typeof email === "string" ? email.trim().toLowerCase() : "";
 
   // For walk-in/manual, nombre and telefono are optional
   if (!personas || !fecha || !hora || !servicio) {
@@ -23,6 +29,12 @@ export async function POST(req: NextRequest) {
     if (!telefono) {
       return NextResponse.json({ error: "El teléfono es obligatorio" }, { status: 400 });
     }
+  }
+  if (origen === "online" && !emailCliente) {
+    return NextResponse.json({ error: "El email es obligatorio para enviar la confirmación" }, { status: 400 });
+  }
+  if (emailCliente && !isValidEmail(emailCliente)) {
+    return NextResponse.json({ error: "El email no es válido" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();
@@ -56,6 +68,19 @@ export async function POST(req: NextRequest) {
   // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
   let mesaIds: number[];
   if (forceMesaIds && forceMesaIds.length > 0) {
+    const ocupadas = mesasOcupadasEnSlot(
+      (reservasExistentes ?? []) as Reserva[],
+      fecha,
+      hora,
+      duracion,
+      config.turno_gap_min ?? 30,
+    );
+    if (forceMesaIds.some((id) => ocupadas.has(id))) {
+      return NextResponse.json(
+        { error: `Esta mesa necesita al menos ${config.turno_gap_min ?? 30} min entre dos turnos.` },
+        { status: 409 },
+      );
+    }
     mesaIds = forceMesaIds;
   } else {
     const assigned = asignarMesa(
@@ -73,6 +98,10 @@ export async function POST(req: NextRequest) {
     mesaIds = assigned;
   }
 
+  const isWalkIn = origen === "walkin";
+  const nombreReserva = typeof nombre === "string" ? nombre.trim() : "";
+  const nombreCliente = nombreReserva || (isWalkIn ? "Walk-In" : "Sin nombre");
+
   // Upsert cliente por teléfono (optional for walk-in)
   let clienteId: string | null = null;
   if (telefono) {
@@ -86,12 +115,17 @@ export async function POST(req: NextRequest) {
       clienteId = clienteExistente.id;
       await supabase
         .from("clientes_reservas")
-        .update({ nombre: nombre ?? clienteExistente, visitas: clienteExistente.visitas + 1, ultima_visita: fecha })
+        .update({
+          ...(nombreReserva ? { nombre: nombreReserva } : {}),
+          ...(emailCliente ? { email: emailCliente } : {}),
+          visitas: clienteExistente.visitas + 1,
+          ultima_visita: fecha,
+        })
         .eq("id", clienteId);
     } else {
       const { data: nuevoCliente, error } = await supabase
         .from("clientes_reservas")
-        .insert({ nombre: nombre ?? "Walk-In", telefono, visitas: 1 })
+        .insert({ nombre: nombreCliente, telefono, email: emailCliente || null, visitas: 1 })
         .select("id")
         .single();
       if (error || !nuevoCliente) {
@@ -101,7 +135,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const isWalkIn = origen === "walkin";
   const { data: reserva, error: errReserva } = await supabase
     .from("reservas")
     .insert({
@@ -123,5 +156,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, reservaId: reserva.id, mesaIds });
+  const emailResult = emailCliente
+    ? await sendReservationConfirmationEmail({
+        to: emailCliente,
+        nombre: nombreCliente,
+        fecha,
+        hora,
+        servicio,
+        personas,
+        reservaId: reserva.id,
+        mesaIds,
+        telefonoRestaurante: config.telefono,
+      }).catch((error: unknown) => ({
+        sent: false as const,
+        reason: "request_failed" as const,
+        error: error instanceof Error ? error.message : String(error),
+      }))
+    : { sent: false as const, reason: "invalid_recipient" as const };
+
+  if (!emailResult.sent && emailResult.reason !== "missing_config") {
+    console.warn("Reservation confirmation email not sent", {
+      reservaId: reserva.id,
+      reason: emailResult.reason,
+      error: emailResult.error,
+    });
+  }
+
+  return NextResponse.json({ ok: true, reservaId: reserva.id, mesaIds, emailSent: emailResult.sent });
 }

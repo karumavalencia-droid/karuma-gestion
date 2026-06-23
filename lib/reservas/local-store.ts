@@ -6,6 +6,7 @@ export const CLIENTES_KEY = "karuma_clientes_v1";
 export const TABLES_KEY   = "karuma_tables_v2";
 export const HORARIO_KEY  = "karuma_horario_v1";
 export const ESPERA_KEY   = "karuma_espera_v1";
+export const RESERVAS_CONFIG_KEY = "karuma_reservas_config_v1";
 export const MAX_DIAS     = 7;
 
 export type CanalLocal = "google" | "instagram" | "telefono" | "web" | "presencial" | "otro";

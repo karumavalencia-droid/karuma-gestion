@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/restosuite",
       "schedule": "15 4 * * *"
+    },
+    {
+      "path": "/api/cron/reservas-review-emails",
+      "schedule": "30 9 * * *"
     }
   ]
 }
