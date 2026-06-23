@@ -16,6 +16,8 @@ if (!url || !serviceKey) {
     "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required",
   );
 }
+const supabaseUrl = url;
+const supabaseServiceKey = serviceKey;
 async function main() {
   const selected = STAFF_MEMBERS.filter((employee) => {
     const pin = pins[employee.id];
@@ -36,7 +38,7 @@ async function main() {
     })),
   );
 
-  const supabase = createClient<Database>(url, serviceKey, {
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { error } = await supabase
