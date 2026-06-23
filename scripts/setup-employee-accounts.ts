@@ -16,32 +16,39 @@ if (!url || !serviceKey) {
     "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required",
   );
 }
-const selected = STAFF_MEMBERS.filter((employee) => {
-  const pin = pins[employee.id];
-  return typeof pin === "string" && /^\d{4}$/.test(pin);
-});
+async function main() {
+  const selected = STAFF_MEMBERS.filter((employee) => {
+    const pin = pins[employee.id];
+    return typeof pin === "string" && /^\d{4}$/.test(pin);
+  });
 
-if (selected.length === 0) {
-  throw new Error("No employee has a configured 4-digit PIN");
+  if (selected.length === 0) {
+    throw new Error("No employee has a configured 4-digit PIN");
+  }
+
+  const rows: DbUserInsert[] = await Promise.all(
+    selected.map(async (employee) => ({
+      email: employee.email.toLowerCase(),
+      password_hash: await bcrypt.hash(pins[employee.id]!, 12),
+      name: employee.name,
+      role_id: employee.role,
+      employee_key: employee.id,
+    })),
+  );
+
+  const supabase = createClient<Database>(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await supabase
+    .from("users")
+    .upsert(rows, { onConflict: "email" });
+
+  if (error) throw new Error(error.message);
+
+  console.log(`Employee accounts created or updated: ${rows.length}`);
 }
 
-const rows: DbUserInsert[] = await Promise.all(
-  selected.map(async (employee) => ({
-    email: employee.email.toLowerCase(),
-    password_hash: await bcrypt.hash(pins[employee.id]!, 12),
-    name: employee.name,
-    role_id: employee.role,
-    employee_key: employee.id,
-  })),
-);
-
-const supabase = createClient<Database>(url, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
 });
-const { error } = await supabase
-  .from("users")
-  .upsert(rows, { onConflict: "email" });
-
-if (error) throw new Error(error.message);
-
-console.log(`Employee accounts created or updated: ${rows.length}`);
