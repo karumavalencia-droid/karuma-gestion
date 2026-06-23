@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, Bell, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
@@ -14,10 +14,12 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, title }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout } = useAuth();
   const { locale, t } = useLanguage();
   const role = normalizeRole(user?.role);
   const displayName = user?.name ?? "Zhou";
+  const isMesaView = pathname === "/dashboard/mesa-view";
 
   const today = new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "es-ES", {
     weekday: "short",
@@ -30,7 +32,9 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <button
           onClick={onMenuClick}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 lg:hidden"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 ${
+            isMesaView ? "2xl:hidden" : "lg:hidden"
+          }`}
           aria-label={t("header.openMenu")}
         >
           <Menu className="h-5 w-5" />

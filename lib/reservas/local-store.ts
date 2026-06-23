@@ -263,7 +263,9 @@ export function getMesasConEstado(
       .filter((r) => r.mesaIds.includes(m.id))
       .sort((a, b) => toMin(a.hora) - toMin(b.hora));
     const ahora = agenda.filter(enMomento);
-    const occ = ahora.find((r) => isOccupied(r));
+    // Una mesa permanece ocupada hasta que se libera, aunque haya terminado
+    // la ventana horaria teórica de la reserva.
+    const occ = agenda.find((r) => isOccupied(r));
     if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ, agenda };
     const res = ahora.find((r) => isReserved(r));
     if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res, agenda };
@@ -287,6 +289,10 @@ export function ocupadasEn(
   for (const r of loadReservas()) {
     if (r.id === excludeId || !isActive(r)) continue;
     if (r.fecha !== fecha || r.servicio !== servicio) continue;
+    if (isOccupied(r)) {
+      r.mesaIds.forEach((id) => taken.add(id));
+      continue;
+    }
     const ini = toMin(r.hora);
     const fin = ini + duracionReserva(r.personas);
     // Solapan [nuevaIni,nuevaFin) ∩ [ini,fin) ≠ ∅  → la mesa no está libre en ese turno
@@ -303,6 +309,27 @@ export function asignarMesa(
     .filter((m) => !taken.has(m.id) && m.capacidad >= personas)
     .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
   return avail.length ? [avail[0].id] : null;
+}
+
+export function mesasDisponiblesParaCambio(reservaId: string): MesaLocal[] {
+  const reserva = loadReservas().find((r) => r.id === reservaId);
+  if (!reserva) return [];
+
+  const hoy = new Date().toISOString().split("T")[0];
+  const horaReferencia = isOccupied(reserva) && reserva.fecha === hoy
+    ? new Date().toTimeString().slice(0, 5)
+    : reserva.hora;
+  const ocupadas = ocupadasEn(
+    reserva.fecha,
+    horaReferencia,
+    reserva.servicio,
+    reserva.personas,
+    reserva.id,
+  );
+
+  return loadMesas()
+    .filter((m) => !ocupadas.has(m.id) && !reserva.mesaIds.includes(m.id))
+    .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -397,16 +424,13 @@ export function createReserva(
 export function createWalkInForMesa(
   mesaId: string, personas: number, nombre: string, telefono: string, notas: string,
 ): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
-  // Check mesa is not currently occupied
   const hoy = new Date().toISOString().split("T")[0];
   const hora = new Date().toTimeString().slice(0, 5);
   const servicio: ServicioLocal = new Date().getHours() >= 17 ? "cena" : "comida";
 
-  const activas = loadReservas().filter(
-    (r) => r.fecha === hoy && r.servicio === servicio && isActive(r) &&
-            isOccupied(r) && r.mesaIds.includes(mesaId),
-  );
-  if (activas.length) return { ok: false, error: "Esta mesa ya está ocupada." };
+  if (ocupadasEn(hoy, hora, servicio, personas).has(mesaId)) {
+    return { ok: false, error: "Esta mesa está ocupada o tiene una reserva próxima." };
+  }
 
   return createReserva({
     fecha: hoy, hora, servicio, personas,
@@ -462,7 +486,36 @@ export function cambiarMesas(
   const list = loadReservas();
   const idx = list.findIndex((r) => r.id === reservaId);
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
-  list[idx] = { ...list[idx], mesaIds: newMesaIds };
+
+  const r = list[idx];
+  const ids = [...new Set(newMesaIds)];
+  const mesas = loadMesas();
+  const seleccionadas = ids
+    .map((id) => mesas.find((m) => m.id === id))
+    .filter((m): m is MesaLocal => Boolean(m));
+
+  if (seleccionadas.length !== ids.length) {
+    return { ok: false, error: "Una de las mesas seleccionadas no existe." };
+  }
+
+  const hoy = new Date().toISOString().split("T")[0];
+  const horaReferencia = isOccupied(r) && r.fecha === hoy
+    ? new Date().toTimeString().slice(0, 5)
+    : r.hora;
+  const ocupadas = ocupadasEn(r.fecha, horaReferencia, r.servicio, r.personas, r.id);
+  if (ids.some((id) => ocupadas.has(id))) {
+    return { ok: false, error: "Una de las mesas seleccionadas ya no está disponible." };
+  }
+
+  const capacidad = seleccionadas.reduce((total, mesa) => total + mesa.capacidad, 0);
+  if (capacidad < r.personas) {
+    return {
+      ok: false,
+      error: `Las mesas seleccionadas tienen ${capacidad} plazas para ${r.personas} personas.`,
+    };
+  }
+
+  list[idx] = { ...r, mesaIds: ids };
   saveReservas(list);
   return { ok: true };
 }

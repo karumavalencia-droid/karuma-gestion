@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Users, Clock, Plus } from "lucide-react";
+import { X, Users, Clock, Plus, ArrowRightLeft } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
@@ -11,8 +13,11 @@ import {
   createReserva,
   sentarReserva,
   liberarMesa,
+  cambiarMesas,
   updateEstado,
   editReserva,
+  mesaLabel,
+  mesasDisponiblesParaCambio,
   slotsPlano,
   defaultHoraPlano,
   MESAS_SEED,
@@ -26,9 +31,9 @@ import {
 
 const STATUS_STYLE = {
   available: { bg: "bg-white",        border: "border-gray-200",    badge: "bg-gray-100 text-gray-500",       label: "Libre"     },
-  reserved:  { bg: "bg-emerald-50",   border: "border-emerald-400", badge: "bg-emerald-100 text-emerald-700", label: "Reservada" },
-  occupied:  { bg: "bg-red-50",       border: "border-red-400",     badge: "bg-red-100 text-red-700",         label: "Ocupada"   },
-  cleaning:  { bg: "bg-yellow-50",    border: "border-yellow-400",  badge: "bg-yellow-100 text-yellow-700",   label: "Limpieza"  },
+  reserved:  { bg: "bg-emerald-100",  border: "border-emerald-300", badge: "bg-white/70 text-emerald-800",     label: "Reservada" },
+  occupied:  { bg: "bg-emerald-700",  border: "border-emerald-800", badge: "bg-emerald-950/60 text-white",    label: "Ocupada"   },
+  cleaning:  { bg: "bg-gray-100",     border: "border-gray-300",    badge: "bg-gray-200 text-gray-600",       label: "Limpieza"  },
 };
 
 const ESTADO_CORTO: Record<string, string> = {
@@ -103,7 +108,7 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 
 export default function MesaViewPage() {
   const [fecha, setFecha]       = useState(getSharedFecha);
-  const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
+  const [servicio, setServicio] = useState<ServicioLocal>(() => getSharedServicio() ?? autoServicio());
   const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);
   const [tick, setTick]         = useState(0);
@@ -139,6 +144,11 @@ export default function MesaViewPage() {
   const [seatReserva, setSeatReserva] = useState<ReservaLocal | null>(null);
   const [seatMesaIds, setSeatMesaIds] = useState<string[]>([]);
   const [seatError, setSeatError]     = useState("");
+
+  // Move occupied party to another available table
+  const [moveReserva, setMoveReserva] = useState<ReservaLocal | null>(null);
+  const [moveMesaIds, setMoveMesaIds] = useState<string[]>([]);
+  const [moveError, setMoveError]     = useState("");
 
   // Cancel confirm
   const [cancelReservaId, setCancelReservaId] = useState<string | null>(null);
@@ -181,12 +191,18 @@ export default function MesaViewPage() {
   void tick;
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const selectServicio = (nextServicio: ServicioLocal) => {
+    setServicio(nextServicio);
+    setSharedServicio(nextServicio);
+  };
 
   // ── Stats ─────────────────────────────────────────────────────────────────────
   const total     = mesas.length;
   const ocupadas  = mesas.filter((m) => m.status === "occupied").length;
-  const reservadas = mesas.filter((m) => m.status === "reserved").length;
-  const libres    = mesas.filter((m) => m.status === "available").length;
+  const reservadas = mesas.filter((m) =>
+    m.status === "reserved" || (m.status === "available" && (m.agenda?.length ?? 0) > 0),
+  ).length;
+  const libres    = mesas.filter((m) => m.status === "available" && (m.agenda?.length ?? 0) === 0).length;
   // Nº total de reservas del servicio (todos los turnos del día), para el estado vacío
   const reservasDia = mesas.reduce((n, m) => n + (m.agenda?.length ?? 0), 0);
 
@@ -295,6 +311,31 @@ export default function MesaViewPage() {
     setSeatReserva(null); setSel(null); reload(); showToast("Mesa ocupada");
   }
 
+  // ── Cambiar mesa ─────────────────────────────────────────────────────────────
+  function openMove(r: ReservaLocal) {
+    setMoveReserva(r);
+    setMoveMesaIds([]);
+    setMoveError("");
+  }
+  function submitMove() {
+    if (!moveReserva) return;
+    const res = cambiarMesas(moveReserva.id, moveMesaIds);
+    if (!res.ok) { setMoveError(res.error); return; }
+    if (moveReserva.origen === "online") {
+      void fetch("/api/reservas/actualizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cambiar-mesa",
+          id: moveReserva.id,
+          mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
+        }),
+      });
+    }
+    const destino = mesaLabel(moveMesaIds);
+    setMoveReserva(null); setSel(null); reload(); showToast(`Cliente trasladado a ${destino}`);
+  }
+
   function handleMesaClick(m: MesaConEstado) {
     const agenda = m.agenda ?? [];
     // Mesa libre SIN ninguna reserva del día → crear directamente
@@ -312,35 +353,151 @@ export default function MesaViewPage() {
   const mesasList: MesaLocal[] = MESAS_SEED;
 
   return (
-    <div className="min-h-dvh p-4 text-gray-900 md:p-6">
-      <div className="mx-auto max-w-4xl">
-        <ReservasNav />
+    <div className="mesa-page min-h-full bg-[#f7f3ec] p-4 text-gray-900 md:p-6">
+      <style>{`
+        @media (min-width: 768px) and (max-width: 1535px) {
+          .mesa-page {
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+            padding: 0.75rem;
+          }
+          .mesa-page-inner {
+            display: flex;
+            height: 100%;
+            max-width: none;
+            flex-direction: column;
+          }
+          .mesa-tablet-hide {
+            display: none !important;
+          }
+          .mesa-tablet-toolbar {
+            display: flex !important;
+          }
+          .mesa-grid {
+            min-height: 0;
+            flex: 1 1 0%;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-rows: repeat(5, minmax(0, 1fr));
+            gap: 0.5rem;
+          }
+          .mesa-card {
+            min-height: 0;
+            overflow: hidden;
+            border-radius: 0.9rem;
+            padding: 0.65rem;
+          }
+          .mesa-card-status {
+            right: 0.4rem;
+            top: 0.4rem;
+            padding: 0.1rem 0.35rem;
+            font-size: 0.625rem;
+          }
+          .mesa-card-number {
+            font-size: 1.35rem;
+            line-height: 1.3;
+          }
+          .mesa-card-detail {
+            margin-top: 0.3rem;
+          }
+          .mesa-card-detail-name {
+            font-size: 0.82rem;
+            line-height: 1.15rem;
+          }
+          .mesa-card-detail-meta {
+            font-size: 0.72rem;
+            line-height: 1rem;
+          }
+          .mesa-status-full {
+            display: none;
+          }
+          .mesa-status-compact {
+            display: inline;
+          }
+        }
+        @media (min-width: 768px) and (max-width: 1535px) and (orientation: landscape) {
+          .mesa-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            grid-template-rows: repeat(3, minmax(0, 1fr));
+          }
+        }
+      `}</style>
+      <div className="mesa-page-inner mx-auto max-w-5xl">
+        <div className="mesa-tablet-hide">
+          <ReservasNav />
+        </div>
+
+        {/* Vista compacta para tablet: controles esenciales + las 21 mesas */}
+        <div className="mesa-tablet-toolbar mb-2 hidden shrink-0 flex-wrap items-center gap-2 rounded-2xl border border-white/80 bg-white p-2.5 shadow-sm">
+          <div className="mr-auto min-w-[8rem]">
+            <p className="text-base font-black leading-tight text-gray-900">Plano de mesas</p>
+            <p className="truncate text-[11px] font-medium text-gray-500">{fechaLarga(fecha)}</p>
+          </div>
+          <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
+            className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold text-gray-700 focus:border-karuma-500 focus:outline-none" />
+          <div className="flex overflow-hidden rounded-lg border border-gray-300">
+            {(["comida", "cena"] as const).map((s) => (
+              <button key={s} onClick={() => selectServicio(s)}
+                className={`px-3 py-2 text-xs font-bold transition-colors ${
+                  servicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                }`}>
+                {s === "comida" ? "🍱 Comida" : "🍣 Cena"}
+              </button>
+            ))}
+          </div>
+          <select value={horaPlano} onChange={(e) => setHoraPlano(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-black text-karuma-700 focus:border-karuma-500 focus:outline-none">
+            {slotsPlano(servicio).map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <div className="flex items-center gap-1 text-[11px] font-bold">
+            <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">{total} total</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">{reservadas} reservadas</span>
+            <span className="rounded-full bg-emerald-700 px-2 py-1 text-white">{ocupadas} ocupadas</span>
+          </div>
+          <button onClick={openWalkInGeneral}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50">
+            🚶 Walk-In
+          </button>
+          <button onClick={openNueva}
+            className="flex items-center gap-1 rounded-lg bg-karuma-600 px-3 py-2 text-xs font-bold text-white hover:bg-karuma-700">
+            <Plus className="h-3.5 w-3.5" /> Nueva
+          </button>
+        </div>
 
         {/* ── Encabezado: tarea principal + acciones ─────────────────────────── */}
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="mesa-tablet-hide mb-5 rounded-[1.5rem] border border-white/70 bg-white px-5 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-gray-900">Plano de mesas</h1>
-            <p className="mt-0.5 text-sm text-gray-500">{fechaLarga(fecha)} · {SERVICIO_LABEL[servicio]}</p>
+            <div className="w-44 sm:w-52">
+              <KarumaLogo tone="dark" />
+            </div>
+            <h1 className="mt-3 text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">Plano de mesas</h1>
+            <p className="mt-1 text-sm text-gray-500">{fechaLarga(fecha)} · {SERVICIO_LABEL[servicio]} · cambia fecha, servicio o franja para ver disponibilidad real</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={openWalkInGeneral}
-              className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">
+              className="flex items-center gap-2 rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50">
               🚶 Walk-In
             </button>
             <button onClick={openNueva}
-              className="flex items-center gap-2 rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-karuma-700">
+              className="flex items-center gap-2 rounded-2xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-karuma-700">
               <Plus className="h-4 w-4" /> Nueva reserva
             </button>
           </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-600">
+            <span className="rounded-full bg-gray-50 px-3 py-1 font-semibold">Toca una mesa libre para abrir un alta rápida</span>
+            <span className="rounded-full bg-gray-50 px-3 py-1 font-semibold">Las mesas con agenda muestran su siguiente turno</span>
+          </div>
+        </div>
         </div>
 
         {/* ── Controles: fecha + servicio ────────────────────────────────────── */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mesa-tablet-hide mb-4 flex flex-wrap items-center gap-2">
           <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-karuma-500 focus:outline-none" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
-              <button key={s} onClick={() => setServicio(s)}
+              <button key={s} onClick={() => selectServicio(s)}
                 className={`px-5 py-2 text-sm font-semibold transition-colors ${
                   servicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                 }`}>
@@ -351,7 +508,7 @@ export default function MesaViewPage() {
         </div>
 
         {/* ── Eje de tiempo: estado del plano por franja (翻台 / turn-over) ───── */}
-        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="mesa-tablet-hide mb-4 rounded-[1.25rem] border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
               Estado del plano a las <span className="text-base font-black text-karuma-600">{horaPlano}</span>
@@ -381,12 +538,12 @@ export default function MesaViewPage() {
         </div>
 
         {/* ── Tarjetas de estado (mismos colores que el plano = leyenda) ─────── */}
-        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="mesa-tablet-hide mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {[
-            { label: "Libres",     val: libres,     bar: "bg-gray-300",    num: "text-gray-700"    },
-            { label: "Reservadas", val: reservadas, bar: "bg-emerald-400", num: "text-emerald-600" },
-            { label: "Ocupadas",   val: ocupadas,   bar: "bg-red-400",     num: "text-red-600"     },
             { label: "Total",      val: total,      bar: "bg-gray-800",    num: "text-gray-900"    },
+            { label: "Libres",     val: libres,     bar: "bg-gray-300",    num: "text-gray-700"    },
+            { label: "Reservadas", val: reservadas, bar: "bg-emerald-300", num: "text-emerald-700" },
+            { label: "Ocupadas",   val: ocupadas,   bar: "bg-emerald-700", num: "text-emerald-800" },
           ].map((s) => (
             <div key={s.label} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
               <span className={`h-9 w-1.5 shrink-0 rounded-full ${s.bar}`} />
@@ -397,25 +554,30 @@ export default function MesaViewPage() {
             </div>
           ))}
         </div>
-        <p className="mb-4 text-xs text-gray-400">
-          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una reservada u ocupada para gestionarla.
-          <span className="ml-1 text-amber-600">Ámbar = libre ahora, reservada más tarde.</span>
+        <p className="mesa-tablet-hide mb-4 text-xs text-gray-500">
+          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una mesa reservada u ocupada para abrir su detalle.
         </p>
+
+        {reservasDia > 0 && (
+          <div className="mesa-tablet-hide mb-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+            <span className="font-bold text-gray-900">{reservasDia}</span> turnos en agenda para esta franja · revisa las mesas con más de un turno para evitar cruces.
+          </div>
+        )}
 
         {/* Estado vacío: sin reservas en el servicio */}
         {reservasDia === 0 && (
-          <div className="mb-4 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 px-5 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
+          <div className="mesa-tablet-hide mb-4 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 px-5 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
             <div>
               <p className="text-base font-bold text-gray-900">Aún no hay reservas para {servicio === "comida" ? "la comida" : "la cena"}</p>
               <p className="mt-0.5 text-sm text-gray-500">Las {total} mesas están libres. Crea la primera reserva o registra un walk-in para empezar.</p>
             </div>
             <div className="flex shrink-0 gap-2">
               <button onClick={openWalkInGeneral}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                className="rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">
                 🚶 Walk-In
               </button>
               <button onClick={openNueva}
-                className="rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
+                className="rounded-2xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
                 + Nueva reserva
               </button>
             </div>
@@ -423,56 +585,58 @@ export default function MesaViewPage() {
         )}
 
         {/* Plano: cuadrícula de mesas */}
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        <div className="mesa-grid grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {mesas.map((m) => {
             const r = m.reserva;
             const agenda = m.agenda ?? [];
+            const proxima = m.status === "available" ? agenda[0] : undefined;
+            const visualStatus = proxima ? "reserved" : m.status;
+            const st = STATUS_STYLE[visualStatus];
+            const occupied = m.status === "occupied";
             const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
-            // Libre AHORA pero con una reserva más tarde en el servicio → estado "próxima" (ámbar)
-            const proxima = m.status === "available" ? (agenda.find((a) => a.hora >= horaPlano) ?? null) : null;
-            const st = proxima
-              ? { bg: "bg-amber-50", border: "border-amber-300", badge: "bg-amber-100 text-amber-700", label: `Próx ${proxima.hora}` }
-              : STATUS_STYLE[m.status];
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
-                className={`relative rounded-xl border-2 p-3.5 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
-                <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-xs font-bold ${st.badge}`}>
-                  {st.label}
+                className={`mesa-card relative rounded-2xl border-2 p-3.5 text-left transition-all hover:shadow-md active:scale-95 ${st.bg} ${st.border}`}>
+                <span className={`mesa-card-status absolute right-2 top-2 rounded-full px-2 py-0.5 text-xs font-bold ${st.badge}`}>
+                  <span className="mesa-status-full">{proxima ? `Próx ${proxima.hora}` : st.label}</span>
+                  <span className="mesa-status-compact hidden">
+                    {proxima ? `Próx ${proxima.hora}` : m.status === "reserved" ? "Reserva" : m.status === "occupied" ? "Ocupada" : m.status === "cleaning" ? "Limpieza" : "Libre"}
+                  </span>
                 </span>
-                <p className="text-2xl font-black text-gray-900">T{m.numero}</p>
+                <p className={`mesa-card-number text-2xl font-black ${occupied ? "text-white" : "text-gray-900"}`}>T{m.numero}</p>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm text-gray-400">{m.capacidad}p</p>
+                  <p className={`text-sm ${occupied ? "text-emerald-100" : "text-gray-400"}`}>{m.capacidad}p</p>
                   {agenda.length > 1 && (
-                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[11px] font-bold text-white"
+                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-gray-900"}`}
                       title={`${agenda.length} reservas hoy`}>
                       {agenda.length} turnos
                     </span>
                   )}
                 </div>
                 {m.status === "occupied" && r && (
-                  <div className="mt-2 space-y-1">
-                    <p className="truncate text-base font-bold text-red-700">{r.nombre}</p>
-                    <div className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
+                  <div className="mesa-card-detail mt-2 space-y-1">
+                    <p className="mesa-card-detail-name truncate text-base font-bold text-white">{r.nombre}</p>
+                    <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-100">
                       <Users className="h-4 w-4" />{r.personas}
                       <Clock className="ml-1.5 h-4 w-4" />{duracion(r.seatedAt)}
                     </div>
                   </div>
                 )}
                 {m.status === "reserved" && r && (
-                  <div className="mt-2 space-y-0.5">
-                    <p className="truncate text-base font-bold text-emerald-700">{r.nombre}</p>
-                    <p className="text-sm font-semibold text-emerald-600">{r.hora} · {r.personas}p</p>
+                  <div className="mesa-card-detail mt-2 space-y-0.5">
+                    <p className="mesa-card-detail-name truncate text-base font-bold text-emerald-700">{r.nombre}</p>
+                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} · {r.personas}p</p>
                   </div>
                 )}
                 {m.status === "available" && (
-                  proxima
-                    ? <div className="mt-2 space-y-0.5">
-                        <p className="truncate text-base font-bold text-amber-800">{proxima.nombre}</p>
-                        <p className="truncate text-sm font-semibold text-amber-600" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          Reservada · {proxima.hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
+                  agenda.length > 0
+                    ? <div className="mesa-card-detail mt-2 space-y-0.5">
+                        <p className="mesa-card-detail-name truncate text-base font-bold text-emerald-900">{agenda[0].nombre}</p>
+                        <p className="mesa-card-detail-meta truncate text-sm font-semibold text-emerald-700" title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          Reservada · {agenda[0].hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
                         </p>
                       </div>
-                    : <p className="mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
+                    : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
                 )}
                 {/* Otros turnos del día (翻台) */}
                 {m.status !== "available" && otras.length > 0 && (
@@ -486,11 +650,11 @@ export default function MesaViewPage() {
         </div>
 
         {ocupadas > 0 && (
-          <div className="mt-5 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+          <div className="mesa-tablet-hide mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
             <span className="font-bold text-gray-900">
               {mesas.filter((m) => m.status === "occupied").reduce((s, m) => s + (m.reserva?.personas ?? 0), 0)}
             </span>{" "}personas sentadas ·{" "}
-            <span className="font-bold text-red-600">{ocupadas}</span> mesas ocupadas
+            <span className="font-bold text-emerald-800">{ocupadas}</span> mesas ocupadas
           </div>
         )}
       </div>
@@ -577,18 +741,18 @@ export default function MesaViewPage() {
             {/* ── Turno enfocado: info + acciones ───────────────────────────── */}
             {!editing && focusR && (
               <>
-                <div className={`rounded-xl p-4 space-y-2 text-sm ${focusOcc ? "bg-red-50" : "bg-emerald-50"}`}>
-                  <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{focusR.nombre}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Hora</span><span className="font-semibold">{focusR.hora}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Personas</span><span className="font-semibold">{focusR.personas}</span></div>
+                <div className={`rounded-xl p-4 space-y-2 text-sm ${focusOcc ? "bg-emerald-700 text-white" : "bg-emerald-100"}`}>
+                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Cliente</span><span className="font-semibold">{focusR.nombre}</span></div>
+                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Hora</span><span className="font-semibold">{focusR.hora}</span></div>
+                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Personas</span><span className="font-semibold">{focusR.personas}</span></div>
                   {focusOcc && (
-                    <div className="flex justify-between"><span className="text-gray-500">Tiempo</span><span className="font-bold text-red-600">{duracion(focusR.seatedAt)}</span></div>
+                    <div className="flex justify-between"><span className="text-emerald-100">Tiempo</span><span className="font-bold text-white">{duracion(focusR.seatedAt)}</span></div>
                   )}
                   {focusR.telefono && (
-                    <div className="flex justify-between"><span className="text-gray-500">Tel.</span><span>{focusR.telefono}</span></div>
+                    <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Tel.</span><span>{focusR.telefono}</span></div>
                   )}
                   {focusR.notas && (
-                    <div className="flex justify-between"><span className="text-gray-500">Notas</span><span className="text-right max-w-[60%] text-gray-700">{focusR.notas}</span></div>
+                    <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Notas</span><span className={`max-w-[60%] text-right ${focusOcc ? "text-white" : "text-gray-700"}`}>{focusR.notas}</span></div>
                   )}
                 </div>
                 {focusOcc ? (
@@ -600,6 +764,13 @@ export default function MesaViewPage() {
                   <button onClick={() => { openSeat(focusR); setSel(null); }}
                     className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                     → Sentar / Ocupar mesa
+                  </button>
+                )}
+                {focusOcc && (
+                  <button onClick={() => { openMove(focusR); setSel(null); }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    Cambiar de mesa
                   </button>
                 )}
                 <button onClick={() => openEdit(focusR)}
@@ -654,10 +825,10 @@ export default function MesaViewPage() {
         {wiMesa && (
           wiOk ? (
             <div className="space-y-4 text-center">
-              <div className="rounded-xl bg-red-50 p-6">
-                <p className="text-5xl font-black text-red-700">{wiGeneral ? wiSelectedId : `T${wiMesa.numero}`}</p>
-                <p className="mt-2 font-bold text-red-600">Mesa ocupada · Walk-In</p>
-                <p className="text-sm text-gray-500">{wiPersonas} personas</p>
+              <div className="rounded-xl bg-emerald-700 p-6 text-white">
+                <p className="text-5xl font-black">{wiGeneral ? wiSelectedId : `T${wiMesa.numero}`}</p>
+                <p className="mt-2 font-bold text-emerald-100">Mesa ocupada · Walk-In</p>
+                <p className="text-sm text-emerald-100">{wiPersonas} personas</p>
               </div>
               <button onClick={closeWalkIn} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white">Cerrar</button>
             </div>
@@ -681,12 +852,12 @@ export default function MesaViewPage() {
                   <div className="grid grid-cols-5 gap-1.5">
                     {mesasList.filter((m) => {
                       const mc = mesas.find((x) => x.id === m.id);
-                      return !mc || mc.status === "available";
+                      return !mc || (mc.status === "available" && (mc.agenda?.length ?? 0) === 0);
                     }).map((m) => (
                       <button key={m.id} onClick={() => setWiSelectedId(m.id)}
                         className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
                           wiSelectedId === m.id
-                            ? "border-red-500 bg-red-50 text-red-700 font-bold"
+                            ? "border-emerald-700 bg-emerald-100 text-emerald-900 font-bold"
                             : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400"
                         }`}>
                         <p className="text-xs font-bold">T{m.numero}</p>
@@ -719,7 +890,7 @@ export default function MesaViewPage() {
                 <textarea className={inp} rows={2} value={wiNotas} onChange={(e) => setWiNotas(e.target.value)} />
               </div>
               <button onClick={submitWalkIn}
-                className="w-full rounded-xl bg-red-600 py-3.5 text-base font-black text-white hover:bg-red-500">
+                className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600">
                 {wiGeneral
                   ? wiSelectedId ? `Ocupar ${wiSelectedId} ahora` : "Ocupar mesa ahora"
                   : `Ocupar T${wiMesa.numero} ahora`}
@@ -812,6 +983,66 @@ export default function MesaViewPage() {
             </button>
           </div>
         )}
+      </Modal>
+
+      {/* ── Move table modal ─────────────────────────────────────────────────── */}
+      <Modal open={!!moveReserva} onClose={() => setMoveReserva(null)}>
+        {moveReserva && (() => {
+          const disponibles = mesasDisponiblesParaCambio(moveReserva.id);
+          const capacidad = moveMesaIds.reduce(
+            (totalCapacidad, id) => totalCapacidad + (disponibles.find((m) => m.id === id)?.capacidad ?? 0),
+            0,
+          );
+          return (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900">Cambiar de mesa</h2>
+                  <p className="text-sm text-gray-500">
+                    {moveReserva.nombre} · {moveReserva.personas} personas
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-emerald-800">
+                    Mesa actual: {mesaLabel(moveReserva.mesaIds)}
+                  </p>
+                </div>
+                <button onClick={() => setMoveReserva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {moveError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{moveError}</p>}
+
+              {disponibles.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Mesas disponibles
+                  </p>
+                  <MesaPicker
+                    mesas={disponibles}
+                    selectedIds={moveMesaIds}
+                    onToggle={(id) => setMoveMesaIds((prev) =>
+                      prev.includes(id) ? prev.filter((mesaId) => mesaId !== id) : [...prev, id]
+                    )}
+                  />
+                  <p className={`mt-2 text-xs font-semibold ${capacidad >= moveReserva.personas ? "text-emerald-700" : "text-gray-500"}`}>
+                    Capacidad seleccionada: {capacidad} / {moveReserva.personas}
+                  </p>
+                </div>
+              ) : (
+                <p className="rounded-xl bg-gray-100 px-3 py-4 text-center text-sm text-gray-600">
+                  No hay otra mesa disponible en este momento.
+                </p>
+              )}
+
+              <button onClick={submitMove}
+                disabled={!moveMesaIds.length || capacidad < moveReserva.personas}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
+                <ArrowRightLeft className="h-4 w-4" />
+                Confirmar cambio
+              </button>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

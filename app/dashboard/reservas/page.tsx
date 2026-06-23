@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getDashboardStats,
@@ -12,6 +13,7 @@ import {
   liberarMesa,
   sentarReserva,
   cambiarMesas,
+  mesasDisponiblesParaCambio,
   desplazarReserva,
   getMesasConEstado,
   createWalkInForMesa,
@@ -43,8 +45,8 @@ const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: strin
   pendiente:  { bg: "bg-yellow-100",  text: "text-yellow-700",  label: "Pendiente"  },
   confirmada: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Confirmada" },
   llegada:    { bg: "bg-purple-100",  text: "text-purple-700",  label: "Llegada"    },
-  sentada:    { bg: "bg-red-100",     text: "text-red-700",     label: "En mesa"    },
-  walkin:     { bg: "bg-pink-100",    text: "text-pink-700",    label: "Walk-In"    },
+  sentada:    { bg: "bg-emerald-700", text: "text-white",       label: "En mesa"    },
+  walkin:     { bg: "bg-emerald-700", text: "text-white",       label: "Walk-In"    },
   finished:   { bg: "bg-gray-100",    text: "text-gray-500",    label: "Finalizada" },
   "no-show":  { bg: "bg-gray-100",    text: "text-gray-500",    label: "No Show"    },
   cancelada:  { bg: "bg-gray-100",    text: "text-gray-400",    label: "Cancelada"  },
@@ -153,6 +155,9 @@ export default function ReservasPage() {
   const [fecha, setFecha] = useState(getSharedFecha);
   type VistaServicio = "" | ServicioLocal | "dia";
   const [vistaServicio, setVistaServicio] = useState<VistaServicio>(() => {
+    const shared = getSharedServicio();
+    if (shared) return shared;
+
     const h = new Date().getHours();
     if (h >= 12 && h < 17) return "comida";
     if (h >= 19) return "cena";
@@ -220,6 +225,12 @@ export default function ReservasPage() {
   const [changeErr, setChangeErr] = useState("");
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const selectVistaServicio = (servicio: VistaServicio) => {
+    setVistaServicio(servicio);
+    if (servicio === "comida" || servicio === "cena") {
+      setSharedServicio(servicio);
+    }
+  };
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const servicioPlano: ServicioLocal = vistaServicio === "cena" ? "cena" : "comida";
@@ -335,12 +346,23 @@ export default function ReservasPage() {
     setDesplazarR(null); reload(); showToast("Reserva desplazada");
   }
 
-  function openChange(r: ReservaLocal) { setChangeR(r); setChangeIds(r.mesaIds); setChangeErr(""); }
+  function openChange(r: ReservaLocal) { setChangeR(r); setChangeIds([]); setChangeErr(""); }
   function submitChange() {
     if (!changeR) return;
     if (!changeIds.length) { setChangeErr("Selecciona al menos una mesa."); return; }
     const res = cambiarMesas(changeR.id, changeIds);
     if (!res.ok) { setChangeErr(res.error); return; }
+    if (changeR.origen === "online") {
+      void fetch("/api/reservas/actualizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cambiar-mesa",
+          id: changeR.id,
+          mesaIds: changeIds.map((id) => Number(id.replace("T", ""))),
+        }),
+      });
+    }
     setChangeR(null); reload(); showToast("Mesa actualizada");
   }
 
@@ -440,7 +462,7 @@ export default function ReservasPage() {
               {esperaActiva.length > 0 ? `Espera (${esperaActiva.length})` : "Lista de espera"}
             </button>
             <button onClick={() => setShowWI(true)}
-              className="rounded-xl bg-pink-700 px-4 py-2 text-sm font-bold text-white hover:bg-pink-600">
+              className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600">
               Walk-In
             </button>
             <button onClick={() => setShowNueva(true)}
@@ -513,7 +535,7 @@ export default function ReservasPage() {
           {/* Vista servicio: Comida | Cena | Día completo */}
           <div className="flex overflow-hidden rounded-lg border border-gray-300 text-sm">
             {([ ["comida","🍱 Comida"],["cena","🍣 Cena"],["dia","Día completo"] ] as [VistaServicio, string][]).map(([val, lbl]) => (
-              <button key={val} onClick={() => setVistaServicio(val)}
+              <button key={val} onClick={() => selectVistaServicio(val)}
                 className={`px-3 py-2 font-medium transition-colors ${
                   vistaServicio === val ? "bg-karuma-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                 }`}>
@@ -654,7 +676,7 @@ export default function ReservasPage() {
                         )}
                         {(r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada") && (
                           <button onClick={() => openSeat(r)}
-                            className="rounded-lg bg-red-800 px-2.5 py-1 text-xs font-semibold text-red-200 hover:bg-red-700">
+                            className="rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600">
                             Sentar
                           </button>
                         )}
@@ -708,7 +730,7 @@ export default function ReservasPage() {
               <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Plano · {servicioPlano}</p>
               <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs">
                 {(["comida","cena"] as ServicioLocal[]).map((s) => (
-                  <button key={s} onClick={() => setVistaServicio(s)}
+                  <button key={s} onClick={() => selectVistaServicio(s)}
                     className={`px-2 py-1 font-medium ${servicioPlano === s ? "bg-karuma-600 text-white" : "bg-white text-gray-400"}`}>
                     {s === "comida" ? "🍱" : "🍣"}
                   </button>
@@ -727,14 +749,15 @@ export default function ReservasPage() {
               {mesas.map((m) => {
                 const colors = {
                   available: "border-gray-200 bg-white text-gray-400",
-                  reserved:  "border-emerald-400 bg-emerald-50 text-emerald-700",
-                  occupied:  "border-red-400 bg-red-50 text-red-700",
-                  cleaning:  "border-yellow-400 bg-yellow-50 text-yellow-700",
+                  reserved:  "border-emerald-300 bg-emerald-100 text-emerald-900",
+                  occupied:  "border-emerald-800 bg-emerald-700 text-white",
+                  cleaning:  "border-gray-300 bg-gray-100 text-gray-600",
                 };
                 const nTurnos = m.agenda?.length ?? 0;
+                const visualStatus = m.status === "available" && nTurnos > 0 ? "reserved" : m.status;
                 return (
                   <button key={m.id} onClick={() => setMesaSel(m)}
-                    className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${colors[m.status]}`}>
+                    className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${colors[visualStatus]}`}>
                     {nTurnos > 1 && (
                       <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gray-900 px-0.5 text-[8px] font-bold text-white"
                         title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
@@ -743,15 +766,15 @@ export default function ReservasPage() {
                     <p className="text-[9px] opacity-70">{m.capacidad}p</p>
                     {m.reserva
                       ? <p className="truncate text-[8px] font-semibold leading-tight">{m.reserva.nombre.split(" ")[0]}</p>
-                      : nTurnos > 0 && <p className="truncate text-[8px] font-semibold leading-tight text-gray-400">{m.agenda![0].hora}</p>}
+                      : nTurnos > 0 && <p className="truncate text-[8px] font-semibold leading-tight text-emerald-700">{m.agenda![0].hora}</p>}
                   </button>
                 );
               })}
             </div>
             <div className="mt-2 flex gap-2 text-[10px] text-gray-400">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-gray-300 bg-white"/>&nbsp;Libre</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-400"/>&nbsp;Reservada</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-400"/>&nbsp;Ocupada</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-200"/>&nbsp;Reservada</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-700"/>&nbsp;Ocupada</span>
             </div>
           </div>
         </div>
@@ -771,12 +794,20 @@ export default function ReservasPage() {
       <Modal open={!!mesaSel && !wiInlineMesa} title={`Mesa T${mesaSel?.numero}`} onClose={() => setMesaSel(null)}>
         {mesaSel && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">{mesaSel.capacidad} pax · {mesaSel.status === "available" ? "Libre" : mesaSel.status === "reserved" ? "Reservada" : "Ocupada"}</p>
+            <p className="text-sm text-gray-500">
+              {mesaSel.capacidad} pax · {
+                mesaSel.status === "occupied"
+                  ? "Ocupada"
+                  : mesaSel.status === "reserved" || (mesaSel.agenda?.length ?? 0) > 0
+                    ? "Reservada"
+                    : "Libre"
+              }
+            </p>
             {mesaSel.reserva && (
-              <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-red-50" : "bg-emerald-50"}`}>
-                <div className="flex justify-between"><span className="text-gray-500">Cliente</span><span className="font-semibold">{mesaSel.reserva.nombre}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Hora</span><span>{mesaSel.reserva.hora}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Personas</span><span>{mesaSel.reserva.personas}</span></div>
+              <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-emerald-700 text-white" : "bg-emerald-100"}`}>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Cliente</span><span className="font-semibold">{mesaSel.reserva.nombre}</span></div>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Hora</span><span>{mesaSel.reserva.hora}</span></div>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Personas</span><span>{mesaSel.reserva.personas}</span></div>
               </div>
             )}
             {/* Agenda del día — varios turnos (翻台) */}
@@ -793,9 +824,9 @@ export default function ReservasPage() {
                 </div>
               </div>
             )}
-            {mesaSel.status === "available" && (
+            {mesaSel.status === "available" && (mesaSel.agenda?.length ?? 0) === 0 && (
               <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
-                className="w-full rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-500">
+                className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">
                 + Walk-In directo
               </button>
             )}
@@ -806,10 +837,16 @@ export default function ReservasPage() {
               </button>
             )}
             {mesaSel.status === "occupied" && mesaSel.reserva && (
-              <button onClick={() => { handleLiberar(mesaSel.reserva!); setMesaSel(null); }}
-                className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
-                ✓ Liberar mesa
-              </button>
+              <>
+                <button onClick={() => { handleLiberar(mesaSel.reserva!); setMesaSel(null); }}
+                  className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
+                  ✓ Liberar mesa
+                </button>
+                <button onClick={() => { openChange(mesaSel.reserva!); setMesaSel(null); }}
+                  className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 font-bold text-emerald-800 hover:bg-emerald-100">
+                  ⇄ Cambiar de mesa
+                </button>
+              </>
             )}
           </div>
         )}
@@ -836,7 +873,7 @@ export default function ReservasPage() {
               const res = createWalkInForMesa(wiInlineMesa.id, wiInlinePersonas, wiInlineNombre, "", "");
               if (!res.ok) { setWiInlineError(res.error); return; }
               setWiInlineMesa(null); setMesaSel(null); reload(); showToast(`T${wiInlineMesa.numero} — Walk-In registrado`);
-            }} className="w-full rounded-xl bg-red-600 py-3.5 font-black text-white hover:bg-red-500">
+            }} className="w-full rounded-xl bg-emerald-700 py-3.5 font-black text-white hover:bg-emerald-600">
               Ocupar T{wiInlineMesa.numero} ahora
             </button>
           </div>
@@ -941,18 +978,18 @@ export default function ReservasPage() {
       <Modal open={showWI} title="Walk-In" onClose={cerrarWI}>
         {wExito ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-pink-200 bg-pink-50 p-4">
-              <CheckCircle className="h-6 w-6 shrink-0 text-pink-400" />
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-100 p-4">
+              <CheckCircle className="h-6 w-6 shrink-0 text-emerald-700" />
               <div>
-                <p className="font-bold text-pink-700">Walk-In registrado</p>
-                <p className="text-sm text-pink-600">Mesa: {mesaLabel(wExito.mesaIds)}</p>
+                <p className="font-bold text-emerald-900">Walk-In registrado</p>
+                <p className="text-sm text-emerald-700">Mesa: {mesaLabel(wExito.mesaIds)}</p>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-              <p className="text-4xl font-black text-pink-600">{mesaLabel(wExito.mesaIds)}</p>
-              <p className="text-sm text-gray-500">{wExito.personas} personas</p>
+            <div className="rounded-xl bg-emerald-700 p-4 text-center text-white">
+              <p className="text-4xl font-black">{mesaLabel(wExito.mesaIds)}</p>
+              <p className="text-sm text-emerald-100">{wExito.personas} personas</p>
             </div>
-            <button onClick={cerrarWI} className="w-full rounded-xl bg-pink-700 py-3 font-bold text-white hover:bg-pink-600">Cerrar</button>
+            <button onClick={cerrarWI} className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">Cerrar</button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -991,7 +1028,7 @@ export default function ReservasPage() {
                 onToggle={(id) => setWMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </Field>
             <button onClick={() => submitWI()}
-              className="w-full rounded-xl bg-pink-700 py-3.5 text-base font-black text-white hover:bg-pink-600">
+              className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600">
               Asignar mesa ahora
             </button>
           </div>
@@ -1070,21 +1107,38 @@ export default function ReservasPage() {
 
       {/* ── Cambiar mesa modal ────────────────────────────────────────────────── */}
       <Modal open={!!changeR} title="Cambiar mesa" onClose={() => setChangeR(null)}>
-        {changeR && (
+        {changeR && (() => {
+          const disponibles = mesasDisponiblesParaCambio(changeR.id);
+          const capacidad = changeIds.reduce(
+            (totalCapacidad, id) => totalCapacidad + (disponibles.find((m) => m.id === id)?.capacidad ?? 0),
+            0,
+          );
+          return (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">{changeR.nombre} · Mesa actual: {mesaLabel(changeR.mesaIds)}</p>
             {changeErr && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{changeErr}</p>}
-            <div>
-              <p className="mb-2 text-xs text-gray-500">Selecciona la nueva mesa:</p>
-              <MesaPicker mesas={MESAS_SEED} selected={changeIds}
-                onToggle={(id) => setChangeIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
-            </div>
+            {disponibles.length > 0 ? (
+              <div>
+                <p className="mb-2 text-xs text-gray-500">Selecciona una o varias mesas libres:</p>
+                <MesaPicker mesas={disponibles} selected={changeIds}
+                  onToggle={(id) => setChangeIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
+                <p className={`mt-2 text-xs font-semibold ${capacidad >= changeR.personas ? "text-emerald-700" : "text-gray-500"}`}>
+                  Capacidad seleccionada: {capacidad} / {changeR.personas}
+                </p>
+              </div>
+            ) : (
+              <p className="rounded-xl bg-gray-100 px-3 py-4 text-center text-sm text-gray-600">
+                No hay otra mesa disponible en este momento.
+              </p>
+            )}
             <button onClick={() => submitChange()}
-              className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+              disabled={!changeIds.length || capacidad < changeR.personas}
+              className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
               Guardar cambio
             </button>
           </div>
-        )}
+          );
+        })()}
       </Modal>
     </div>
   );
