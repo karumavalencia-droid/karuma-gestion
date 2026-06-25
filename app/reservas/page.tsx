@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
 type Servicio = "comida" | "cena";
 type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
@@ -36,6 +36,207 @@ interface PublicConfig {
   cena_fin: string;
 }
 
+// Carta completa (importada del menú de Karuma · RestoSuite). Orientativa.
+interface PlatoCarta { n: string; d?: string; p: string }
+const CARTA: { cat: string; items: PlatoCarta[] }[] = [
+  {
+    cat: "Entrantes fríos",
+    items: [
+      { n: "Carpaccio de atún en salsa ponzu", d: "Atún, salsa ponzu, cebollino", p: "3,95 €" },
+      { n: "Carpaccio de salmón en salsa ponzu", d: "Salmón, salsa ponzu, cebollino", p: "3,95 €" },
+      { n: "Carpaccio de salmón en salsa maracuyá", p: "3,95 €" },
+      { n: "Ensalada de la casa", d: "Lechuga, cebolla, pepino, mango, ponzu, salsa de mostaza y miel, sésamo", p: "3,95 €" },
+      { n: "Ensalada de pollo crujiente", d: "Pollo, aguacate, ponzu, salsa de maracuyá, mostaza y miel, sésamo", p: "3,95 €" },
+      { n: "Ensalada de langostino tempura", d: "Langostino, aguacate, ponzu, salsa de maracuyá, mostaza y miel, sésamo", p: "3,95 €" },
+      { n: "Ensalada de salmón ahumado", p: "4,50 €" },
+      { n: "Wakame", d: "Wakame, pepino, sésamo", p: "3,50 €" },
+      { n: "Edamame", p: "3,50 €" },
+      { n: "Wontón de salmón", d: "Wontón crujiente, tartar de salmón, queso crema, salsa teriyaki, cebollino", p: "3,95 €" },
+      { n: "Alistada de gamba", p: "3,95 €" },
+    ],
+  },
+  {
+    cat: "Entrantes calientes",
+    items: [
+      { n: "Sopa miso", d: "Tofu, cebolla, pimiento verde y rojo, alga wakame", p: "3,95 €" },
+      { n: "Takoyaki", d: "Salsa mayo teriyaki, virutas de bonito", p: "4,50 €" },
+      { n: "Croqueta", p: "4,50 €" },
+      { n: "Alita original", d: "Alita, salsa mayonesa", p: "3,95 €" },
+      { n: "Alita picante", d: "Alita picante, mayonesa japonesa", p: "4,20 €" },
+      { n: "Alita miel y mostaza", d: "Alita, salsa de miel y mostaza", p: "4,20 €" },
+      { n: "Rollo primavera (3 ud)", d: "Repollo, guisantes, zanahoria, fideos, cebolla, soja, aceite de sésamo", p: "3,90 €" },
+      { n: "Langostino tempura", d: "Langostino en tempura, salsa chile dulce", p: "4,50 €" },
+      { n: "Pollo karaage", d: "Pollo marinado y rebozado, salsa chile dulce", p: "4,50 €" },
+      { n: "Torrezno con mango", d: "Torrezno, mango, salsa de mango", p: "4,50 €" },
+      { n: "Pollo al limón", d: "Pollo, salsa de limón", p: "4,80 €" },
+      { n: "Costilla de maíz", d: "Maíz horneado, sal, aceite", p: "3,90 €" },
+      { n: "Brocheta de pollo teriyaki", p: "3,90 €" },
+    ],
+  },
+  {
+    cat: "Baos y dim sum",
+    items: [
+      { n: "Bao de chorizo criollo", d: "Chorizo criollo a la brasa, pepino encurtido, mézclum, mayo chimichurri", p: "4,50 €" },
+      { n: "Bao pulled pork", d: "Pulled pork, mézclum, pepino encurtido, spicy mayo", p: "3,90 €" },
+      { n: "Bao de langostino", d: "Langostino, lechuga, mézclum, salsa mayo trufa", p: "3,90 €" },
+      { n: "Bao de pollo", d: "Contramuslo a la brasa, lechuga, mézclum, mayo japonesa", p: "3,90 €" },
+      { n: "Xiaolong bao", d: "Carne de cerdo", p: "3,50 €" },
+      { n: "Shumai de cerdo", p: "3,50 €" },
+      { n: "Gyoza al vapor", d: "Carne de pollo", p: "3,50 €" },
+      { n: "Gyoza frita", d: "Carne de pollo, salsa pesto", p: "3,50 €" },
+    ],
+  },
+  {
+    cat: "Salteados",
+    items: [
+      { n: "Arroz frito", d: "Arroz, maíz, guisantes, zanahoria, huevo", p: "5,90 €" },
+      { n: "Tallarines fritos", d: "Fideos, zanahoria, brotes de soja, cebolla, bok choy, huevo", p: "5,90 €" },
+      { n: "Champiñón con salsa miso", p: "4,50 €" },
+    ],
+  },
+  {
+    cat: "A la brasa",
+    items: [
+      { n: "Secreto ibérico", d: "Secreto ibérico a la parrilla, patata frita", p: "5,90 €" },
+      { n: "Entrecot", d: "Entrecot a la parrilla, patata frita", p: "6,50 €" },
+      { n: "Costilla de cerdo", d: "Costilla de cerdo, patata frita", p: "4,50 €" },
+      { n: "Contramuslo de pollo", d: "Pollo a la parrilla, patata frita", p: "4,20 €" },
+      { n: "Chorizo criollo", d: "Chorizo criollo a la parrilla, patata frita", p: "4,90 €" },
+      { n: "Churrasco", p: "4,50 €" },
+      { n: "Gamba al ajillo", d: "Gamba a la parrilla, salsa mery (ajo, perejil, guindilla, aceite)", p: "5,90 €" },
+      { n: "Almeja", d: "Almeja a la parrilla, salsa mery", p: "5,50 €" },
+      { n: "Vieira", d: "Vieira a la parrilla, salsa mery", p: "4,50 €" },
+      { n: "Puerro a la brasa", p: "4,50 €" },
+      { n: "Piña a la brasa", p: "4,50 €" },
+    ],
+  },
+  {
+    cat: "Nigiri",
+    items: [
+      { n: "Nigiri salmón", p: "3,50 €" },
+      { n: "Nigiri salmón flameado", d: "Salmón flameado, teriyaki, cebollino", p: "3,90 €" },
+      { n: "Nigiri salmón cheese flameado", d: "Salmón flameado, queso mascarpone, teriyaki, tobiko", p: "3,90 €" },
+      { n: "Nigiri atún", p: "3,90 €" },
+      { n: "Nigiri atún flameado", d: "Atún flameado, teriyaki, cebollino", p: "3,90 €" },
+      { n: "Nigiri atún cheese", d: "Atún flameado, salsa de mascarpone, salsa de azafrán, tobiko", p: "3,90 €" },
+      { n: "Nigiri anguila", d: "Anguila flameada, teriyaki, sésamo", p: "3,90 €" },
+      { n: "Nigiri ebi", d: "Ebi, queso, teriyaki, kataifi", p: "3,90 €" },
+    ],
+  },
+  {
+    cat: "Maki",
+    items: [
+      { n: "Maki salmón", p: "3,90 €" },
+      { n: "Maki atún", p: "3,90 €" },
+      { n: "Maki aguacate", p: "3,50 €" },
+      { n: "Maki pepino", p: "3,50 €" },
+      { n: "Maki tempura salmón", d: "Salmón cocido, tartar de salmón, teriyaki, kataifi", p: "4,90 €" },
+      { n: "Maki tempura fresa", d: "Salmón cocido, queso, fresa, salsa de fresa", p: "4,90 €" },
+      { n: "Maki tempura mango", d: "Salmón cocido, queso, mango, salsa de mango", p: "4,90 €" },
+      { n: "Combo 1", p: "9,50 €" },
+      { n: "Combo 2", p: "14,50 €" },
+    ],
+  },
+  {
+    cat: "Uramaki",
+    items: [
+      { n: "Uramaki salmón", d: "Salmón, aguacate, queso, sésamo, teriyaki, cebollino", p: "4,50 €" },
+      { n: "Crazy salmón", d: "Relleno de salmón y aguacate, salmón flameado, teriyaki, kataifi", p: "4,90 €" },
+      { n: "Spicy salmón", d: "Relleno de salmón y aguacate, tartar de salmón picante, mayonesa, kataifi", p: "4,90 €" },
+      { n: "Samba salmón", d: "Salmón, aguacate, queso, tobiko, salsa de azafrán", p: "4,90 €" },
+      { n: "Uramaki atún", d: "Relleno de atún y aguacate, queso, sésamo, cebollino", p: "4,90 €" },
+      { n: "Spicy tuna", d: "Relleno de atún y aguacate, tartar de salmón picante, mayonesa, kataifi", p: "4,90 €" },
+      { n: "Foxy surimi", d: "Aguacate, palitos de cangrejo, salmón flameado, mayonesa, teriyaki, kataifi", p: "4,90 €" },
+      { n: "Dragon roll", d: "Tempura de langostino, queso, aguacate, tobiko, teriyaki", p: "4,90 €" },
+      { n: "Tiger roll", d: "Tempura de langostino, aguacate, salmón, queso, mayo trufa, cebollino", p: "4,90 €" },
+      { n: "Ebi cheese", d: "Ebi tempura, queso brie caramelizado, mascarpone, teriyaki, tobiko", p: "4,90 €" },
+      { n: "Crazy surimi", d: "Palito de cangrejo, aguacate, salmón, mango, ponzu, mayonesa, kataifi", p: "4,50 €" },
+      { n: "Veggie roll", d: "Pepino, aguacate, queso, teriyaki, kataifi", p: "4,50 €" },
+      { n: "Pollo cheese", d: "Pollo rebozado, aguacate, queso cheddar, kataifi, salsa miel y mostaza", p: "4,50 €" },
+      { n: "Love roll", p: "4,90 €" },
+    ],
+  },
+  {
+    cat: "Gunkan y temaki",
+    items: [
+      { n: "Gunkan salmón", d: "Tartar de salmón, cebollino, arroz, alga nori", p: "3,90 €" },
+      { n: "Gunkan atún", d: "Tartar de atún, cebollino, arroz, alga nori", p: "3,90 €" },
+      { n: "Gunkan tobiko", d: "Arroz, alga nori, huevas de tobiko", p: "3,90 €" },
+      { n: "Temaki salmón", d: "Salmón, aguacate, queso, teriyaki, sésamo", p: "3,90 €" },
+      { n: "Temaki atún", d: "Atún, aguacate, queso, teriyaki, sésamo", p: "3,90 €" },
+      { n: "Temaki langostino", d: "Tempura de langostino, aguacate, queso, mayo trufa, sésamo", p: "3,90 €" },
+      { n: "Temaki vegano", d: "Pepino, aguacate, salsa de pesto", p: "3,50 €" },
+    ],
+  },
+  {
+    cat: "Tartar",
+    items: [
+      { n: "Tartar de salmón", d: "Arroz, aguacate, salmón, ponzu, teriyaki, sésamo", p: "4,50 €" },
+      { n: "Tartar de atún", d: "Arroz, aguacate, atún, ponzu, teriyaki, sésamo", p: "4,50 €" },
+    ],
+  },
+  {
+    cat: "Postres",
+    items: [
+      { n: "Mochi (fresa o té matcha · 2 u)", p: "3,95 €" },
+      { n: "Coulant de chocolate", p: "4,95 €" },
+      { n: "Helado de vainilla", p: "2,00 €" },
+    ],
+  },
+  {
+    cat: "Refrescos",
+    items: [
+      { n: "Agua", p: "1,90 €" },
+      { n: "Agua con gas", p: "2,95 €" },
+      { n: "Coca-Cola", p: "2,95 €" },
+      { n: "Coca-Cola Zero", p: "2,95 €" },
+      { n: "Fanta Limón", p: "2,95 €" },
+      { n: "Aquarius Limón", p: "2,90 €" },
+      { n: "Aquarius Naranja", p: "2,95 €" },
+      { n: "Fuze Tea", p: "2,95 €" },
+      { n: "Fuze Tea Maracuyá", p: "2,95 €" },
+    ],
+  },
+  {
+    cat: "Cervezas",
+    items: [
+      { n: "Amstel", p: "2,90 €" },
+      { n: "Cerveza con limón", p: "2,95 €" },
+      { n: "Kirin Ichiban", p: "3,50 €" },
+    ],
+  },
+  {
+    cat: "Vinos y licores",
+    items: [
+      { n: "Copa de vino tinto", p: "2,80 €" },
+      { n: "Copa de vino blanco", p: "2,80 €" },
+      { n: "Botella vino tinto", p: "7,50 €" },
+      { n: "Botella vino blanco", p: "7,50 €" },
+      { n: "Ramón Bilbao tinto", p: "16,80 €" },
+      { n: "Ramón Bilbao blanco", p: "16,80 €" },
+      { n: "Sanz blanco", p: "15,80 €" },
+      { n: "Pago de los Capellanes", p: "44 €" },
+      { n: "Chupito Beefeater", p: "2,50 €" },
+      { n: "Chupito Red Label", p: "2,50 €" },
+      { n: "Chupito whisky escocés", p: "2,50 €" },
+    ],
+  },
+  {
+    cat: "Cafés",
+    items: [
+      { n: "Café solo", p: "1,70 €" },
+      { n: "Cortado", p: "1,90 €" },
+      { n: "Café con leche", p: "2,20 €" },
+      { n: "Bombón", p: "1,90 €" },
+      { n: "Capuchino", p: "2,20 €" },
+      { n: "Café solo descafeinado", p: "1,70 €" },
+      { n: "Cortado descafeinado", p: "1,90 €" },
+      { n: "Café con leche descafeinado", p: "2,20 €" },
+      { n: "Bombón descafeinado", p: "1,90 €" },
+    ],
+  },
+];
+
 export default function ReservasPage() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [step, setStep] = useState<Step>("personas");
@@ -54,6 +255,7 @@ export default function ReservasPage() {
   const [mesasAsignadas, setMesasAsignadas] = useState<number[]>([]);
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState("");
+  const [cartaAbierta, setCartaAbierta] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/reservas/config")
@@ -365,9 +567,9 @@ export default function ReservasPage() {
 
           {/* MENÚS */}
           <section className="mt-14 border-t border-[#e2dac9] pt-10">
-            <Kicker jp="お品書き" es="Menús" />
+            <Kicker jp="食べ放題" es="Buffet" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              Nuestra carta
+              Buffet libre
             </h2>
             <div className="mt-6">
               {[
@@ -387,6 +589,50 @@ export default function ReservasPage() {
               ))}
             </div>
             <p className="mt-3 text-xs text-stone-400">Bebidas no incluidas.</p>
+          </section>
+
+          {/* CARTA COMPLETA */}
+          <section className="mt-14 border-t border-[#e2dac9] pt-10">
+            <Kicker jp="お品書き" es="Carta" />
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
+              Nuestra carta
+            </h2>
+            <p className="mb-5 mt-1 text-sm text-stone-500">Toca una categoría para ver los platos</p>
+
+            <div className="overflow-hidden rounded-2xl border border-[#ddd4c1] bg-white/50">
+              {CARTA.map((c, idx) => {
+                const abierta = cartaAbierta === c.cat;
+                return (
+                  <div key={c.cat} className={idx > 0 ? "border-t border-[#e8e1d2]" : ""}>
+                    <button
+                      onClick={() => setCartaAbierta(abierta ? null : c.cat)}
+                      className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+                      aria-expanded={abierta}
+                    >
+                      <span className="text-[0.95rem] font-semibold text-stone-900">{c.cat}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-stone-400">{c.items.length}</span>
+                        <ChevronDown className={`h-4 w-4 text-stone-400 transition-transform ${abierta ? "rotate-180" : ""}`} />
+                      </span>
+                    </button>
+                    {abierta && (
+                      <div className="px-4 pb-2">
+                        {c.items.map((it, i) => (
+                          <div key={`${c.cat}-${i}`} className="flex items-start justify-between gap-4 border-t border-[#efe9dc] py-3 first:border-t-0">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-stone-900">{it.n}</p>
+                              {it.d && <p className="mt-0.5 text-xs leading-snug text-stone-400">{it.d}</p>}
+                            </div>
+                            <span className="shrink-0 text-sm font-semibold text-karuma-700" style={{ fontFamily: SERIF }}>{it.p}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-stone-400">Carta orientativa · pueden existir variaciones. Las bebidas no están incluidas en el buffet.</p>
           </section>
 
           {/* HORARIO */}
