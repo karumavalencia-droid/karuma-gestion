@@ -491,46 +491,8 @@ export default function ReservasPage() {
         </header>
 
         <main className="mx-auto max-w-md px-6">
-          {/* HORARIO Y PRECIOS — destacado, encima del formulario de reserva */}
-          <section className="border-t border-[#e2dac9] pt-10">
-            <Kicker jp="営業時間" es="Horario" />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              Horario y precios
-            </h2>
-
-            <div className="mt-5 overflow-hidden rounded-2xl border-2 border-karuma-700/30 bg-karuma-50/60">
-              <div className="border-b border-karuma-700/15 px-5 py-5 text-center">
-                <p className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-karuma-700">
-                  <Clock className="h-3.5 w-3.5" /> Abierto todos los días
-                </p>
-                <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
-                  13:00 – 23:30
-                </p>
-                <p className="mt-2 text-xs text-stone-500">Cocina ininterrumpida</p>
-              </div>
-              <div className="px-5 py-1">
-                {[
-                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
-                  { t: "Tarde, noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
-                  { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
-                ].map((p) => (
-                  <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
-                    <div className="min-w-0">
-                      <p className="text-[0.95rem] font-semibold text-stone-900">{p.t}</p>
-                      {p.sub && <p className="mt-0.5 text-xs text-stone-500">{p.sub}</p>}
-                    </div>
-                    <span className="shrink-0 text-base font-semibold text-karuma-700" style={{ fontFamily: SERIF }}>
-                      {p.precio}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <p className="mt-3 text-center text-xs text-stone-400">Buffet libre · bebidas no incluidas.</p>
-          </section>
-
           {/* RESERVA */}
-          <section className="mt-14 border-t border-[#e2dac9] pt-10">
+          <section className="border-t border-[#e2dac9] pt-10">
             <Kicker jp="ご予約" es="Reserva" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               Reserva tu mesa
@@ -581,6 +543,44 @@ export default function ReservasPage() {
                 </a>
               </div>
             </div>
+          </section>
+
+          {/* HORARIO Y PRECIOS — destacado */}
+          <section className="mt-14 border-t border-[#e2dac9] pt-10">
+            <Kicker jp="営業時間" es="Horario" />
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
+              Horario y precios
+            </h2>
+
+            <div className="mt-5 overflow-hidden rounded-2xl border-2 border-karuma-700/30 bg-karuma-50/60">
+              <div className="border-b border-karuma-700/15 px-5 py-5 text-center">
+                <p className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-karuma-700">
+                  <Clock className="h-3.5 w-3.5" /> Abierto todos los días
+                </p>
+                <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
+                  13:00 – 23:30
+                </p>
+                <p className="mt-2 text-xs text-stone-500">Cocina ininterrumpida</p>
+              </div>
+              <div className="px-5 py-1">
+                {[
+                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
+                  { t: "Tarde, noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
+                  { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
+                ].map((p) => (
+                  <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
+                    <div className="min-w-0">
+                      <p className="text-[0.95rem] font-semibold text-stone-900">{p.t}</p>
+                      {p.sub && <p className="mt-0.5 text-xs text-stone-500">{p.sub}</p>}
+                    </div>
+                    <span className="shrink-0 text-base font-semibold text-karuma-700" style={{ fontFamily: SERIF }}>
+                      {p.precio}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 text-center text-xs text-stone-400">Buffet libre · bebidas no incluidas.</p>
           </section>
 
           {/* SOBRE NOSOTROS */}
