@@ -125,7 +125,7 @@ export const CURRENT_WEEK_DATES: Record<WeekDay, string> = {
   周日: "—",
 };
 
-export type LeaveStatus = "待审批" | "已批准" | "已拒绝";
+export type LeaveStatus = "Pendiente" | "Aprobada" | "Rechazada";
 
 export type LeaveRequest = {
   id: string;
@@ -144,8 +144,8 @@ export const LEAVE_REQUESTS: LeaveRequest[] = [
     employee: "Edu",
     date: "2026-06-15",
     day: "周日",
-    reason: "家庭原因",
-    status: "已批准",
+    reason: "Motivos familiares",
+    status: "Aprobada",
   },
   {
     id: "leave-2",
@@ -153,14 +153,14 @@ export const LEAVE_REQUESTS: LeaveRequest[] = [
     employee: "Karina",
     date: "2026-06-12",
     day: "周四",
-    reason: "身体不适",
-    status: "待审批",
+    reason: "Indisposición",
+    status: "Pendiente",
   },
 ];
 
 export function formatLeaveDate(date: string): string {
   const [, month, day] = date.split("-");
-  return `${Number(month)}月${Number(day)}日`;
+  return `${Number(day)}/${Number(month)}`;
 }
 
 export type ScheduleConflict = {
@@ -449,7 +449,7 @@ export function findConsecutiveWorkWarnings(
 export function applyLeaveRequests(rows: WeeklyScheduleRow[]): WeeklyScheduleRow[] {
   const next = cloneWeeklySchedule(rows);
   for (const leave of LEAVE_REQUESTS) {
-    if (leave.status !== "已批准") continue;
+    if (leave.status !== "Aprobada") continue;
     const row = next.find((r) => r.employeeId === leave.employeeId);
     if (row) row.days[leave.day] = "请假";
   }
@@ -496,13 +496,13 @@ export type RolePermissionRow = {
 };
 
 export const ROLE_PERMISSIONS: RolePermissionRow[] = [
-  { role: "owner", roleLabel: "老板", permissions: "全部权限" },
-  { role: "manager", roleLabel: "店长", permissions: "销售、排班、员工、库存" },
-  { role: "kitchen", roleLabel: "厨房", permissions: "菜谱、库存、原料" },
-  { role: "sushi", roleLabel: "寿司", permissions: "菜谱、排班、库存" },
-  { role: "waiter", roleLabel: "服务员", permissions: "排班只读、菜谱只读" },
-  { role: "cashier", roleLabel: "收银", permissions: "销售只读、Dashboard" },
-  { role: "dishwasher", roleLabel: "洗碗", permissions: "只看我的排班" },
+  { role: "owner", roleLabel: "Propietario", permissions: "Todos los permisos" },
+  { role: "manager", roleLabel: "Encargado", permissions: "Ventas, horarios, personal, inventario" },
+  { role: "kitchen", roleLabel: "Cocina", permissions: "Recetas, inventario, ingredientes" },
+  { role: "sushi", roleLabel: "Sushi", permissions: "Recetas, horarios, inventario" },
+  { role: "waiter", roleLabel: "Camarero", permissions: "Horarios solo lectura, recetas solo lectura" },
+  { role: "cashier", roleLabel: "Cajero", permissions: "Ventas solo lectura, Dashboard" },
+  { role: "dishwasher", roleLabel: "Friegaplatos", permissions: "Solo mi horario" },
 ];
 
 export type LoginAccount = {

@@ -4,13 +4,19 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
+import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
+import {
+  canMoveReservation,
+  countReservedTables,
+  getReservationGuests,
+  getReservationService,
+  isActiveReservation,
+} from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
 import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
-  createWalkInForMesa,
-  createReserva,
   sentarReserva,
   liberarMesa,
   cambiarMesas,
@@ -20,6 +26,7 @@ import {
   mesasDisponiblesParaCambio,
   slotsPlano,
   defaultHoraPlano,
+  loadReservas,
   MESAS_SEED,
   type MesaConEstado,
   type MesaLocal,
@@ -64,8 +71,18 @@ function duracion(seatedAt?: string) {
   const mins = Math.floor((Date.now() - new Date(seatedAt).getTime()) / 60_000);
   return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
-function nowHHMM() { return new Date().toTimeString().slice(0, 5); }
-
+function canMoveLocalReservation(reserva: ReservaLocal): boolean {
+  return canMoveReservation(reserva.estado) && reserva.mesaIds.length > 0;
+}
+function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
+  const activas = reservas.filter(
+    (r) => isActiveReservation(r.estado) && getReservationService(r) === servicio,
+  );
+  return {
+    mesas: countReservedTables(activas),
+    pax: activas.reduce((sum, r) => sum + getReservationGuests(r), 0),
+  };
+}
 // ─── Modal shell ──────────────────────────────────────────────────────────────
 
 function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -110,6 +127,7 @@ export default function MesaViewPage() {
   const [fecha, setFecha]       = useState(getSharedFecha);
   const [servicio, setServicio] = useState<ServicioLocal>(() => getSharedServicio() ?? autoServicio());
   const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
+  const [reservas, setReservas]   = useState<ReservaLocal[]>([]);
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);
   const [tick, setTick]         = useState(0);
   const [toast, setToast]       = useState("");
@@ -133,8 +151,9 @@ export default function MesaViewPage() {
   const [showNueva, setShowNueva]     = useState(false);
   const [nNombre, setNNombre]         = useState("");
   const [nTelefono, setNTelefono]     = useState("");
+  const [nEmail, setNEmail]           = useState("");
   const [nPersonas, setNPersonas]     = useState(2);
-  const [nHora, setNHora]             = useState(nowHHMM);
+  const [nHora, setNHora]             = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [nServicio, setNServicio]     = useState<ServicioLocal>(autoServicio);
   const [nMesaIds, setNMesaIds]       = useState<string[]>([]);
   const [nNotas, setNNotas]           = useState("");
@@ -157,12 +176,15 @@ export default function MesaViewPage() {
   const [editing, setEditing]           = useState(false);
   const [editPersonas, setEditPersonas] = useState(2);
   const [editHora, setEditHora]         = useState("");
+  const [editError, setEditError]       = useState("");
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   const reload = useCallback(() => {
-    syncAndLoadReservas(fecha).then(() => {
+    syncAndLoadReservas(fecha).then((all) => {
+      setReservas(all);
       setMesas(getMesasConEstado(fecha, servicio, horaPlano));
     }).catch(() => {
+      setReservas(loadReservas().filter((r) => r.fecha === fecha));
       setMesas(getMesasConEstado(fecha, servicio, horaPlano));
     });
   }, [fecha, servicio, horaPlano]);
@@ -205,6 +227,8 @@ export default function MesaViewPage() {
   const libres    = mesas.filter((m) => m.status === "available" && (m.agenda?.length ?? 0) === 0).length;
   // Nº total de reservas del servicio (todos los turnos del día), para el estado vacío
   const reservasDia = mesas.reduce((n, m) => n + (m.agenda?.length ?? 0), 0);
+  const statsComida = getMealStats(reservas, "comida");
+  const statsCena = getMealStats(reservas, "cena");
 
   // ── Walk-In ──────────────────────────────────────────────────────────────────
   function openWalkIn(m: MesaConEstado) {
@@ -215,39 +239,81 @@ export default function MesaViewPage() {
     setWiMesa({} as MesaConEstado); setWiPersonas(2); setWiNombre(""); setWiTelefono("");
     setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiSelectedId("");
   }
-  function submitWalkIn() {
+  async function submitWalkIn() {
     const mesaId = wiGeneral ? wiSelectedId : wiMesa?.id;
     if (!mesaId) { setWiError("Selecciona una mesa"); return; }
-    const res = createWalkInForMesa(mesaId, wiPersonas, wiNombre, wiTelefono, wiNotas);
-    if (!res.ok) { setWiError(res.error); return; }
-    const mesaNum = mesaId.replace("T", "");
-    setWiOk(true); reload(); showToast(`T${mesaNum} — Walk-In registrado`);
+    setWiError("");
+    try {
+      const response = await fetch("/api/reservas/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha: hoy(),
+          hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(),
+          personas: wiPersonas,
+          nombre: wiNombre || "Walk-In",
+          telefono: wiTelefono.trim(),
+          notas: wiNotas,
+          origen: "walkin",
+          forceMesaIds: [Number(mesaId.replace("T", ""))],
+        }),
+      });
+      const json = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !json.ok) {
+        setWiError(json.error ?? "No se pudo registrar el Walk-In.");
+        return;
+      }
+      const mesaNum = mesaId.replace("T", "");
+      setWiOk(true); reload(); showToast(`T${mesaNum} — Walk-In registrado`);
+    } catch {
+      setWiError("No se pudo registrar el Walk-In.");
+    }
   }
   function closeWalkIn() { setWiMesa(null); setWiOk(false); setWiError(""); setWiGeneral(false); setWiSelectedId(""); }
 
   // ── Nueva Reserva ────────────────────────────────────────────────────────────
   function openNueva() {
-    setNNombre(""); setNTelefono(""); setNPersonas(2);
-    setNHora(nowHHMM()); setNServicio(autoServicio()); setNMesaIds([]);
+    setNNombre(""); setNTelefono(""); setNEmail(""); setNPersonas(2);
+    setNHora(defaultHoraPlano(fecha, servicio)); setNServicio(servicio); setNMesaIds([]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
   // Nueva reserva pre-rellenada para una mesa concreta (al tocar mesa libre en una fecha futura)
   function openNuevaParaMesa(m: MesaConEstado) {
-    setNNombre(""); setNTelefono(""); setNPersonas(Math.min(m.capacidad, 2));
+    setNNombre(""); setNTelefono(""); setNEmail(""); setNPersonas(Math.min(m.capacidad, 2));
     setNHora(horaPlano); setNServicio(servicio); setNMesaIds([m.id]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
-  function submitNueva() {
+  async function submitNueva() {
     if (!nNombre.trim()) { setNError("El nombre es obligatorio"); return; }
-    const res = createReserva({
-      nombre: nNombre.trim(), telefono: nTelefono.trim(),
-      personas: nPersonas, fecha, hora: nHora,
-      servicio: nServicio, notas: nNotas.trim(),
-      origen: "manual",
-      ...(nMesaIds.length ? { forceMesaIds: nMesaIds } : {}),
-    });
-    if (!res.ok) { setNError(res.error); return; }
-    setShowNueva(false); reload(); showToast("Reserva creada");
+    if (!nTelefono.trim()) { setNError("El teléfono es obligatorio para sincronizar la reserva."); return; }
+    setNError("");
+    try {
+      const response = await fetch("/api/reservas/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nNombre.trim(),
+          telefono: nTelefono.trim(),
+          email: nEmail.trim() || undefined,
+          personas: nPersonas,
+          fecha,
+          hora: nHora,
+          servicio: nServicio,
+          notas: nNotas.trim(),
+          origen: "manual",
+          forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
+        }),
+      });
+      const json = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !json.ok) {
+        setNError(json.error ?? "No se pudo crear la reserva.");
+        return;
+      }
+      setShowNueva(false); reload(); showToast("Reserva creada");
+    } catch {
+      setNError("No se pudo crear la reserva.");
+    }
   }
   function toggleNMesa(id: string) {
     setNMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
@@ -256,7 +322,7 @@ export default function MesaViewPage() {
   // ── Liberar ──────────────────────────────────────────────────────────────────
   function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
-    if (r.origen === "online") {
+    if (r.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, estado: "finished" }),
@@ -268,7 +334,7 @@ export default function MesaViewPage() {
   // ── Cancelar ─────────────────────────────────────────────────────────────────
   function handleCancelar(r: ReservaLocal) {
     updateEstado(r.id, "cancelada");
-    if (r.origen === "online") {
+    if (r.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, estado: "cancelada" }),
@@ -281,11 +347,14 @@ export default function MesaViewPage() {
   function openEdit(r: ReservaLocal) {
     setEditPersonas(r.personas);
     setEditHora((r.hora || "").slice(0, 5));
+    setEditError("");
     setEditing(true);
   }
   function submitEdit(r: ReservaLocal) {
-    editReserva(r.id, { personas: editPersonas, hora: editHora });
-    if (r.origen === "online") {
+    setEditError("");
+    const res = editReserva(r.id, { personas: editPersonas, hora: editHora });
+    if (!res.ok) { setEditError(res.error); return; }
+    if (r.origen) {
       void fetch("/api/reservas/actualizar", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "editar", id: r.id, personas: editPersonas, hora: editHora }),
@@ -302,7 +371,7 @@ export default function MesaViewPage() {
     if (!seatReserva) return;
     const res = sentarReserva(seatReserva.id, seatMesaIds.length ? seatMesaIds : undefined);
     if (!res.ok) { setSeatError(res.error); return; }
-    if (seatReserva.origen === "online") {
+    if (seatReserva.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: seatReserva.id, estado: "sentada" }),
@@ -321,7 +390,7 @@ export default function MesaViewPage() {
     if (!moveReserva) return;
     const res = cambiarMesas(moveReserva.id, moveMesaIds);
     if (!res.ok) { setMoveError(res.error); return; }
-    if (moveReserva.origen === "online") {
+    if (moveReserva.origen) {
       void fetch("/api/reservas/actualizar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,6 +415,7 @@ export default function MesaViewPage() {
     }
     // Mesa con reservas (en este momento o en otros turnos del día) → abrir detalle
     setEditing(false);
+    setEditError("");
     setFocusReservaId(m.reserva?.id ?? agenda[0]?.id ?? null);
     setSel(m);
   }
@@ -453,6 +523,8 @@ export default function MesaViewPage() {
             <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">{total} total</span>
             <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">{reservadas} reservadas</span>
             <span className="rounded-full bg-emerald-700 px-2 py-1 text-white">{ocupadas} ocupadas</span>
+            <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">Comida {statsComida.mesas}M/{statsComida.pax}P</span>
+            <span className="rounded-full bg-indigo-100 px-2 py-1 text-indigo-800">Cena {statsCena.mesas}M/{statsCena.pax}P</span>
           </div>
           <button onClick={openWalkInGeneral}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50">
@@ -507,7 +579,43 @@ export default function MesaViewPage() {
           </div>
         </div>
 
-        {/* ── Eje de tiempo: estado del plano por franja (翻台 / turn-over) ───── */}
+        {/* ── Estadística por servicio ──────────────────────────────────────── */}
+        <div className="mesa-tablet-hide mb-4 grid grid-cols-2 gap-3">
+          {[
+            { label: "Comida", icon: "🍱", stats: statsComida, tone: "amber" },
+            { label: "Cena", icon: "🍣", stats: statsCena, tone: "indigo" },
+          ].map(({ label, icon, stats, tone }) => (
+            <div
+              key={label}
+              className={`rounded-[1.25rem] border bg-white p-4 shadow-sm ${
+                tone === "amber" ? "border-amber-200" : "border-indigo-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <p className={`text-sm font-black ${tone === "amber" ? "text-amber-700" : "text-indigo-700"}`}>
+                  {icon} {label}
+                </p>
+                <p className="text-xs font-semibold text-gray-400">Reservas activas</p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <p className={`text-3xl font-black leading-none ${tone === "amber" ? "text-amber-800" : "text-indigo-800"}`}>
+                    {stats.mesas}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-gray-500">mesas reservadas</p>
+                </div>
+                <div>
+                  <p className={`text-3xl font-black leading-none ${tone === "amber" ? "text-amber-800" : "text-indigo-800"}`}>
+                    {stats.pax}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-gray-500">pax</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Eje de tiempo: estado del plano por franja */}
         <div className="mesa-tablet-hide mb-4 rounded-[1.25rem] border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -638,7 +746,7 @@ export default function MesaViewPage() {
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
                 )}
-                {/* Otros turnos del día (翻台) */}
+                {/* Otros turnos del día */}
                 {m.status !== "available" && otras.length > 0 && (
                   <p className="mt-1 truncate text-sm font-medium text-gray-500" title={otras.map((o) => `${o.hora} ${o.nombre}`).join(" · ")}>
                     +{otras.length}: {otras.map((o) => o.hora).join(", ")}
@@ -666,11 +774,12 @@ export default function MesaViewPage() {
       )}
 
       {/* ── Detail modal ──────────────────────────────────────────────────────── */}
-      <Modal open={!!sel && !cancelReservaId} onClose={() => { setSel(null); setEditing(false); }}>
+      <Modal open={!!sel && !cancelReservaId} onClose={() => { setSel(null); setEditing(false); setEditError(""); }}>
         {sel && (() => {
           const agenda = sel.agenda ?? [];
           const focusR = agenda.find((a) => a.id === focusReservaId) ?? sel.reserva ?? agenda[0] ?? null;
           const focusOcc = !!focusR && (focusR.estado === "sentada" || focusR.estado === "walkin");
+          const focusCanMove = !!focusR && canMoveLocalReservation(focusR);
           return (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -678,12 +787,12 @@ export default function MesaViewPage() {
                 <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
                 <p className="text-sm text-gray-500">{sel.capacidad} personas · Interior</p>
               </div>
-              <button onClick={() => { setSel(null); setEditing(false); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+              <button onClick={() => { setSel(null); setEditing(false); setEditError(""); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* ── Agenda del día: turnos (翻台). Toca un turno para verlo/editarlo ── */}
+            {/* Agenda del día: toca un turno para verlo o editarlo */}
             {!editing && agenda.length > 1 && (
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">
@@ -711,6 +820,7 @@ export default function MesaViewPage() {
             {editing && focusR && (
               <>
                 <div className="mb-1 text-sm font-semibold text-gray-500">Editando turno de las {focusR.hora}</div>
+                {editError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{editError}</p>}
                 <div className="space-y-4 rounded-xl bg-gray-50 p-4">
                   <div>
                     <p className="mb-1.5 text-xs font-bold text-gray-500">Personas</p>
@@ -724,14 +834,19 @@ export default function MesaViewPage() {
                   </div>
                   <div>
                     <p className="mb-1.5 text-xs font-bold text-gray-500">Hora</p>
-                    <input type="time" value={editHora} onChange={(e) => setEditHora(e.target.value)} className={inp} />
+                    <TimeSlotPicker
+                      value={editHora}
+                      onChange={setEditHora}
+                      servicio={focusR.servicio}
+                      compact
+                    />
                   </div>
                 </div>
                 <button onClick={() => submitEdit(focusR)}
                   className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                   Guardar cambios
                 </button>
-                <button onClick={() => setEditing(false)}
+                <button onClick={() => { setEditing(false); setEditError(""); }}
                   className="w-full rounded-xl border border-gray-200 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
                   Volver
                 </button>
@@ -766,11 +881,11 @@ export default function MesaViewPage() {
                     → Sentar / Ocupar mesa
                   </button>
                 )}
-                {focusOcc && (
+                {focusCanMove && (
                   <button onClick={() => { openMove(focusR); setSel(null); }}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
                     <ArrowRightLeft className="h-4 w-4" />
-                    Cambiar de mesa
+                    Cambiar mesa
                   </button>
                 )}
                 <button onClick={() => openEdit(focusR)}
@@ -914,30 +1029,37 @@ export default function MesaViewPage() {
             <input className={inp} placeholder="Nombre del cliente" value={nNombre} onChange={(e) => setNNombre(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Teléfono</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Teléfono *</label>
             <input className={inp} type="tel" placeholder="+34…" value={nTelefono} onChange={(e) => setNTelefono(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Personas</label>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setNPersonas(Math.max(1, nPersonas - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 font-bold hover:bg-gray-200">−</button>
-                <span className="flex-1 text-center text-xl font-black">{nPersonas}</span>
-                <button onClick={() => setNPersonas(nPersonas + 1)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 font-bold hover:bg-gray-200">+</button>
-              </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Email</label>
+            <input className={inp} type="email" placeholder="cliente@email.com" value={nEmail} onChange={(e) => setNEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Personas</label>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setNPersonas(Math.max(1, nPersonas - 1))}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 font-bold hover:bg-gray-200">−</button>
+              <span className="flex-1 text-center text-xl font-black">{nPersonas}</span>
+              <button onClick={() => setNPersonas(nPersonas + 1)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 font-bold hover:bg-gray-200">+</button>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Hora</label>
-              <input type="time" className={inp} value={nHora} onChange={(e) => setNHora(e.target.value)} />
-            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Hora</label>
+            <TimeSlotPicker value={nHora} onChange={setNHora} servicio={nServicio} compact />
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Servicio</label>
             <div className="flex overflow-hidden rounded-lg border border-gray-300">
               {(["comida", "cena"] as const).map((s) => (
-                <button key={s} onClick={() => setNServicio(s)}
+                <button key={s} onClick={() => {
+                  setNServicio(s);
+                  setNHora((current) =>
+                    slotsPlano(s).includes(current) ? current : defaultHoraPlano(fecha, s),
+                  );
+                }}
                   className={`flex-1 py-2 text-sm font-medium transition-colors ${
                     nServicio === s ? "bg-karuma-600 text-white" : "bg-white text-gray-500"
                   }`}>

@@ -18,13 +18,13 @@ export const REST_DAY_KEYS: RestDayKey[] = [
 ];
 
 export const REST_DAY_LABEL: Record<RestDayKey, string> = {
-  Monday: "Monday",
-  Tuesday: "Tuesday",
-  Wednesday: "Wednesday",
-  Thursday: "Thursday",
-  Friday: "Friday",
-  Saturday: "Saturday",
-  Sunday: "Sunday",
+  Monday: "Lunes",
+  Tuesday: "Martes",
+  Wednesday: "Miércoles",
+  Thursday: "Jueves",
+  Friday: "Viernes",
+  Saturday: "Sábado",
+  Sunday: "Domingo",
 };
 
 export const REST_DAY_TO_WEEK_DAY: Record<RestDayKey, string> = {
@@ -48,7 +48,7 @@ function toWeekDay(key: string | null | undefined): string | null {
   return zh ?? null;
 }
 
-/** 固定休息日 → 排班表中文星期（周一…周日）；无效或混用语言键时跳过 */
+/** Días fijos de descanso -> claves internas del plan semanal. */
 export function getStaffFixedRestWeekDays(staff: FixedRestDays): string[] {
   const days: string[] = [];
   for (const key of [staff.fixedRestDay1, staff.fixedRestDay2]) {
@@ -63,5 +63,5 @@ export function formatFixedRestDays(staff: FixedRestDays): string {
     .filter((d): d is RestDayKey => Boolean(d))
     .filter((d, i, arr) => arr.indexOf(d) === i)
     .map((d) => REST_DAY_LABEL[d]);
-  return labels.length > 0 ? labels.join("、") : "—";
+  return labels.length > 0 ? labels.join(", ") : "—";
 }

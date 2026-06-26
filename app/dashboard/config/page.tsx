@@ -32,7 +32,7 @@ const DEFAULT_HORARIO: HorarioDia[] = [0, 1, 2, 3, 4, 5, 6].map((dia) => ({
   activo: true,
   comida_activa: true,
   comida_inicio: dia === 0 || dia === 6 ? "13:00" : "13:00",
-  comida_fin:    dia === 0 || dia === 6 ? "15:00" : "13:30",
+  comida_fin:    dia === 0 || dia === 6 ? "15:00" : "13:45",
   cena_activa: true,
   cena_inicio:   dia === 0 || dia === 6 ? "20:00" : "16:00",
   cena_fin:      "22:00",

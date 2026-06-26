@@ -1,26 +1,26 @@
 export const ASSET_STATUSES = [
-  "待拍摄",
-  "已拍摄",
-  "已剪辑",
-  "已发布",
-  "效果好",
-  "效果差",
+  "Pendiente",
+  "Grabado",
+  "Editado",
+  "Publicado",
+  "Buen resultado",
+  "Mal resultado",
 ] as const;
 
 export type AssetStatus = (typeof ASSET_STATUSES)[number];
 
 export const CONTENT_TYPES = [
-  "自助餐展示",
-  "厨房制作",
-  "客人视角",
-  "价格钩子",
-  "Google好评",
-  "周末提醒",
+  "Buffet",
+  "Cocina",
+  "Punto de vista cliente",
+  "Gancho de precio",
+  "Reseña Google",
+  "Recordatorio fin de semana",
 ] as const;
 
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
-export const PUBLISH_PLATFORMS = ["TikTok", "Instagram", "双平台"] as const;
+export const PUBLISH_PLATFORMS = ["TikTok", "Instagram", "Ambas plataformas"] as const;
 
 export type PublishPlatform = (typeof PUBLISH_PLATFORMS)[number];
 
@@ -45,84 +45,84 @@ export const INITIAL_VIDEO_ASSETS: VideoAsset[] = [
     title: "24.50€ sushi ilimitado en Valencia",
     shootDate: "2026-06-08",
     assignee: "Celeste",
-    contentType: "价格钩子",
+    contentType: "Gancho de precio",
     materialLink: "drive://karuma/raw/2026-06-08-buffet-price",
-    status: "已发布",
-    platform: "双平台",
+    status: "Publicado",
+    platform: "Ambas plataformas",
     tiktokLink: "https://tiktok.com/@karuma/video/mock-001",
     instagramLink: "https://instagram.com/reel/mock-001",
     views: 1240,
-    notes: "第一秒价格字幕，朋友协助拍摄",
+    notes: "Precio en el primer segundo; grabado con apoyo de amigos",
   },
   {
     id: "va-2",
     title: "100 piezas de sushi en 60 segundos",
     shootDate: "2026-06-08",
     assignee: "Newton",
-    contentType: "厨房制作",
+    contentType: "Cocina",
     materialLink: "drive://karuma/raw/2026-06-08-kitchen-60s",
-    status: "已剪辑",
+    status: "Editado",
     platform: "TikTok",
     tiktokLink: "",
     instagramLink: "",
     views: 0,
-    notes: "待加字幕与 BGM",
+    notes: "Pendiente de subtítulos y música",
   },
   {
     id: "va-3",
     title: "Encontré un buffet 4.9⭐ en Valencia",
     shootDate: "2026-06-09",
     assignee: "Isabel",
-    contentType: "Google好评",
+    contentType: "Reseña Google",
     materialLink: "",
-    status: "待拍摄",
-    platform: "双平台",
+    status: "Pendiente",
+    platform: "Ambas plataformas",
     tiktokLink: "",
     instagramLink: "",
     views: 0,
-    notes: "需 Google 评分截图 + 门头",
+    notes: "Necesita captura de Google Rating y fachada",
   },
   {
     id: "va-4",
-    title: "满桌寿司冲击感快剪",
+    title: "Mesa llena de sushi - edición rápida",
     shootDate: "2026-06-05",
     assignee: "Edu",
-    contentType: "自助餐展示",
+    contentType: "Buffet",
     materialLink: "drive://karuma/raw/2026-06-05-table-full",
-    status: "效果好",
+    status: "Buen resultado",
     platform: "Instagram",
     tiktokLink: "https://tiktok.com/@karuma/video/mock-004",
     instagramLink: "https://instagram.com/reel/mock-004",
     views: 3820,
-    notes: "完播率高，可复制同结构",
+    notes: "Alta retención; repetir la misma estructura",
   },
   {
     id: "va-5",
-    title: "周日晚上来 Karuma",
+    title: "Domingo noche en Karuma",
     shootDate: "2026-06-01",
     assignee: "Celeste",
-    contentType: "周末提醒",
+    contentType: "Recordatorio fin de semana",
     materialLink: "drive://karuma/raw/2026-06-01-sunday",
-    status: "效果差",
+    status: "Mal resultado",
     platform: "TikTok",
     tiktokLink: "https://tiktok.com/@karuma/video/mock-005",
     instagramLink: "",
     views: 186,
-    notes: "开头太慢，下周重拍",
+    notes: "Inicio demasiado lento; repetir la semana que viene",
   },
   {
     id: "va-6",
-    title: "客人第一视角：值不值得来",
+    title: "POV cliente: ¿merece la pena?",
     shootDate: "2026-06-07",
     assignee: "Jhoan",
-    contentType: "客人视角",
+    contentType: "Punto de vista cliente",
     materialLink: "drive://karuma/raw/2026-06-07-guest-pov",
-    status: "已拍摄",
-    platform: "双平台",
+    status: "Grabado",
+    platform: "Ambas plataformas",
     tiktokLink: "",
     instagramLink: "",
     views: 0,
-    notes: "素材在同事手机，待传到 Drive",
+    notes: "Material en el móvil del equipo; pendiente de subir a Drive",
   },
 ];
 
@@ -131,7 +131,7 @@ function parseDate(iso: string): Date {
   return new Date(y!, m! - 1, d!);
 }
 
-/** 本周一 00:00（本地） */
+/** Lunes de esta semana a las 00:00, hora local. */
 export function getWeekStart(date: Date = new Date()): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -142,7 +142,7 @@ export function getWeekStart(date: Date = new Date()): Date {
 }
 
 export function isPublishedStatus(status: AssetStatus): boolean {
-  return status === "已发布" || status === "效果好" || status === "效果差";
+  return status === "Publicado" || status === "Buen resultado" || status === "Mal resultado";
 }
 
 export function countPublishedThisWeek(assets: VideoAsset[], now: Date = new Date()): number {
@@ -166,10 +166,10 @@ export function createEmptyAsset(): Omit<VideoAsset, "id"> {
     title: "",
     shootDate,
     assignee: "",
-    contentType: "自助餐展示",
+    contentType: "Buffet",
     materialLink: "",
-    status: "待拍摄",
-    platform: "双平台",
+    status: "Pendiente",
+    platform: "Ambas plataformas",
     tiktokLink: "",
     instagramLink: "",
     views: 0,

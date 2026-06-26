@@ -30,9 +30,7 @@ function seedIngredientes(): Ingredient[] {
     {
       id: "ing-1",
       nombre: "Salmón",
-      nombreZh: "三文鱼",
       categoria: "Marisco",
-      categoriaZh: "海鲜",
       unidad: "kg",
       precio: 22,
       proveedor: "Makro",
@@ -41,9 +39,7 @@ function seedIngredientes(): Ingredient[] {
     {
       id: "ing-2",
       nombre: "Arroz sushi",
-      nombreZh: "寿司米",
       categoria: "Arroz y pasta",
-      categoriaZh: "米面",
       unidad: "kg",
       precio: 1.8,
       proveedor: "Transgourmet",
@@ -52,9 +48,7 @@ function seedIngredientes(): Ingredient[] {
     {
       id: "ing-3",
       nombre: "Alitas de pollo",
-      nombreZh: "鸡翅",
       categoria: "Carne",
-      categoriaZh: "肉类",
       unidad: "kg",
       precio: 4.2,
       proveedor: "Pollos Planes",
@@ -63,9 +57,7 @@ function seedIngredientes(): Ingredient[] {
     {
       id: "ing-4",
       nombre: "Ternera",
-      nombreZh: "牛肉",
       categoria: "Carne",
-      categoriaZh: "肉类",
       unidad: "kg",
       precio: 15,
       proveedor: "Makro",
@@ -74,9 +66,7 @@ function seedIngredientes(): Ingredient[] {
     {
       id: "ing-5",
       nombre: "Gambas",
-      nombreZh: "虾",
       categoria: "Marisco",
-      categoriaZh: "海鲜",
       unidad: "kg",
       precio: 9.5,
       proveedor: "Transgourmet",
@@ -144,7 +134,7 @@ export function saveIngredients(store: IngredientsStore): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch {
-    /* ignorar — la UI sigue con estado en memoria */
+    /* Ignorar: la UI sigue con estado en memoria. */
   }
 }
 

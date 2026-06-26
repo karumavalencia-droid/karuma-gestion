@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
+    return NextResponse.json({ error: "No has iniciado sesión" }, { status: 401 });
   }
 
   return NextResponse.json(user, {

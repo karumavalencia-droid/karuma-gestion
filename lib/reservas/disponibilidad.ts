@@ -1,4 +1,5 @@
 import type { Mesa, Reserva, ReservasConfig, SlotDisponible } from "./types";
+import { isActiveReservation } from "./helpers";
 
 /** Genera lista de horas en intervalos desde inicio hasta fin (último pase) */
 export function generarSlots(inicio: string, fin: string, intervaloMin: number): string[] {
@@ -44,7 +45,7 @@ export function mesasOcupadasEnSlot(
   const ocupadas = new Set<number>();
   for (const r of reservas) {
     if (r.fecha !== fecha) continue;
-    if (r.estado === "Cancelada" || r.estado === "NoShow") continue;
+    if (!isActiveReservation(r.estado)) continue;
     if (solapan(hora, duracionMin, r.hora_inicio, r.duracion_min, turnoGapMin)) {
       r.mesa_ids.forEach((id) => ocupadas.add(id));
     }
@@ -75,8 +76,7 @@ export function asignarMesa(
       (r) =>
         r.fecha === fecha &&
         r.origen === "online" &&
-        r.estado !== "Cancelada" &&
-        r.estado !== "NoShow" &&
+        isActiveReservation(r.estado) &&
         solapan(hora, duracionMin, r.hora_inicio, r.duracion_min, turnoGapMin),
     )
     .reduce((sum, r) => sum + r.personas, 0);

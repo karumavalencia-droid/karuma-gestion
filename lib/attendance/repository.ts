@@ -59,7 +59,7 @@ export async function listAttendanceEvents(
     return memoryStore().events.filter((event) => event.businessDate === businessDate);
   }
   const supabase = getSupabaseAdmin();
-  if (!supabase) throw new Error("数据库未配置");
+  if (!supabase) throw new Error("Base de datos no configurada");
   const { data, error } = await supabase
     .from("attendance_events")
     .select("*")
@@ -78,7 +78,7 @@ export async function findAttendanceEventByRequestId(
     return memoryStore().events.find((event) => event.requestId === requestId) ?? null;
   }
   const supabase = getSupabaseAdmin();
-  if (!supabase) throw new Error("数据库未配置");
+  if (!supabase) throw new Error("Base de datos no configurada");
   const { data, error } = await supabase
     .from("attendance_events")
     .select("*")
@@ -128,7 +128,7 @@ export async function createAttendanceEvent(input: {
     return event;
   }
   const supabase = getSupabaseAdmin();
-  if (!supabase) throw new Error("数据库未配置");
+  if (!supabase) throw new Error("Base de datos no configurada");
   const row: DbAttendanceEventInsert = {
     request_id: input.requestId,
     employee_key: input.employeeId,

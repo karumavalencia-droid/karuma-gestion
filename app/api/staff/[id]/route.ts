@@ -13,14 +13,14 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!isSupabaseConfigured()) {
     const member = findStaffMember(id);
     if (!member) {
-      return NextResponse.json({ error: "员工不存在" }, { status: 404 });
+      return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
     }
     return NextResponse.json(member);
   }
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { data, error } = await supabase
@@ -34,7 +34,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
-    return NextResponse.json({ error: "员工不存在" }, { status: 404 });
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(mapStaffRow(data));
@@ -42,19 +42,19 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PUT(request: Request, context: RouteContext) {
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: "请配置 Supabase 环境变量" }, { status: 503 });
+    return NextResponse.json({ error: "Configura las variables de entorno de Supabase" }, { status: 503 });
   }
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { id } = await context.params;
   const body = (await request.json()) as StaffInput;
 
   if (!body.name?.trim() || !body.position?.trim() || !body.role) {
-    return NextResponse.json({ error: "姓名、职位和角色为必填项" }, { status: 400 });
+    return NextResponse.json({ error: "Nombre, puesto y rol son obligatorios" }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -74,12 +74,12 @@ export async function PUT(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: "请配置 Supabase 环境变量" }, { status: 503 });
+    return NextResponse.json({ error: "Configura las variables de entorno de Supabase" }, { status: 503 });
   }
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { id } = await context.params;

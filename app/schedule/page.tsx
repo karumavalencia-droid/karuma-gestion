@@ -125,7 +125,7 @@ function MobileTodayDepartment({
       {resting.length > 0 && (
         <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
           {restPrefix}
-          <span className="text-gray-700">{resting.map((r) => r.name).join("、")}</span>
+          <span className="text-gray-700">{resting.map((r) => r.name).join(", ")}</span>
         </p>
       )}
     </section>
@@ -250,7 +250,7 @@ function DesktopTodayDepartment({
       {resting.length > 0 && (
         <p className="mt-2 text-sm text-gray-500">
           {restPrefix}
-          <span className="text-gray-800">{resting.map((r) => r.name).join("、")}</span>
+          <span className="text-gray-800">{resting.map((r) => r.name).join(", ")}</span>
         </p>
       )}
     </section>

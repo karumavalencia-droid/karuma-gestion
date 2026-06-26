@@ -2,6 +2,7 @@
 // All reads go directly to Supabase. No localStorage for reservations.
 
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { isActiveReservation } from "@/lib/reservas/helpers";
 import type { EstadoReserva } from "@/lib/reservas/types";
 import {
   MESAS_SEED,
@@ -43,21 +44,25 @@ export function mapEstadoLocalToSb(e: ReservaLocal["estado"]): EstadoReserva {
 // ─── Row → ReservaLocal ───────────────────────────────────────────────────────
 
 export function mapSbRow(row: Record<string, unknown>): ReservaLocal {
-  const cliente = (row.clientes_reservas ?? {}) as { nombre?: string; telefono?: string };
+  const cliente = (row.clientes_reservas ?? {}) as { nombre?: string; telefono?: string; email?: string | null };
+  const origen = (row.origen as "online" | "telefono" | "walkin" | "manual") ?? "online";
   const mesaIds = ((row.mesa_ids as number[]) ?? []).map((n: number) => `T${n}`);
   return {
     id: row.id as string,
-    type: (row.origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
+    type: (origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
     fecha: row.fecha as string,
-    hora: row.hora_inicio as string,
+    hora: String(row.hora_inicio ?? "").slice(0, 5),
     servicio: row.servicio as ServicioLocal,
     personas: row.personas as number,
     mesaIds,
     nombre: cliente.nombre ?? "Sin nombre",
     telefono: cliente.telefono ?? "",
+    email: cliente.email ?? null,
     notas: (row.notas as string) ?? "",
     estado: mapEstadoSb(row.estado as EstadoReserva),
     creadoEn: (row.created_at as string) ?? new Date().toISOString(),
+    origen,
+    reviewEmailSentAt: (row.review_email_sent_at as string | null) ?? null,
   };
 }
 
@@ -69,7 +74,7 @@ export async function fetchReservasSb(fecha: string): Promise<ReservaLocal[]> {
 
   const { data, error } = await sb
     .from("reservas")
-    .select("*, clientes_reservas(nombre, telefono)")
+    .select("*, clientes_reservas(nombre, telefono, email)")
     .eq("fecha", fecha)
     .order("hora_inicio");
 
@@ -105,7 +110,7 @@ export async function fetchMesasConEstadoSb(
 
   const { data } = await sb
     .from("reservas")
-    .select("*, clientes_reservas(nombre, telefono)")
+    .select("*, clientes_reservas(nombre, telefono, email)")
     .eq("fecha", fecha)
     .eq("servicio", servicio as "comida" | "cena");
 
@@ -113,9 +118,7 @@ export async function fetchMesasConEstadoSb(
     ? (data as Record<string, unknown>[]).map(mapSbRow)
     : [];
 
-  const activeReservas = reservas.filter(
-    (r) => r.estado !== "cancelada" && r.estado !== "no-show" && r.estado !== "finished",
-  );
+  const activeReservas = reservas.filter((r) => isActiveReservation(r.estado));
 
   return mesas.map((m) => {
     const occ = activeReservas.find(
@@ -146,7 +149,7 @@ export async function fetchStatsSb(fecha: string): Promise<StatsLocal> {
 
   const { data } = await sb
     .from("reservas")
-    .select("*, clientes_reservas(nombre, telefono)")
+    .select("*, clientes_reservas(nombre, telefono, email)")
     .eq("fecha", fecha);
 
   if (!data) return empty;
@@ -154,7 +157,7 @@ export async function fetchStatsSb(fecha: string): Promise<StatsLocal> {
   const all = (data as Record<string, unknown>[]).map(mapSbRow);
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = all.filter((r) => r.estado !== "cancelada" && r.estado !== "no-show");
+  const activas = all.filter((r) => isActiveReservation(r.estado));
   const sentadas = all.filter((r) => r.estado === "sentada" || r.estado === "walkin");
   const mesasOc = new Set<string>();
   sentadas.forEach((r) => r.mesaIds.forEach((id) => mesasOc.add(id)));

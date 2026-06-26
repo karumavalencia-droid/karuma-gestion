@@ -15,8 +15,7 @@ function fmt(n: number) {
 }
 
 export default function DashboardPage() {
-  const { t, locale } = useLanguage();
-  const zh = locale === "zh";
+  const { t } = useLanguage();
 
   const [stats, setStats] = useState<StatsLocal | null>(null);
   const [sales, setSales] = useState<SalesResponse | null>(null);
@@ -103,11 +102,11 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Reservas de hoy — live desde localStorage */}
+      {/* Reservas de hoy - live desde localStorage */}
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">
-            {zh ? "今日预约" : "Reservas hoy"}
+            Reservas hoy
           </h2>
           {stats !== null && (
             <span className="flex items-center gap-1 text-[10px] text-emerald-500">
@@ -117,37 +116,37 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatCard
-            title={zh ? "今日预约数" : "Reservas hoy"}
+            title="Reservas hoy"
             value={stats !== null ? String(stats.reservasHoy) : "—"}
             icon={CalendarCheck}
             iconColor="bg-emerald-50 text-emerald-600"
           />
           <StatCard
-            title={zh ? "预约人数" : "Pax reservados"}
+            title="Pax reservados"
             value={stats !== null ? String(stats.paxHoy) : "—"}
             icon={Users}
             iconColor="bg-blue-50 text-blue-600"
           />
           <StatCard
-            title={zh ? "今日散客" : "Walk-ins hoy"}
+            title="Walk-ins hoy"
             value={stats !== null ? String(stats.walkInsHoy) : "—"}
             icon={Users}
             iconColor="bg-purple-50 text-purple-600"
           />
           <StatCard
-            title={zh ? "未到店" : "No Shows"}
+            title="No Shows"
             value={stats !== null ? String(stats.noShowsHoy) : "—"}
             icon={UserX}
             iconColor="bg-red-50 text-red-600"
           />
           <StatCard
-            title={zh ? "已占台位" : "Mesas ocupadas"}
+            title="Mesas ocupadas"
             value={stats !== null ? `${stats.mesasOcupadas}/${stats.mesasTotal}` : "—"}
             icon={TableProperties}
             iconColor="bg-orange-50 text-orange-600"
           />
           <StatCard
-            title={zh ? "下一预约" : "Próxima reserva"}
+            title="Próxima reserva"
             value={stats !== null ? stats.proximaHora : "—"}
             subtitle={stats?.proximaNombre}
             icon={Clock}
@@ -161,9 +160,7 @@ export default function DashboardPage() {
         <p className="mt-2 text-sm text-gray-600">{t("dashboard.systemNote")}</p>
         {!salesConfigured && (
           <p className="mt-2 text-xs text-gray-400">
-            {zh
-              ? "销售数据为 mock，配置 RestaurantSuite 后显示真实数据。"
-              : "Ventas en modo mock — configura RestaurantSuite para datos reales."}
+            Ventas en modo mock - configura RestaurantSuite para datos reales.
           </p>
         )}
       </div>

@@ -2,7 +2,6 @@
 
 import { Menu, Bell, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -21,7 +20,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
   const displayName = user?.name ?? "Zhou";
   const isMesaView = pathname === "/dashboard/mesa-view";
 
-  const today = new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "es-ES", {
+  const today = new Intl.DateTimeFormat("es-ES", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -46,7 +45,6 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-        <LanguageSwitcher />
         <button
           className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 sm:flex"
           aria-label={t("header.notifications")}
@@ -61,8 +59,8 @@ export function Header({ onMenuClick, title }: HeaderProps) {
             router.replace("/login");
           }}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-          aria-label="退出登录"
-          title="退出登录"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
         >
           <LogOut className="h-5 w-5" />
         </button>

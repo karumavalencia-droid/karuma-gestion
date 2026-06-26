@@ -1,4 +1,4 @@
-/** 临时关闭路由权限拦截，恢复系统稳定后可改回 true */
+/** Temporalmente sin bloqueo por permisos de ruta. */
 export const PERMISSIONS_ENABLED = false;
 
 export type Role =
@@ -41,13 +41,13 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_LABELS_ZH: Record<Role, string> = {
-  owner: "老板",
-  manager: "店长",
-  kitchen: "厨房",
-  sushi: "寿司",
-  waiter: "服务员",
-  cashier: "收银",
-  dishwasher: "洗碗",
+  owner: "Propietario",
+  manager: "Encargado",
+  kitchen: "Cocina",
+  sushi: "Sushi",
+  waiter: "Camarero",
+  cashier: "Cajero",
+  dishwasher: "Friegaplatos",
 };
 
 export function roleLabel(role: Role, locale: "es" | "zh" = "es"): string {
@@ -95,7 +95,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   dishwasher: [{ module: "schedule" }],
 };
 
-/** 路由 → 权限模块 */
+/** Ruta -> módulo de permisos */
 export const ROUTE_MODULES: Record<string, Module> = {
   "/dashboard": "dashboard",
   "/attendance": "staff",

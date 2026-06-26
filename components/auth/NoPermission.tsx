@@ -12,11 +12,11 @@ export function NoPermission() {
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
         <ShieldOff className="h-7 w-7" />
       </div>
-      <h2 className="text-lg font-semibold text-gray-900">无权限访问</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Sin permiso de acceso</h2>
       <p className="mt-2 max-w-sm text-sm text-gray-500">
-        当前账号
-        {user ? `（${user.name} · ${ROLE_LABELS[user.role]}）` : ""}
-        没有访问此页面的权限。请联系店长或老板开通权限。
+        La cuenta actual
+        {user ? ` (${user.name} · ${ROLE_LABELS[user.role]})` : ""}
+        no tiene permiso para acceder a esta página. Contacta con gerencia para activar el acceso.
       </p>
     </div>
   );

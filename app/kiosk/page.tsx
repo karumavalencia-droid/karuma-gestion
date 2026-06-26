@@ -64,34 +64,35 @@ const copy = {
     never: "Sin fichar",
   },
   zh: {
-    online: "已联网",
-    offline: "网络断开",
-    synced: "已全部同步",
-    pending: "条等待同步",
-    retry: "同步",
-    loading: "正在加载打卡…",
-    unavailable: "无法连接打卡系统。",
-    queued: "已保存在平板，恢复网络后自动上传。",
-    nextIn: "下一步：上班",
-    nextOut: "下一步：下班",
-    confirmIn: "确认上班",
-    confirmOut: "确认下班",
-    syncing: "同步中…",
-    success: "打卡成功",
-    queuedTitle: "打卡等待同步",
-    lastIn: "上班",
-    lastOut: "下班",
-    never: "未打卡",
+    online: "Conectado",
+    offline: "Sin conexión",
+    synced: "Todo sincronizado",
+    pending: "pendiente(s) de sincronizar",
+    retry: "Sincronizar",
+    loading: "Cargando fichaje…",
+    unavailable: "No se pudo conectar con el sistema de fichaje.",
+    queued: "Guardado en la tablet. Se enviará al recuperar internet.",
+    nextIn: "Siguiente: Entrada",
+    nextOut: "Siguiente: Salida",
+    confirmIn: "Registrar entrada",
+    confirmOut: "Registrar salida",
+    syncing: "Sincronizando…",
+    success: "Fichaje realizado",
+    queuedTitle: "Fichaje pendiente",
+    lastIn: "Entrada",
+    lastOut: "Salida",
+    never: "Sin fichar",
   },
 } as const;
 
 function useLiveClock(locale: Locale) {
+  void locale;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
-  const dateLocale = locale === "zh" ? "zh-CN" : "es-ES";
+  const dateLocale = "es-ES";
   return {
     dateStr: now.toLocaleDateString(dateLocale, {
       weekday: "long",
@@ -108,8 +109,9 @@ function useLiveClock(locale: Locale) {
 }
 
 function shortTime(iso: string | null, locale: Locale): string {
+  void locale;
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString(locale === "zh" ? "zh-CN" : "es-ES", {
+  return new Date(iso).toLocaleTimeString("es-ES", {
     hour: "2-digit",
     minute: "2-digit",
   });

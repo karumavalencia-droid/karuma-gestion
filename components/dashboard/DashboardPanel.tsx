@@ -38,7 +38,7 @@ function madridDate(daysFromToday = 0): string {
 }
 
 export function DashboardPanel() {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const [salesSummary, setSalesSummary] = useState<DailySalesSummary | null>(null);
 
   useEffect(() => {
@@ -90,20 +90,12 @@ export function DashboardPanel() {
     liveKpis.ventasAyer > 0 ? (salesDelta / liveKpis.ventasAyer) * 100 : 0;
   const activeOrders = pedidos.filter((pedido) => pedido.estado !== "entregado").slice(0, 5);
   const inventoryAlerts = getAlertasInventario();
-  const orderStatusLabels =
-    locale === "zh"
-      ? {
-          pendiente: "待处理",
-          preparando: "制作中",
-          listo: "已完成",
-          entregado: "已交付",
-        }
-      : {
-          pendiente: "Pendiente",
-          preparando: "Preparando",
-          listo: "Listo",
-          entregado: "Entregado",
-        };
+  const orderStatusLabels = {
+    pendiente: "Pendiente",
+    preparando: "Preparando",
+    listo: "Listo",
+    entregado: "Entregado",
+  };
 
   return (
     <PageContent>
@@ -120,12 +112,8 @@ export function DashboardPanel() {
           <RefreshCw className="h-4 w-4 shrink-0" />
           <span>
             {liveKpis.hasLiveData
-              ? locale === "zh"
-                ? `收银数据已同步${salesSummary.updatedAt ? ` · ${new Date(salesSummary.updatedAt).toLocaleString("zh-CN")}` : ""}`
-                : `Ventas sincronizadas${salesSummary.updatedAt ? ` · ${new Date(salesSummary.updatedAt).toLocaleString("es-ES")}` : ""}`
-              : locale === "zh"
-                ? "每日营业同步已准备，等待收银系统授权"
-                : "Sincronización diaria preparada; falta autorizar el TPV"}
+              ? `Ventas sincronizadas${salesSummary.updatedAt ? ` · ${new Date(salesSummary.updatedAt).toLocaleString("es-ES")}` : ""}`
+              : "Sincronización diaria preparada; falta autorizar el TPV"}
           </span>
         </div>
       )}

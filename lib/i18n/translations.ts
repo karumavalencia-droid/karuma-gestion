@@ -61,7 +61,7 @@ export const translations = {
     },
     language: {
       es: "Español",
-      zh: "中文",
+      zh: "Español",
       label: "Idioma",
     },
     common: {
@@ -799,12 +799,8 @@ export function translate(locale: Locale, key: string): string {
   const loc = resolveLocale(locale);
   const core = getNestedString(i18n[loc] as unknown as Record<string, unknown>, key);
   if (core) return core;
-  const value = getNestedValue(translations[locale] as Record<string, unknown>, key);
+  const value = getNestedValue(translations[loc] as Record<string, unknown>, key);
   if (value) return value;
-  const zhCore = getNestedString(i18n.zh as unknown as Record<string, unknown>, key);
-  if (zhCore) return zhCore;
-  const fallback = getNestedValue(translations.zh as Record<string, unknown>, key);
-  if (fallback) return fallback;
   const esFallback = getNestedValue(translations.es as Record<string, unknown>, key);
   return esFallback ?? key;
 }

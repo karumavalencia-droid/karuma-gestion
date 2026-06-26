@@ -1,5 +1,6 @@
 // ─── Karuma Reservas — localStorage engine v2 ────────────────────────────────
 // Keys: karuma_reservas_v1 / karuma_clientes_v1 / karuma_tables_v1
+import { canMoveReservation, isActiveReservation } from "@/lib/reservas/helpers";
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
@@ -8,6 +9,7 @@ export const HORARIO_KEY  = "karuma_horario_v1";
 export const ESPERA_KEY   = "karuma_espera_v1";
 export const RESERVAS_CONFIG_KEY = "karuma_reservas_config_v1";
 export const MAX_DIAS     = 7;
+export const SLOT_INTERVAL_MIN = 15;
 
 export type CanalLocal = "google" | "instagram" | "telefono" | "web" | "presencial" | "otro";
 
@@ -55,11 +57,13 @@ export interface ReservaLocal {
   mesaIds: string[];     // e.g. ['T7'] or ['T3','T4']
   nombre: string;
   telefono: string;
+  email?: string | null;
   notas: string;
   estado: EstadoLocal;
   creadoEn: string;
   origen?: "online" | "telefono" | "walkin" | "manual";
   canal?: CanalLocal;    // captación: google, instagram, etc.
+  reviewEmailSentAt?: string | null;
   seatedAt?: string;
   finishedAt?: string;
 }
@@ -195,7 +199,7 @@ export function getVisitasCliente(telefono: string): number {
 // ─── Mesa status computation ──────────────────────────────────────────────────
 
 function isActive(r: ReservaLocal): boolean {
-  return r.estado !== "cancelada" && r.estado !== "no-show" && r.estado !== "finished";
+  return isActiveReservation(r.estado);
 }
 function isOccupied(r: ReservaLocal): boolean {
   return r.estado === "sentada" || r.estado === "walkin";
@@ -204,11 +208,14 @@ function isReserved(r: ReservaLocal): boolean {
   return r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada";
 }
 
-// ─── Turno / 翻台 (table turn-over) ─────────────────────────────────────────────
+// ─── Turno / rotación de mesas ────────────────────────────────────────────────
 // Cuánto tiempo ocupa una mesa una reserva, según el tamaño del grupo.
 // Debe coincidir con reservas_config (duracion_1_2_min / duracion_3_4_min).
 export const DURACION_1_2_MIN = 90;   // 1-2 personas → 90 min
 export const DURACION_3_4_MIN = 120;  // 3+ personas  → 120 min
+const MESA_NO_DISPONIBLE_ERROR =
+  "Esta mesa no está disponible: cada reserva bloquea la mesa al menos 1h30.";
+
 export function duracionReserva(personas: number): number {
   return personas <= 2 ? DURACION_1_2_MIN : DURACION_3_4_MIN;
 }
@@ -223,13 +230,13 @@ export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: stri
   comida: { inicio: "13:00", fin: "16:00" },
   cena:   { inicio: "19:30", fin: "23:00" },
 };
-// Horas del selector del plano, en pasos de 30 min.
+// Horas del selector del plano, en pasos de 15 min.
 export function slotsPlano(servicio: ServicioLocal): string[] {
   const { inicio, fin } = SERVICIO_VENTANA[servicio];
   const [hI, mI] = inicio.split(":").map(Number);
   const [hF, mF] = fin.split(":").map(Number);
   const out: string[] = [];
-  for (let t = hI * 60 + mI; t <= hF * 60 + mF; t += 30) {
+  for (let t = hI * 60 + mI; t <= hF * 60 + mF; t += SLOT_INTERVAL_MIN) {
     out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
   }
   return out;
@@ -248,7 +255,7 @@ export function defaultHoraPlano(fecha: string, servicio: ServicioLocal): string
 
 export function getMesasConEstado(
   fecha: string, servicio: string,
-  hora?: string,                    // si se pasa, estado "en ese momento" (翻台); si no, todo el servicio
+  hora?: string,                    // si se pasa, estado "en ese momento"; si no, todo el servicio
   extra: ReservaLocal[] = [],
 ): MesaConEstado[] {
   const mesas = loadMesas();
@@ -302,6 +309,34 @@ export function ocupadasEn(
   return taken;
 }
 
+function uniqueMesaIds(ids: string[]): string[] {
+  return [...new Set(ids.filter(Boolean))];
+}
+
+function validarMesasLibres(
+  mesaIds: string[],
+  fecha: string,
+  hora: string,
+  servicio: string,
+  personas: number,
+  excludeId?: string,
+): { ok: true; mesaIds: string[] } | { ok: false; error: string } {
+  const ids = uniqueMesaIds(mesaIds);
+  if (!ids.length) return { ok: false, error: "Selecciona al menos una mesa." };
+
+  const mesas = loadMesas();
+  if (ids.some((id) => !mesas.some((m) => m.id === id))) {
+    return { ok: false, error: "Una de las mesas seleccionadas no existe." };
+  }
+
+  const ocupadas = ocupadasEn(fecha, hora, servicio, personas, excludeId);
+  if (ids.some((id) => ocupadas.has(id))) {
+    return { ok: false, error: MESA_NO_DISPONIBLE_ERROR };
+  }
+
+  return { ok: true, mesaIds: ids };
+}
+
 export function asignarMesa(
   personas: number, fecha: string, hora: string, servicio: string, excludeId?: string,
 ): string[] | null {
@@ -315,6 +350,7 @@ export function asignarMesa(
 export function mesasDisponiblesParaCambio(reservaId: string): MesaLocal[] {
   const reserva = loadReservas().find((r) => r.id === reservaId);
   if (!reserva) return [];
+  if (!canMoveReservation(reserva.estado) || reserva.mesaIds.length === 0) return [];
 
   const hoy = new Date().toISOString().split("T")[0];
   const horaReferencia = isOccupied(reserva) && reserva.fecha === hoy
@@ -390,7 +426,15 @@ export function createReserva(
 
   let mesaIds: string[];
   if (input.forceMesaIds && input.forceMesaIds.length) {
-    mesaIds = input.forceMesaIds;
+    const validacion = validarMesasLibres(
+      input.forceMesaIds,
+      input.fecha,
+      input.hora,
+      input.servicio,
+      input.personas,
+    );
+    if (!validacion.ok) return { ok: false, error: validacion.error };
+    mesaIds = validacion.mesaIds;
   } else {
     const assigned = asignarMesa(input.personas, input.fecha, input.hora, input.servicio);
     if (!assigned) return { ok: false, error: "No hay mesas disponibles para ese horario y número de personas." };
@@ -409,6 +453,7 @@ export function createReserva(
     notas: input.notas.trim(),
     estado: isWalkIn ? "walkin" : "confirmada",
     creadoEn: now,
+    origen: input.origen,
     canal: input.canal,
     seatedAt: isWalkIn ? now : undefined,
   };
@@ -454,11 +499,17 @@ export function sentarReserva(
   let mesaIds = r.mesaIds;
 
   if (forceMesaIds && forceMesaIds.length) {
-    mesaIds = forceMesaIds;
+    const validacion = validarMesasLibres(forceMesaIds, r.fecha, r.hora, r.servicio, r.personas, reservaId);
+    if (!validacion.ok) return { ok: false, error: validacion.error };
+    mesaIds = validacion.mesaIds;
   } else if (!mesaIds.length) {
     const assigned = asignarMesa(r.personas, r.fecha, r.hora, r.servicio, reservaId);
     if (!assigned) return { ok: false, error: "No hay mesas disponibles." };
     mesaIds = assigned;
+  } else {
+    const validacion = validarMesasLibres(mesaIds, r.fecha, r.hora, r.servicio, r.personas, reservaId);
+    if (!validacion.ok) return { ok: false, error: validacion.error };
+    mesaIds = validacion.mesaIds;
   }
 
   list[idx] = { ...r, estado: "sentada", mesaIds, seatedAt: new Date().toISOString() };
@@ -489,24 +540,27 @@ export function cambiarMesas(
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
 
   const r = list[idx];
-  const ids = [...new Set(newMesaIds)];
-  const mesas = loadMesas();
-  const seleccionadas = ids
-    .map((id) => mesas.find((m) => m.id === id))
-    .filter((m): m is MesaLocal => Boolean(m));
-
-  if (seleccionadas.length !== ids.length) {
-    return { ok: false, error: "Una de las mesas seleccionadas no existe." };
+  if (!canMoveReservation(r.estado)) {
+    return { ok: false, error: "Esta reserva ya no permite cambiar de mesa." };
   }
+  if (r.mesaIds.length === 0) {
+    return { ok: false, error: "Esta reserva todavía no tiene mesa asignada." };
+  }
+
+  const ids = uniqueMesaIds(newMesaIds);
+  const mesas = loadMesas();
 
   const hoy = new Date().toISOString().split("T")[0];
   const horaReferencia = isOccupied(r) && r.fecha === hoy
     ? new Date().toTimeString().slice(0, 5)
     : r.hora;
-  const ocupadas = ocupadasEn(r.fecha, horaReferencia, r.servicio, r.personas, r.id);
-  if (ids.some((id) => ocupadas.has(id))) {
-    return { ok: false, error: "Una de las mesas seleccionadas ya no está disponible." };
-  }
+
+  const validacion = validarMesasLibres(ids, r.fecha, horaReferencia, r.servicio, r.personas, r.id);
+  if (!validacion.ok) return { ok: false, error: validacion.error };
+
+  const seleccionadas = validacion.mesaIds
+    .map((id) => mesas.find((m) => m.id === id))
+    .filter((m): m is MesaLocal => Boolean(m));
 
   const capacidad = seleccionadas.reduce((total, mesa) => total + mesa.capacidad, 0);
   if (capacidad < r.personas) {
@@ -516,7 +570,7 @@ export function cambiarMesas(
     };
   }
 
-  list[idx] = { ...r, mesaIds: ids };
+  list[idx] = { ...r, mesaIds: validacion.mesaIds };
   saveReservas(list);
   return { ok: true };
 }
@@ -539,7 +593,20 @@ export function desplazarReserva(
   const list = loadReservas();
   const idx = list.findIndex((r) => r.id === id);
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
-  list[idx] = { ...list[idx], hora: nuevaHora, ...(nuevaFecha ? { fecha: nuevaFecha } : {}) };
+  const next = { ...list[idx], hora: nuevaHora, ...(nuevaFecha ? { fecha: nuevaFecha } : {}) };
+  if (next.mesaIds.length) {
+    const validacion = validarMesasLibres(
+      next.mesaIds,
+      next.fecha,
+      next.hora,
+      next.servicio,
+      next.personas,
+      id,
+    );
+    if (!validacion.ok) return { ok: false, error: validacion.error };
+    next.mesaIds = validacion.mesaIds;
+  }
+  list[idx] = next;
   saveReservas(list);
   return { ok: true };
 }
@@ -554,7 +621,20 @@ export function editReserva(
   const limpio: Partial<ReservaLocal> = {};
   if (typeof cambios.personas === "number" && cambios.personas > 0) limpio.personas = cambios.personas;
   if (cambios.hora && cambios.hora.length >= 4) limpio.hora = cambios.hora;
-  list[idx] = { ...list[idx], ...limpio };
+  const next = { ...list[idx], ...limpio };
+  if (next.mesaIds.length) {
+    const validacion = validarMesasLibres(
+      next.mesaIds,
+      next.fecha,
+      next.hora,
+      next.servicio,
+      next.personas,
+      id,
+    );
+    if (!validacion.ok) return { ok: false, error: validacion.error };
+    next.mesaIds = validacion.mesaIds;
+  }
+  list[idx] = next;
   saveReservas(list);
   return { ok: true };
 }
@@ -585,7 +665,7 @@ export function getAnalytics(diasAtras = 30): AnalyticsData {
   const desdeStr = desde.toISOString().split("T")[0];
 
   const todas = loadReservas().filter((r) => r.fecha >= desdeStr);
-  const activas = todas.filter((r) => r.estado !== "cancelada" && r.estado !== "no-show");
+  const activas = todas.filter((r) => isActiveReservation(r.estado));
   const canceladas = todas.filter((r) => r.estado === "cancelada").length;
   const noShows = todas.filter((r) => r.estado === "no-show").length;
 
@@ -633,7 +713,7 @@ export function getDashboardStats(fecha: string): StatsLocal {
   const all = loadReservas().filter((r) => r.fecha === fecha);
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = all.filter((r) => r.estado !== "cancelada" && r.estado !== "no-show");
+  const activas = all.filter((r) => isActiveReservation(r.estado));
   const sentadas = all.filter((r) => r.estado === "sentada" || r.estado === "walkin");
   const mesasOc = new Set<string>();
   sentadas.forEach((r) => r.mesaIds.forEach((id) => mesasOc.add(id)));

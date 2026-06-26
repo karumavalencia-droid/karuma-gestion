@@ -33,7 +33,7 @@ export function computeScheduleStats(
         id: row.id,
         name: row.name,
         team: row.team,
-        reason: day.type === "leave" ? "请假" : "休息",
+        reason: day.type === "leave" ? "Ausencia" : "Descanso",
       });
     }
   }

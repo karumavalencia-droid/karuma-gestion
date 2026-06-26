@@ -19,20 +19,20 @@ export const KIOSK_DEPARTMENTS: {
     id: "Sala",
     titleZh: "Sala",
     titleEs: "Sala",
-    subtitleZh: "服务员",
+    subtitleZh: "Sala",
     subtitleEs: "Sala",
   },
   {
     id: "Cocina",
     titleZh: "Cocina",
     titleEs: "Cocina",
-    subtitleZh: "厨房",
+    subtitleZh: "Cocina",
     subtitleEs: "Cocina",
   },
 ];
 
 export const KIOSK_EMPLOYEES: KioskEmployee[] = STAFF_MEMBERS
-  .filter((employee) => employee.status === "在职")
+  .filter((employee) => employee.status === "Activo")
   .map((employee) => ({
     id: employee.id,
     name: employee.name,

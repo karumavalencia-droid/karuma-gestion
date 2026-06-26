@@ -98,7 +98,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             className={`rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white ${
               isMesaView ? "2xl:hidden" : "lg:hidden"
             }`}
-            aria-label="关闭菜单"
+            aria-label="Cerrar menú"
           >
             <X className="h-5 w-5" />
           </button>

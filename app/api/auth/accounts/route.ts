@@ -20,7 +20,7 @@ export async function GET() {
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { data, error } = await supabase

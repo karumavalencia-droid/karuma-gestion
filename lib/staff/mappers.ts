@@ -3,6 +3,10 @@ import type { RestDayKey } from "./rest-days";
 import type { StandardShift } from "./shifts";
 import type { StaffDepartment, StaffInput, StaffMember, StaffStatus } from "./types";
 
+function normalizeStaffStatus(status: unknown): StaffStatus {
+  return status === "Inactivo" || status === "\u79bb\u804c" ? "Inactivo" : "Activo";
+}
+
 export function mapStaffRow(row: DbStaff): StaffMember {
   return {
     id: row.id,
@@ -16,7 +20,7 @@ export function mapStaffRow(row: DbStaff): StaffMember {
     contractType: row.contract_type ?? "",
     weeklyHours: row.weekly_hours,
     hourlyRate: Number(row.hourly_rate),
-    status: row.status as StaffStatus,
+    status: normalizeStaffStatus(row.status),
     fixedRestDay1: row.fixed_rest_day_1 as RestDayKey | null,
     fixedRestDay2: row.fixed_rest_day_2 as RestDayKey | null,
     fixedShift: row.fixed_shift as StandardShift | null,

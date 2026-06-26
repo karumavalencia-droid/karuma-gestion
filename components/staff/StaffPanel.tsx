@@ -7,7 +7,7 @@ import { staffMembers } from "@/lib/staff-mock/data";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export function StaffPanel() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <PageContent>
@@ -29,7 +29,7 @@ export function StaffPanel() {
               {staffMembers.map((s) => (
                 <tr key={s.id} className="hover:bg-gray-50/80">
                   <td className="px-4 py-3.5 font-medium text-gray-900">
-                    {locale === "zh" ? s.nombreZh : s.nombre}
+                    {s.nombre}
                   </td>
                   <td className="px-4 py-3.5 text-gray-600">{s.rol}</td>
                   <td className="px-4 py-3.5 text-gray-600">{s.departamento}</td>

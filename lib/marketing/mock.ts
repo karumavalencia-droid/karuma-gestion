@@ -1,4 +1,4 @@
-/** Marketing 数值 mock（文案在 lib/i18n.ts） */
+/** Valores mock de Marketing; los textos están en lib/i18n.ts. */
 export type GoalMetric = {
   id: string;
   labelKey: string;

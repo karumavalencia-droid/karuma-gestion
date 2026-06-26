@@ -9,7 +9,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { formatDate } from "@/lib/utils";
 
 export function SchedulePanel() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <PageContent>
@@ -45,7 +45,7 @@ export function SchedulePanel() {
               {scheduleRows.map((row) => (
                 <tr key={row.id} className="hover:bg-gray-50/80">
                   <td className="px-4 py-3.5 font-medium text-gray-900">
-                    {locale === "zh" ? row.empleadoZh : row.empleado}
+                    {row.empleado}
                   </td>
                   <td className="px-4 py-3.5 text-gray-600">{formatDate(row.fecha)}</td>
                   <td className="px-4 py-3.5">

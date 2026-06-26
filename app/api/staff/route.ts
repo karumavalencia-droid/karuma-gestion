@@ -12,7 +12,7 @@ export async function GET() {
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { data, error } = await supabase
@@ -30,17 +30,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: "请配置 Supabase 环境变量" }, { status: 503 });
+    return NextResponse.json({ error: "Configura las variables de entorno de Supabase" }, { status: 503 });
   }
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const body = (await request.json()) as StaffInput;
   if (!body.name?.trim() || !body.position?.trim() || !body.role) {
-    return NextResponse.json({ error: "姓名、职位和角色为必填项" }, { status: 400 });
+    return NextResponse.json({ error: "Nombre, puesto y rol son obligatorios" }, { status: 400 });
   }
 
   const { data, error } = await supabase

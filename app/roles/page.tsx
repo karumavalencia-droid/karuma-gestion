@@ -5,15 +5,15 @@ import { ROLE_PERMISSIONS } from "@/lib/scheduling-v1/mock";
 export default function RolesPage() {
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">权限管理 · 角色权限表（本地 mock 数据）</p>
+      <p className="text-sm text-gray-500">Gestión de permisos · tabla de roles (datos mock locales)</p>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-left text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">角色</th>
-                <th className="px-4 py-3">权限</th>
+                <th className="px-4 py-3">Rol</th>
+                <th className="px-4 py-3">Permisos</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -25,7 +25,7 @@ export default function RolesPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex flex-wrap gap-1.5">
-                      {row.permissions.split("、").map((p) => (
+                      {row.permissions.split(", ").map((p) => (
                         <span
                           key={p}
                           className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20"

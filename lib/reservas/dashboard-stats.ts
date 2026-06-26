@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { isActiveReservation } from "@/lib/reservas/helpers";
 
 export interface ReservasDashboardStats {
   reservasHoy: number;
@@ -38,9 +39,7 @@ export async function getReservasDashboardStats(): Promise<ReservasDashboardStat
 
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = reservas.filter(
-    (r) => r.estado !== "Cancelada" && r.estado !== "NoShow" && r.estado !== "Finalizada",
-  );
+  const activas = reservas.filter((r) => isActiveReservation(r.estado));
 
   const walkIns = reservas.filter((r) => r.estado === "WalkIn").length;
   const noShows = reservas.filter((r) => r.estado === "NoShow").length;

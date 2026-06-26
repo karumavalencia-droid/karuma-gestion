@@ -60,7 +60,7 @@ function Modal({
 }
 
 export function IngredientsErpPanel() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
   const [store, setStore] = useState<IngredientsStore>(seedIngredients);
   const [busqueda, setBusqueda] = useState("");
   const [modal, setModal] = useState<"form" | "confirm" | null>(null);
@@ -90,7 +90,7 @@ export function IngredientsErpPanel() {
 
   const lista = useMemo(() => {
     const items = [...(store?.ingredientes ?? [])].sort((a, b) =>
-      displayName(a, locale).localeCompare(displayName(b, locale)),
+      displayName(a, "es").localeCompare(displayName(b, "es")),
     );
     if (!busqueda.trim()) return items;
     const q = busqueda.trim().toLowerCase();
@@ -100,7 +100,7 @@ export function IngredientsErpPanel() {
         (i.nombreZh?.toLowerCase().includes(q) ?? false) ||
         i.proveedor.toLowerCase().includes(q),
     );
-  }, [store?.ingredientes, busqueda, locale]);
+  }, [store?.ingredientes, busqueda]);
 
   const openNew = () => {
     setEditing(null);
@@ -197,16 +197,10 @@ export function IngredientsErpPanel() {
                 lista.map((ing) => (
                   <tr key={ing.id} className="hover:bg-gray-50/80">
                     <td className="px-4 py-3.5">
-                      <p className="font-medium text-gray-900">{displayName(ing, locale)}</p>
-                      {locale === "es" && ing.nombreZh && (
-                        <p className="text-xs text-gray-400">{ing.nombreZh}</p>
-                      )}
-                      {locale === "zh" && ing.nombre !== ing.nombreZh && (
-                        <p className="text-xs text-gray-400">{ing.nombre}</p>
-                      )}
+                      <p className="font-medium text-gray-900">{displayName(ing, "es")}</p>
                     </td>
                     <td className="px-4 py-3.5 text-gray-600">
-                      {displayCategory(ing, locale)}
+                      {displayCategory(ing, "es")}
                     </td>
                     <td className="px-4 py-3.5 text-gray-600">{ing.unidad}</td>
                     <td className="px-4 py-3.5 text-right font-semibold text-gray-900">
@@ -215,7 +209,7 @@ export function IngredientsErpPanel() {
                     </td>
                     <td className="px-4 py-3.5 text-gray-600">{ing.proveedor}</td>
                     <td className="px-4 py-3.5 text-xs text-gray-500">
-                      {formatUpdatedAt(ing.updatedAt, locale)}
+                      {formatUpdatedAt(ing.updatedAt, "es")}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-center gap-1">
@@ -258,7 +252,7 @@ export function IngredientsErpPanel() {
         <div className="space-y-4">
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-gray-700">
-              {t("pages.ingredients.name")} (ES) *
+              {t("pages.ingredients.name")} *
             </span>
             <input
               type="text"
@@ -268,22 +262,10 @@ export function IngredientsErpPanel() {
               placeholder="Salmón"
             />
           </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">
-              {t("pages.ingredients.nameZh")}
-            </span>
-            <input
-              type="text"
-              value={form.nombreZh}
-              onChange={(e) => setForm({ ...form, nombreZh: e.target.value })}
-              className={inputClass}
-              placeholder="三文鱼"
-            />
-          </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-gray-700">
-                {t("pages.ingredients.category")} (ES)
+                {t("pages.ingredients.category")}
               </span>
               <input
                 type="text"
@@ -293,20 +275,6 @@ export function IngredientsErpPanel() {
                 placeholder="Marisco"
               />
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-gray-700">
-                {t("pages.ingredients.categoryZh")}
-              </span>
-              <input
-                type="text"
-                value={form.categoriaZh}
-                onChange={(e) => setForm({ ...form, categoriaZh: e.target.value })}
-                className={inputClass}
-                placeholder="海鲜"
-              />
-            </label>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-gray-700">
                 {t("pages.ingredients.unit")} *
@@ -369,7 +337,7 @@ export function IngredientsErpPanel() {
       >
         <p className="text-sm text-gray-600">
           {t("pages.ingredients.deleteConfirm")}{" "}
-          <strong>{deleteTarget && displayName(deleteTarget, locale)}</strong>?
+          <strong>{deleteTarget && displayName(deleteTarget, "es")}</strong>?
         </p>
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button

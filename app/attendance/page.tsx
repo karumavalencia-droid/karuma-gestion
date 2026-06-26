@@ -59,31 +59,31 @@ const labels = {
     },
   },
   zh: {
-    description: "查看今日打卡、实际工时以及与排班对比后的异常。",
-    scheduled: "今日排班",
-    present: "已打卡",
-    working: "当前在岗",
-    problems: "异常人数",
-    employee: "员工",
-    schedule: "排班",
-    firstIn: "首次上班",
-    lastOut: "最后下班",
-    hours: "净工时",
-    state: "状态",
-    exceptions: "异常",
-    notStarted: "未开始",
-    active: "在岗",
-    finished: "已下班",
-    empty: "无打卡",
-    error: "无法加载考勤数据。",
+    description: "Fichajes de hoy, horas reales y excepciones comparadas con el horario.",
+    scheduled: "Programados",
+    present: "Han fichado",
+    working: "En turno",
+    problems: "Excepciones",
+    employee: "Empleado",
+    schedule: "Horario",
+    firstIn: "Primera entrada",
+    lastOut: "Última salida",
+    hours: "Horas netas",
+    state: "Estado",
+    exceptions: "Excepciones",
+    notStarted: "Sin empezar",
+    active: "En turno",
+    finished: "Finalizado",
+    empty: "Sin fichajes",
+    error: "No se pudo cargar la asistencia.",
     anomaly: {
-      late: "迟到",
-      early: "早退",
-      absent: "缺勤",
-      "missing-out": "漏打下班卡",
-      duplicate: "打卡顺序异常",
-      offline: "离线打卡",
-      unscheduled: "无排班打卡",
+      late: "Tarde",
+      early: "Salida anticipada",
+      absent: "Ausente",
+      "missing-out": "Falta salida",
+      duplicate: "Secuencia inválida",
+      offline: "Fichaje offline",
+      unscheduled: "Sin turno",
     },
   },
 } as const;
@@ -147,7 +147,7 @@ export default function AttendancePage() {
               className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              {locale === "zh" ? "刷新" : "Actualizar"}
+              Actualizar
             </button>
           </>
         }
@@ -177,7 +177,7 @@ export default function AttendancePage() {
           value={String(report ? problemRows : "—")}
           subtitle={
             report
-              ? `${report.summary.absent} ${locale === "zh" ? "缺勤" : "ausentes"}`
+              ? `${report.summary.absent} ausentes`
               : undefined
           }
           icon={AlertTriangle}

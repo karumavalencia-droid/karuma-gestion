@@ -39,7 +39,6 @@ export const weeklyTrend: WeeklyTrendRow[] = [
 
 export interface DishRecipeLine {
   nombre: string;
-  nombreZh?: string;
   cantidad: string;
 }
 
@@ -60,8 +59,8 @@ export const foodCostDishes: FoodCostDish[] = [
     precio: 4.5,
     coste: 0.3,
     receta: [
-      { nombre: "Salmón", nombreZh: "三文鱼", cantidad: "12g" },
-      { nombre: "Arroz sushi", nombreZh: "寿司米", cantidad: "18g" },
+      { nombre: "Salmón", cantidad: "12g" },
+      { nombre: "Arroz sushi", cantidad: "18g" },
     ],
   },
   {
@@ -71,8 +70,8 @@ export const foodCostDishes: FoodCostDish[] = [
     precio: 12.9,
     coste: 3.87,
     receta: [
-      { nombre: "Alitas de pollo", nombreZh: "鸡翅", cantidad: "180g" },
-      { nombre: "Arroz sushi", nombreZh: "寿司米", cantidad: "150g" },
+      { nombre: "Alitas de pollo", cantidad: "180g" },
+      { nombre: "Arroz sushi", cantidad: "150g" },
     ],
   },
   {
@@ -82,8 +81,8 @@ export const foodCostDishes: FoodCostDish[] = [
     precio: 14.5,
     coste: 4.35,
     receta: [
-      { nombre: "Gambas", nombreZh: "虾", cantidad: "200g" },
-      { nombre: "Arroz sushi", nombreZh: "寿司米", cantidad: "120g" },
+      { nombre: "Gambas", cantidad: "200g" },
+      { nombre: "Arroz sushi", cantidad: "120g" },
     ],
   },
   {
@@ -93,8 +92,8 @@ export const foodCostDishes: FoodCostDish[] = [
     precio: 13.8,
     coste: 4.14,
     receta: [
-      { nombre: "Sepia", nombreZh: "墨鱼", cantidad: "220g" },
-      { nombre: "Arroz sushi", nombreZh: "寿司米", cantidad: "100g" },
+      { nombre: "Sepia", cantidad: "220g" },
+      { nombre: "Arroz sushi", cantidad: "100g" },
     ],
   },
 ];

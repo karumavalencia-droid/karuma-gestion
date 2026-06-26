@@ -32,7 +32,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Next.js 静态资源带内容哈希，可安全缓存，供店内平板离线刷新。
+  // Los recursos estáticos de Next.js llevan hash y se pueden cachear con seguridad.
   if (url.pathname.startsWith("/_next/")) {
     if (event.request.method !== "GET") return;
     event.respondWith(

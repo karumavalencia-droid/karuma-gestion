@@ -1,9 +1,7 @@
 // Syncs online Supabase reservations into localStorage so admin operations work uniformly.
 // Sync rules:
 //   - New entry in Supabase not in localStorage → add it
-//   - Existing entry: terminal states (cancelada/finished/no-show) from Supabase always win
-//     because they can only be set by an admin action that also updates both sides.
-//     Non-terminal Supabase state (confirmada/sentada) never overwrites local changes.
+//   - Existing Supabase-backed entries are refreshed from Supabase so tablet/mobile stay aligned.
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -27,15 +25,10 @@ function mapEstadoSb(e: EstadoReserva): EstadoLocal {
   }
 }
 
-// Terminal states can only be set by an explicit admin action — always trust Supabase for these
-function isTerminal(e: EstadoLocal): boolean {
-  return e === "cancelada" || e === "finished" || e === "no-show";
-}
-
 type SbRow = Record<string, unknown>;
 
 function mapSbRow(r: SbRow): ReservaLocal {
-  const cliente = (r.clientes_reservas ?? {}) as { nombre?: string; telefono?: string };
+  const cliente = (r.clientes_reservas ?? {}) as { nombre?: string; telefono?: string; email?: string | null };
   const origen = (r.origen as "online" | "telefono" | "walkin" | "manual") ?? "online";
   return {
     id: r.id as string,
@@ -47,10 +40,12 @@ function mapSbRow(r: SbRow): ReservaLocal {
     mesaIds: ((r.mesa_ids as number[]) ?? []).map((n) => `T${n}`),
     nombre: cliente.nombre ?? "Online",
     telefono: cliente.telefono ?? "",
+    email: cliente.email ?? null,
     notas: (r.notas as string) ?? "",
     estado: mapEstadoSb(r.estado as EstadoReserva),
     creadoEn: r.created_at as string,
     origen,
+    reviewEmailSentAt: (r.review_email_sent_at as string | null) ?? null,
     seatedAt: r.estado === "Sentado" ? (r.created_at as string) : undefined,
   };
 }
@@ -61,7 +56,7 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
     try {
       const { data } = await sb
         .from("reservas")
-        .select("*, clientes_reservas(nombre, telefono)")
+        .select("*, clientes_reservas(nombre, telefono, email)")
         .eq("fecha", fecha);
 
       if (data && data.length > 0) {
@@ -77,10 +72,9 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
             // New entry from Supabase — add it
             localMap.set(mapped.id, mapped);
             changed = true;
-          } else if (existing.origen === "online" && isTerminal(mapped.estado) && !isTerminal(existing.estado)) {
-            // Supabase has a terminal state but local is still active:
-            // another device/session cancelled/finished this reservation — sync it
-            localMap.set(mapped.id, { ...existing, estado: mapped.estado });
+          } else if (existing.origen || mapped.origen) {
+            // Keep Supabase-backed reservations fresh across devices.
+            localMap.set(mapped.id, { ...existing, ...mapped });
             changed = true;
           }
           // In all other cases local state wins (non-terminal Supabase never overwrites local)

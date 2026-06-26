@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { REST_DAY_KEYS, REST_DAY_LABEL, type RestDayKey } from "@/lib/staff/rest-days";
-import { STANDARD_SHIFT_OPTIONS } from "@/lib/staff/shifts";
+import { formatStandardShift, STANDARD_SHIFT_OPTIONS } from "@/lib/staff/shifts";
 import type { StaffDepartment, StaffInput, StaffMember } from "@/lib/staff/types";
 import { STAFF_DEPARTMENTS } from "@/lib/staff/types";
 
@@ -21,10 +21,10 @@ const emptyForm = (): StaffInput => ({
   phone: "",
   email: "",
   hireDate: "",
-  contractType: "全职",
+  contractType: "Tiempo completo",
   weeklyHours: 40,
   hourlyRate: 0,
-  status: "在职",
+  status: "Activo",
   fixedRestDay1: null,
   fixedRestDay2: null,
   fixedShift: null,
@@ -62,7 +62,7 @@ export function StaffFormModal({
         phone: initial.phone,
         email: initial.email,
         hireDate: initial.hireDate,
-        contractType: initial.contractType,
+        contractType: initial.contractType === "\u517c\u804c" ? "Tiempo parcial" : "Tiempo completo",
         weeklyHours: initial.weeklyHours,
         hourlyRate: initial.hourlyRate,
         status: initial.status,
@@ -96,7 +96,7 @@ export function StaffFormModal({
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-gray-700">姓名 *</span>
+            <span className="text-sm font-medium text-gray-700">Nombre *</span>
             <input
               className={inputClass}
               value={form.name}
@@ -107,7 +107,7 @@ export function StaffFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">部门 *</span>
+              <span className="text-sm font-medium text-gray-700">Departamento *</span>
               <select
                 className={inputClass}
                 value={form.department}
@@ -123,7 +123,7 @@ export function StaffFormModal({
               </select>
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">岗位 *</span>
+              <span className="text-sm font-medium text-gray-700">Puesto *</span>
               <input
                 className={inputClass}
                 value={form.position}
@@ -134,7 +134,7 @@ export function StaffFormModal({
           </div>
 
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-gray-700">角色 *</span>
+            <span className="text-sm font-medium text-gray-700">Rol *</span>
             <select
               className={inputClass}
               value={form.role}
@@ -150,7 +150,7 @@ export function StaffFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">电话</span>
+              <span className="text-sm font-medium text-gray-700">Teléfono</span>
               <input
                 className={inputClass}
                 value={form.phone}
@@ -158,7 +158,7 @@ export function StaffFormModal({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">邮箱</span>
+              <span className="text-sm font-medium text-gray-700">Email</span>
               <input
                 type="email"
                 className={inputClass}
@@ -170,7 +170,7 @@ export function StaffFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">入职日期</span>
+              <span className="text-sm font-medium text-gray-700">Fecha de alta</span>
               <input
                 type="date"
                 className={inputClass}
@@ -179,21 +179,21 @@ export function StaffFormModal({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">合同类型</span>
+              <span className="text-sm font-medium text-gray-700">Tipo de contrato</span>
               <select
                 className={inputClass}
                 value={form.contractType}
                 onChange={(e) => setForm((f) => ({ ...f, contractType: e.target.value }))}
               >
-                <option value="全职">全职</option>
-                <option value="兼职">兼职</option>
+                <option value="Tiempo completo">Tiempo completo</option>
+                <option value="Tiempo parcial">Tiempo parcial</option>
               </select>
             </label>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">固定休息日 1</span>
+              <span className="text-sm font-medium text-gray-700">Descanso fijo 1</span>
               <select
                 className={inputClass}
                 value={form.fixedRestDay1 ?? ""}
@@ -204,7 +204,7 @@ export function StaffFormModal({
                   }))
                 }
               >
-                <option value="">无</option>
+                <option value="">Ninguno</option>
                 {REST_DAY_KEYS.map((day) => (
                   <option key={day} value={day}>
                     {REST_DAY_LABEL[day]}
@@ -213,7 +213,7 @@ export function StaffFormModal({
               </select>
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">固定休息日 2</span>
+              <span className="text-sm font-medium text-gray-700">Descanso fijo 2</span>
               <select
                 className={inputClass}
                 value={form.fixedRestDay2 ?? ""}
@@ -224,7 +224,7 @@ export function StaffFormModal({
                   }))
                 }
               >
-                <option value="">无</option>
+                <option value="">Ninguno</option>
                 {REST_DAY_KEYS.map((day) => (
                   <option key={day} value={day}>
                     {REST_DAY_LABEL[day]}
@@ -235,7 +235,7 @@ export function StaffFormModal({
           </div>
 
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-gray-700">标准班次</span>
+            <span className="text-sm font-medium text-gray-700">Turno estándar</span>
             <select
               className={inputClass}
               value={form.fixedShift ?? ""}
@@ -246,10 +246,10 @@ export function StaffFormModal({
                 }))
               }
             >
-              <option value="">待确认</option>
+              <option value="">Pendiente</option>
               {STANDARD_SHIFT_OPTIONS.map((shift) => (
                 <option key={shift} value={shift}>
-                  {shift}
+                  {formatStandardShift(shift)}
                 </option>
               ))}
             </select>
@@ -257,14 +257,14 @@ export function StaffFormModal({
 
           <div className="grid grid-cols-3 gap-3">
             <label className="col-span-2 block space-y-1">
-              <span className="text-sm font-medium text-gray-700">合同工时</span>
+              <span className="text-sm font-medium text-gray-700">Horas de contrato</span>
               <input
                 type="number"
                 min={0}
                 className={inputClass}
                 value={contractHoursPending ? "" : (form.weeklyHours ?? "")}
                 disabled={contractHoursPending}
-                placeholder={contractHoursPending ? "待确认" : undefined}
+                placeholder={contractHoursPending ? "Pendiente" : undefined}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
@@ -286,10 +286,10 @@ export function StaffFormModal({
                   }
                 }}
               />
-              <span className="text-sm text-gray-600">待确认</span>
+              <span className="text-sm text-gray-600">Pendiente</span>
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">时薪 (€)</span>
+              <span className="text-sm font-medium text-gray-700">Precio/hora (€)</span>
               <input
                 type="number"
                 min={0}
@@ -302,7 +302,7 @@ export function StaffFormModal({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">状态</span>
+              <span className="text-sm font-medium text-gray-700">Estado</span>
               <select
                 className={inputClass}
                 value={form.status}
@@ -313,8 +313,8 @@ export function StaffFormModal({
                   }))
                 }
               >
-                <option value="在职">在职</option>
-                <option value="离职">离职</option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
               </select>
             </label>
           </div>

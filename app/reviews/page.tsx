@@ -47,9 +47,9 @@ const REVIEWS_SEED: Review[] = [
 ];
 
 const STATUS_LABEL: Record<ReviewStatus, string> = {
-  pending: "未回复",
-  awaiting: "待确认",
-  published: "已回复",
+  pending: "Sin responder",
+  awaiting: "Pendiente",
+  published: "Respondida",
 };
 
 const STATUS_STYLE: Record<ReviewStatus, string> = {
@@ -132,29 +132,29 @@ export default function ReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">Google 评论回复助手 · 本地 mock 数据</p>
+      <p className="text-sm text-gray-500">Asistente de respuestas Google · datos mock locales</p>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          title="总评论"
+          title="Total reseñas"
           value={String(total)}
           icon={MessagesSquare}
           iconColor="bg-karuma-50 text-karuma-600"
         />
         <StatCard
-          title="未回复"
+          title="Sin responder"
           value={String(unreplied)}
           icon={MessageSquare}
           iconColor="bg-gray-100 text-gray-600"
         />
         <StatCard
-          title="差评"
+          title="Reseñas negativas"
           value={String(bad)}
           icon={AlertTriangle}
           iconColor="bg-red-50 text-red-600"
         />
         <StatCard
-          title="待确认"
+          title="Pendientes"
           value={String(awaiting)}
           icon={Clock}
           iconColor="bg-amber-50 text-amber-600"
@@ -183,11 +183,11 @@ export default function ReviewsPage() {
             <div className="space-y-4 pt-4">
               <div>
                 <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                  评论内容
+                  Contenido de la reseña
                 </p>
                 <p className="text-sm leading-relaxed text-gray-800">
                   {review.comment.trim() || (
-                    <span className="italic text-gray-400">（无文字评论，仅星级）</span>
+                    <span className="italic text-gray-400">(Sin texto, solo puntuación)</span>
                   )}
                 </p>
               </div>
@@ -195,7 +195,7 @@ export default function ReviewsPage() {
               {(review.aiReply || editingId === review.id) && (
                 <div>
                   <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                    AI 建议回复
+                    Respuesta sugerida por IA
                   </p>
                   {editingId === review.id ? (
                     <textarea
@@ -226,7 +226,7 @@ export default function ReviewsPage() {
                       onClick={() => handleGenerate(review.id)}
                       className="inline-flex min-h-[40px] items-center rounded-lg bg-karuma-600 px-4 py-2 text-sm font-medium text-white hover:bg-karuma-700"
                     >
-                      生成回复
+                      Generar respuesta
                     </button>
                   )}
                   {review.status === "awaiting" && editingId !== review.id && (
@@ -239,14 +239,14 @@ export default function ReviewsPage() {
                         }}
                         className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        编辑回复
+                        Editar respuesta
                       </button>
                       <button
                         type="button"
                         onClick={() => handlePublish(review.id)}
                         className="inline-flex min-h-[40px] items-center rounded-lg border border-karuma-200 bg-karuma-50 px-4 py-2 text-sm font-medium text-karuma-700 hover:bg-karuma-100"
                       >
-                        确认发布
+                        Confirmar publicación
                       </button>
                     </>
                   )}
@@ -257,14 +257,14 @@ export default function ReviewsPage() {
                         onClick={() => handleSaveEdit(review.id)}
                         className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        保存编辑
+                        Guardar edición
                       </button>
                       <button
                         type="button"
                         onClick={() => handlePublish(review.id)}
                         className="inline-flex min-h-[40px] items-center rounded-lg border border-karuma-200 bg-karuma-50 px-4 py-2 text-sm font-medium text-karuma-700 hover:bg-karuma-100"
                       >
-                        确认发布
+                        Confirmar publicación
                       </button>
                     </>
                   )}
@@ -276,12 +276,12 @@ export default function ReviewsPage() {
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <p className="mb-2 text-sm font-semibold text-gray-900">Google API 接入状态</p>
+        <p className="mb-2 text-sm font-semibold text-gray-900">Estado de integración Google API</p>
         <ul className="space-y-1 text-sm text-gray-600">
-          <li>当前模式：Mock 数据</li>
-          <li>下一步：连接 Google Business Profile API</li>
-          <li>需要权限：business.manage</li>
-          <li>店铺必须是已验证状态</li>
+          <li>Modo actual: datos mock</li>
+          <li>Siguiente paso: conectar Google Business Profile API</li>
+          <li>Permiso necesario: business.manage</li>
+          <li>La ficha del restaurante debe estar verificada</li>
         </ul>
       </div>
     </div>

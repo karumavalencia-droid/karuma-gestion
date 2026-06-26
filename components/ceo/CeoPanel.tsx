@@ -87,7 +87,7 @@ const prioridadIconos: Record<string, typeof TrendingUp> = {
 };
 
 export function CeoPanel() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
   const [data, setData] = useState<CeoDashboard | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -108,7 +108,7 @@ export function CeoPanel() {
     );
   }
 
-  const fechaHoy = new Date().toLocaleDateString(locale === "zh" ? "zh-CN" : "es-ES", {
+  const fechaHoy = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long",

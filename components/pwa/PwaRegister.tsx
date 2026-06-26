@@ -13,7 +13,7 @@ function clearServiceWorker() {
   });
 }
 
-/** 生产环境注册 SW；开发环境清理缓存，避免热更新受影响。 */
+/** Registra el service worker en producción y limpia cachés en desarrollo. */
 export function PwaRegister() {
   const pathname = usePathname();
 

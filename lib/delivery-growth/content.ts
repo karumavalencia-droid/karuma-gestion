@@ -46,81 +46,6 @@ const shared = {
   ],
 } as const;
 
-const zh = {
-  title: "外卖增长计划",
-  description: "帮助 Karuma 提升 Uber Eats / Glovo 外卖营业额",
-  currentDelivery: "当前外卖",
-  target: "目标",
-  deliveryShare: "外卖占比",
-  todayActions: "今日重点动作",
-  todayActionItems: ["更新两个平台主图", "上线 Combo Pareja", "把三个套餐放到菜单最前面"],
-  diagnosisTitle: "当前外卖诊断",
-  yesterdayRevenue: "昨天总营业额",
-  dineIn: "堂食",
-  delivery: "外卖",
-  conclusion: "堂食表现不错，但外卖占比偏低。",
-  opportunity: "外卖不占座位，是提升营业额的重要机会。",
-  goalsTitle: "30天外卖目标",
-  current: "当前",
-  phaseOne: "第1阶段目标",
-  phaseTwo: "第2阶段目标",
-  perDay: "/天",
-  shareGoal: "外卖占比目标",
-  platformsTitle: "重点平台",
-  todaySales: "今日销售",
-  orders: "订单数",
-  averageOrder: "平均客单价",
-  rating: "评分",
-  cancelled: "取消订单",
-  mainProblem: "主要问题",
-  platformProblems: ["主图与套餐转化需要提升", "取消订单与配送时间需要检查"],
-  combosTitle: "建议新增套餐",
-  comboDescriptions: ["适合2人", "适合3-4人", "针对三文鱼爱好者"],
-  suggestedPrice: "建议售价",
-  pending: "待上线",
-  checklistTitle: "外卖优化清单",
-  checklist: [
-    "更新主图",
-    "每个套餐有清楚照片",
-    "套餐名字简单",
-    "减少客人选择困难",
-    "做 2 人套餐",
-    "做 3-4 人套餐",
-    "做三文鱼爆款套餐",
-    "菜单前5个商品必须是高转化套餐",
-    "每个平台至少设置 1 个主推套餐",
-    "检查配送时间",
-    "检查差评原因",
-    "每周更新一次封面图",
-  ],
-  menuTitle: "外卖菜单策略",
-  menuHeadline: "不要让客人自己搭配",
-  menuDescription:
-    "外卖用户下单很快。如果选择太复杂，他们会退出。所以要用套餐降低选择难度。",
-  menuStructure: "推荐菜单结构",
-  dailyTitle: "每日外卖追踪",
-  date: "日期",
-  yesterday: "昨天",
-  uberSales: "Uber Eats销售",
-  glovoSales: "Glovo销售",
-  totalDelivery: "总外卖",
-  notes: "备注",
-  dailyNote: "堂食表现好，外卖需要增长",
-  weeklyTitle: "每周复盘",
-  weeklyFields: [
-    "本周外卖总额",
-    "Uber Eats总额",
-    "Glovo总额",
-    "最好卖套餐",
-    "最差套餐",
-    "平均客单价",
-    "差评数量",
-    "下周改进",
-  ],
-  waitingReview: "待每周复盘",
-  ...shared,
-} as const;
-
 const es = {
   title: "Plan de crecimiento delivery",
   description: "Plan para aumentar las ventas de Uber Eats y Glovo",
@@ -204,8 +129,9 @@ const es = {
   ...shared,
 } as const;
 
-export type DeliveryGrowthCopy = typeof zh;
+export type DeliveryGrowthCopy = typeof es;
 
-export function getDeliveryGrowthCopy(locale: Locale): DeliveryGrowthCopy {
-  return (locale === "es" ? es : zh) as DeliveryGrowthCopy;
+export function getDeliveryGrowthCopy(_locale: Locale): DeliveryGrowthCopy {
+  void _locale;
+  return es;
 }

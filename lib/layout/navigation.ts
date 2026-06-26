@@ -1,7 +1,7 @@
 import type { TranslationTree } from "@/lib/i18n/translations";
 
 /**
- * ERP 侧边栏路由（唯一来源）
+ * Rutas del sidebar ERP (fuente única).
  */
 export const ERP_NAV_ROUTES = ["/dashboard", "/attendance", "/staff", "/schedule", "/marketing", "/delivery", "/dashboard/reservas"] as const;
 

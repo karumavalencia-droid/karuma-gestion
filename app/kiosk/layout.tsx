@@ -3,7 +3,7 @@ import "../globals.css";
 
 export const metadata: Metadata = {
   title: "Karuma · Fichaje",
-  description: "平板员工打卡",
+  description: "Fichaje de empleados en tablet",
 };
 
 export const viewport: Viewport = {
@@ -14,7 +14,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-/** 独立全屏页：继承根 layout 的 globals.css，并使用与 ERP 一致的灰底容器 */
+/** Página independiente a pantalla completa con estilos globales del ERP. */
 export default function KioskLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] overflow-x-hidden bg-gray-50 text-gray-900 antialiased">

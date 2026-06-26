@@ -31,8 +31,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-    document.documentElement.lang = locale === "zh" ? "zh-CN" : "es";
-  }, [locale, mounted]);
+    document.documentElement.lang = "es";
+  }, [mounted]);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);

@@ -8,12 +8,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { formatCurrency } from "@/lib/utils";
 
 export function FoodCostErpPanel() {
-  const { t, locale } = useLanguage();
-
-  const lineName = (nombre: string, nombreZh?: string) => {
-    if (locale === "zh" && nombreZh) return nombreZh;
-    return nombre;
-  };
+  const { t } = useLanguage();
 
   return (
     <PageContent>
@@ -81,7 +76,7 @@ export function FoodCostErpPanel() {
                       className="flex items-center justify-between rounded-lg bg-karuma-50/60 px-3 py-2 text-sm"
                     >
                       <span className="font-medium text-gray-800">
-                        {lineName(line.nombre, line.nombreZh)}
+                        {line.nombre}
                       </span>
                       <span className="text-gray-600">{line.cantidad}</span>
                     </li>

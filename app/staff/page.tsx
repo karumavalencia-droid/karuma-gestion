@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StaffFormModal } from "@/components/staff/StaffFormModal";
 import { interpolate } from "@/lib/i18n";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatContractHours, formatStandardShift } from "@/lib/staff/format";
+import { formatContractHours, formatStaffStatus, formatStandardShift } from "@/lib/staff/format";
 import { formatFixedRestDays } from "@/lib/staff/rest-days";
 import type { StaffDepartment, StaffInput, StaffMember } from "@/lib/staff/types";
 
@@ -183,14 +183,12 @@ export default function StaffPage() {
                     <td className="px-4 py-3.5">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                          row.status === "在职"
+                          row.status === "Activo"
                             ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
                             : "bg-gray-50 text-gray-600 ring-gray-500/20"
                         }`}
                       >
-                        {row.status === "在职"
-                          ? t("staff.statusActive")
-                          : t("staff.statusInactive")}
+                        {formatStaffStatus(row.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3.5">

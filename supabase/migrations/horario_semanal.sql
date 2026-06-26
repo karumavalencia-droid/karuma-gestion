@@ -16,14 +16,14 @@ CREATE POLICY "public read horario_semanal"  ON horario_semanal FOR SELECT USING
 CREATE POLICY "service write horario_semanal" ON horario_semanal FOR ALL USING (auth.role() = 'service_role');
 
 -- Valores por defecto según la configuración del restaurante:
--- L-V: comida 13:00-13:30 (3 pases), cena 16:00-22:00
+-- L-V: comida 13:00-13:45 (4 pases), cena 16:00-22:00
 -- Sáb-Dom: todo el día — comida 13:00-15:00, cena 20:00-22:00
 INSERT INTO horario_semanal (dia, activo, comida_activa, comida_inicio, comida_fin, cena_activa, cena_inicio, cena_fin) VALUES
 (0, true, true, '13:00', '15:00', true, '20:00', '22:00'),
-(1, true, true, '13:00', '13:30', true, '16:00', '22:00'),
-(2, true, true, '13:00', '13:30', true, '16:00', '22:00'),
-(3, true, true, '13:00', '13:30', true, '16:00', '22:00'),
-(4, true, true, '13:00', '13:30', true, '16:00', '22:00'),
-(5, true, true, '13:00', '13:30', true, '16:00', '22:00'),
+(1, true, true, '13:00', '13:45', true, '16:00', '22:00'),
+(2, true, true, '13:00', '13:45', true, '16:00', '22:00'),
+(3, true, true, '13:00', '13:45', true, '16:00', '22:00'),
+(4, true, true, '13:00', '13:45', true, '16:00', '22:00'),
+(5, true, true, '13:00', '13:45', true, '16:00', '22:00'),
 (6, true, true, '13:00', '15:00', true, '20:00', '22:00')
 ON CONFLICT (dia) DO NOTHING;

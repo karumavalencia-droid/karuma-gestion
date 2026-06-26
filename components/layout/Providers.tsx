@@ -13,7 +13,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   return <SidebarLayout>{children}</SidebarLayout>;
 }
 
-/** AuthProvider 为后台页面提供登录会话。 */
+/** AuthProvider aporta la sesión a las páginas internas. */
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>

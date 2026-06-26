@@ -17,15 +17,15 @@ import {
 
 function assetStatusVariant(status: AssetStatus) {
   switch (status) {
-    case "效果好":
+    case "Buen resultado":
       return "success" as const;
-    case "已发布":
+    case "Publicado":
       return "info" as const;
-    case "已剪辑":
+    case "Editado":
       return "purple" as const;
-    case "已拍摄":
+    case "Grabado":
       return "neutral" as const;
-    case "效果差":
+    case "Mal resultado":
       return "danger" as const;
     default:
       return "warning" as const;
@@ -45,16 +45,16 @@ function AssetFormFields({
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <label className="sm:col-span-2">
-        <span className="mb-1 block text-xs font-medium text-gray-600">视频标题</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Título del vídeo</span>
         <input
           className={inputClass}
           value={value.title}
           onChange={(e) => onChange({ ...value, title: e.target.value })}
-          placeholder="例如：24.50€ sushi ilimitado"
+          placeholder="Ej.: 24.50€ sushi ilimitado"
         />
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">拍摄日期</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Fecha de grabación</span>
         <input
           type="date"
           className={inputClass}
@@ -63,7 +63,7 @@ function AssetFormFields({
         />
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">负责人</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Responsable</span>
         <input
           className={inputClass}
           value={value.assignee}
@@ -72,7 +72,7 @@ function AssetFormFields({
         />
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">内容类型</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Tipo de contenido</span>
         <select
           className={inputClass}
           value={value.contentType}
@@ -88,7 +88,7 @@ function AssetFormFields({
         </select>
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">状态</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Estado</span>
         <select
           className={inputClass}
           value={value.status}
@@ -102,7 +102,7 @@ function AssetFormFields({
         </select>
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">发布平台</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Plataforma</span>
         <select
           className={inputClass}
           value={value.platform}
@@ -118,7 +118,7 @@ function AssetFormFields({
         </select>
       </label>
       <label className="sm:col-span-2">
-        <span className="mb-1 block text-xs font-medium text-gray-600">素材链接</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Enlace del material</span>
         <input
           className={inputClass}
           value={value.materialLink}
@@ -127,7 +127,7 @@ function AssetFormFields({
         />
       </label>
       <label className="sm:col-span-2">
-        <span className="mb-1 block text-xs font-medium text-gray-600">TikTok 链接</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Enlace TikTok</span>
         <input
           className={inputClass}
           value={value.tiktokLink}
@@ -136,7 +136,7 @@ function AssetFormFields({
         />
       </label>
       <label className="sm:col-span-2">
-        <span className="mb-1 block text-xs font-medium text-gray-600">Instagram 链接</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Enlace Instagram</span>
         <input
           className={inputClass}
           value={value.instagramLink}
@@ -145,7 +145,7 @@ function AssetFormFields({
         />
       </label>
       <label>
-        <span className="mb-1 block text-xs font-medium text-gray-600">播放量</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Visualizaciones</span>
         <input
           type="number"
           min={0}
@@ -155,12 +155,12 @@ function AssetFormFields({
         />
       </label>
       <label className="sm:col-span-2">
-        <span className="mb-1 block text-xs font-medium text-gray-600">备注</span>
+        <span className="mb-1 block text-xs font-medium text-gray-600">Notas</span>
         <textarea
           className={`${inputClass} min-h-[72px] resize-y`}
           value={value.notes}
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
-          placeholder="拍摄要点、剪辑说明…"
+          placeholder="Notas de grabación, edición..."
         />
       </label>
     </div>
@@ -211,24 +211,24 @@ export function VideoAssetLibrary() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs text-gray-500">本周发布</p>
+            <p className="text-xs text-gray-500">Publicados esta semana</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-karuma-600">{weekPublished}</p>
-            <p className="text-xs text-gray-400">条（已发布/效果好/效果差）</p>
+            <p className="text-xs text-gray-400">piezas publicadas o evaluadas</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs text-gray-500">总播放量</p>
+            <p className="text-xs text-gray-500">Visualizaciones totales</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
               {viewsTotal.toLocaleString("es-ES")}
             </p>
-            <p className="text-xs text-gray-400">全部素材合计</p>
+            <p className="text-xs text-gray-400">suma de todos los materiales</p>
           </div>
         </div>
         <Button type="button" onClick={openAdd} className="w-full sm:w-auto">
-          新增视频素材
+          Añadir material de vídeo
         </Button>
       </div>
 
-      {/* 手机：卡片 */}
+      {/* Móvil: tarjetas */}
       <div className="space-y-3 lg:hidden">
         {assets.map((asset) => (
           <article
@@ -241,40 +241,40 @@ export function VideoAssetLibrary() {
             </div>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">拍摄日期</dt>
+                <dt className="text-gray-500">Fecha de grabación</dt>
                 <dd className="font-medium">{asset.shootDate}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">负责人</dt>
+                <dt className="text-gray-500">Responsable</dt>
                 <dd>{asset.assignee || "—"}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">内容类型</dt>
+                <dt className="text-gray-500">Tipo de contenido</dt>
                 <dd>{asset.contentType}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">发布平台</dt>
+                <dt className="text-gray-500">Plataforma</dt>
                 <dd>{asset.platform}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">播放量</dt>
+                <dt className="text-gray-500">Visualizaciones</dt>
                 <dd className="font-mono font-semibold">{asset.views.toLocaleString("es-ES")}</dd>
               </div>
               {asset.materialLink ? (
                 <div>
-                  <dt className="text-gray-500">素材链接</dt>
+                  <dt className="text-gray-500">Material</dt>
                   <dd className="mt-0.5 truncate text-karuma-600">{asset.materialLink}</dd>
                 </div>
               ) : null}
               {asset.notes ? (
                 <div>
-                  <dt className="text-gray-500">备注</dt>
+                  <dt className="text-gray-500">Notas</dt>
                   <dd className="mt-0.5 text-gray-600">{asset.notes}</dd>
                 </div>
               ) : null}
             </dl>
             <div className="mt-3">
-              <label className="mb-1 block text-xs font-medium text-gray-500">编辑状态</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Editar estado</label>
               <select
                 className={inputClass}
                 value={asset.status}
@@ -294,40 +294,40 @@ export function VideoAssetLibrary() {
                 type="button"
                 size="sm"
                 variant="success"
-                onClick={() => updateAsset(asset.id, { status: "效果好" })}
+                onClick={() => updateAsset(asset.id, { status: "Buen resultado" })}
               >
-                效果好
+                Buen resultado
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="warning"
-                onClick={() => updateAsset(asset.id, { status: "效果差" })}
+                onClick={() => updateAsset(asset.id, { status: "Mal resultado" })}
               >
-                效果差
+                Mal resultado
               </Button>
             </div>
           </article>
         ))}
       </div>
 
-      {/* 桌面：表格 */}
+      {/* Escritorio: tabla */}
       <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm lg:block">
         <table className="min-w-[1100px] w-full text-left text-sm">
           <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-3 py-3">视频标题</th>
-              <th className="px-3 py-3">拍摄日期</th>
-              <th className="px-3 py-3">负责人</th>
-              <th className="px-3 py-3">内容类型</th>
-              <th className="px-3 py-3">素材链接</th>
-              <th className="px-3 py-3">状态</th>
-              <th className="px-3 py-3">发布平台</th>
+              <th className="px-3 py-3">Título</th>
+              <th className="px-3 py-3">Grabación</th>
+              <th className="px-3 py-3">Responsable</th>
+              <th className="px-3 py-3">Tipo</th>
+              <th className="px-3 py-3">Material</th>
+              <th className="px-3 py-3">Estado</th>
+              <th className="px-3 py-3">Plataforma</th>
               <th className="px-3 py-3">TikTok</th>
               <th className="px-3 py-3">Instagram</th>
-              <th className="px-3 py-3">播放量</th>
-              <th className="px-3 py-3">备注</th>
-              <th className="px-3 py-3">操作</th>
+              <th className="px-3 py-3">Views</th>
+              <th className="px-3 py-3">Notas</th>
+              <th className="px-3 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -340,7 +340,7 @@ export function VideoAssetLibrary() {
                 <td className="px-3 py-3 text-gray-700">{asset.assignee || "—"}</td>
                 <td className="whitespace-nowrap px-3 py-3 text-gray-700">{asset.contentType}</td>
                 <td className="max-w-[120px] px-3 py-3">
-                  <LinkCell href={asset.materialLink} label="素材" />
+                  <LinkCell href={asset.materialLink} label="Material" />
                 </td>
                 <td className="px-3 py-3">
                   <select
@@ -359,10 +359,10 @@ export function VideoAssetLibrary() {
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-gray-700">{asset.platform}</td>
                 <td className="px-3 py-3">
-                  <LinkCell href={asset.tiktokLink} label="打开" />
+                  <LinkCell href={asset.tiktokLink} label="Abrir" />
                 </td>
                 <td className="px-3 py-3">
-                  <LinkCell href={asset.instagramLink} label="打开" />
+                  <LinkCell href={asset.instagramLink} label="Abrir" />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 font-mono text-gray-900">
                   {asset.views.toLocaleString("es-ES")}
@@ -374,17 +374,17 @@ export function VideoAssetLibrary() {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      onClick={() => updateAsset(asset.id, { status: "效果好" })}
+                      onClick={() => updateAsset(asset.id, { status: "Buen resultado" })}
                       className="rounded px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
                     >
-                      好
+                      Bueno
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateAsset(asset.id, { status: "效果差" })}
+                      onClick={() => updateAsset(asset.id, { status: "Mal resultado" })}
                       className="rounded px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
                     >
-                      差
+                      Malo
                     </button>
                   </div>
                 </td>
@@ -397,17 +397,17 @@ export function VideoAssetLibrary() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/60 p-0 sm:items-center sm:p-4">
           <div className="max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-gray-200 bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-xl">
-            <h3 className="text-lg font-bold text-gray-900">新增视频素材</h3>
-            <p className="mt-1 text-sm text-gray-500">仅登记链接与元数据，不上传视频文件</p>
+            <h3 className="text-lg font-bold text-gray-900">Añadir material de vídeo</h3>
+            <p className="mt-1 text-sm text-gray-500">Solo registra enlaces y metadatos; no sube archivos de vídeo.</p>
             <div className="mt-4">
               <AssetFormFields value={form} onChange={setForm} />
             </div>
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
-                取消
+                Cancelar
               </Button>
               <Button type="button" onClick={submitAdd} disabled={!form.title.trim()}>
-                保存
+                Guardar
               </Button>
             </div>
           </div>

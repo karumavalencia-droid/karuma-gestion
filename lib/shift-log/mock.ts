@@ -1,4 +1,4 @@
-export type ShiftLogStatus = "待处理" | "处理中" | "已完成";
+export type ShiftLogStatus = "Pendiente" | "En proceso" | "Completado";
 
 export type ShiftLog = {
   id: string;
@@ -17,86 +17,98 @@ export type ShiftLog = {
 };
 
 export const SHIFT_LOG_STATUS_STYLE: Record<ShiftLogStatus, string> = {
-  待处理: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  处理中: "bg-blue-50 text-blue-700 ring-blue-600/20",
-  已完成: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  Pendiente: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  "En proceso": "bg-blue-50 text-blue-700 ring-blue-600/20",
+  Completado: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+};
+
+export const SHIFT_LOG_STATUS_LABEL: Record<ShiftLogStatus, string> = {
+  Pendiente: "Pendiente",
+  "En proceso": "En proceso",
+  Completado: "Completado",
+};
+
+export const SHIFT_LOG_SHIFT_LABEL: Record<string, string> = {
+  Comida: "Comida",
+  Cena: "Cena",
+  "Día completo": "Día completo",
 };
 
 export const SHIFT_LOG_SEED: ShiftLog[] = [
   {
     id: "sl-001",
     date: "2026-06-07",
-    shift: "晚班",
+    shift: "Cena",
     responsible: "Maria",
     manager: "Zhou",
     staffCount: 12,
-    issues: "三文鱼库存不足",
-    stockShortage: "三文鱼、金枪鱼",
-    equipmentIssues: "冷库门偶尔打不开",
-    customerComplaints: "22:30 客诉一桌",
-    cashVariance: "无",
-    notes: "已通知老板采购",
-    status: "待处理",
+    issues: "Stock bajo de salmón",
+    stockShortage: "Salmón, atún",
+    equipmentIssues: "La puerta de la cámara falla a veces",
+    customerComplaints: "Una queja de mesa a las 22:30",
+    cashVariance: "Sin diferencia",
+    notes: "Compras avisadas",
+    status: "Pendiente",
   },
   {
     id: "sl-002",
     date: "2026-06-07",
-    shift: "午班",
+    shift: "Comida",
     responsible: "Wang",
     manager: "Maria",
     staffCount: 10,
-    issues: "无重大异常",
-    stockShortage: "无",
+    issues: "Sin incidencias importantes",
+    stockShortage: "Sin faltas",
     equipmentIssues: "",
     customerComplaints: "",
-    cashVariance: "无",
-    notes: "午市客流正常",
-    status: "已完成",
+    cashVariance: "Sin diferencia",
+    notes: "Servicio de comida normal",
+    status: "Completado",
   },
   {
     id: "sl-003",
     date: "2026-06-06",
-    shift: "晚班",
+    shift: "Cena",
     responsible: "Laura",
     manager: "Maria",
     staffCount: 11,
-    issues: "服务员人手略紧",
-    stockShortage: "毛豆",
-    equipmentIssues: "2号烤箱温度偏高",
+    issues: "Equipo de sala algo justo",
+    stockShortage: "Edamame",
+    equipmentIssues: "Horno 2 con temperatura alta",
     customerComplaints: "",
     cashVariance: "-€3.50",
-    notes: "已调整排班",
-    status: "处理中",
+    notes: "Horario ajustado",
+    status: "En proceso",
   },
   {
     id: "sl-004",
     date: "2026-06-05",
-    shift: "午班",
+    shift: "Comida",
     responsible: "Ana",
     manager: "Maria",
     staffCount: 9,
-    issues: "无",
+    issues: "Sin incidencias",
     stockShortage: "",
     equipmentIssues: "",
     customerComplaints: "",
-    cashVariance: "无",
-    notes: "一切正常",
-    status: "已完成",
+    cashVariance: "Sin diferencia",
+    notes: "Todo correcto",
+    status: "Completado",
   },
   {
     id: "sl-005",
     date: "2026-06-04",
-    shift: "晚班",
+    shift: "Cena",
     responsible: "Pedro",
     manager: "Maria",
     staffCount: 8,
-    issues: "洗碗区积水",
-    stockShortage: "无",
-    equipmentIssues: "洗碗机排水慢",
+    issues: "Agua acumulada en zona de lavado",
+    stockShortage: "Sin faltas",
+    equipmentIssues: "Lavavajillas drena lento",
     customerComplaints: "",
-    cashVariance: "无",
-    notes: "已报修",
-    status: "待处理",
+    cashVariance: "Sin diferencia",
+    notes: "Incidencia comunicada",
+    status: "Pendiente",
   },
 ];
 
@@ -114,5 +126,5 @@ export function isSameWeek(dateStr: string, ref: Date): boolean {
 
 export function formatDateLabel(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
-  return `${y}年${Number(m)}月${Number(d)}日`;
+  return `${Number(d)}/${Number(m)}/${y}`;
 }

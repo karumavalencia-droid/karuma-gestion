@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { formatContractHours, formatStandardShift } from "@/lib/staff/format";
+import { formatContractHours, formatStaffStatus, formatStandardShift } from "@/lib/staff/format";
 import { formatFixedRestDays } from "@/lib/staff/rest-days";
 import type { StaffMember } from "@/lib/staff/types";
 
@@ -31,11 +31,11 @@ export default function StaffDetailPage() {
       const res = await fetch(`/api/staff/${id}`);
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? "加载失败");
+        throw new Error(body.error ?? "No se pudo cargar");
       }
       setMember((await res.json()) as StaffMember);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      setError(err instanceof Error ? err.message : "No se pudo cargar");
       setMember(null);
     } finally {
       setLoading(false);
@@ -53,12 +53,12 @@ export default function StaffDetailPage() {
           href="/staff"
           className="text-sm font-medium text-karuma-600 hover:text-karuma-700"
         >
-          ← 返回员工列表
+          ← Volver al equipo
         </Link>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">加载中…</p>
+        <p className="text-sm text-gray-500">Cargando...</p>
       ) : error ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : member ? (
@@ -68,13 +68,13 @@ export default function StaffDetailPage() {
             <p className="mt-1 text-sm text-gray-500">{member.department}</p>
           </div>
           <dl className="px-6">
-            <DetailRow label="姓名" value={member.name} />
-            <DetailRow label="部门" value={member.department} />
-            <DetailRow label="岗位" value={member.position} />
-            <DetailRow label="合同工时" value={formatContractHours(member.weeklyHours)} />
-            <DetailRow label="固定休息日" value={formatFixedRestDays(member)} />
-            <DetailRow label="标准班次" value={formatStandardShift(member.fixedShift)} />
-            <DetailRow label="状态" value={member.status} />
+            <DetailRow label="Nombre" value={member.name} />
+            <DetailRow label="Departamento" value={member.department} />
+            <DetailRow label="Puesto" value={member.position} />
+            <DetailRow label="Horas de contrato" value={formatContractHours(member.weeklyHours)} />
+            <DetailRow label="Descansos fijos" value={formatFixedRestDays(member)} />
+            <DetailRow label="Turno estándar" value={formatStandardShift(member.fixedShift)} />
+            <DetailRow label="Estado" value={formatStaffStatus(member.status)} />
           </dl>
         </div>
       ) : null}

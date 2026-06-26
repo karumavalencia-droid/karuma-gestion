@@ -34,7 +34,7 @@ async function createLoginResponse(user: SessionUser) {
     return response;
   } catch {
     return NextResponse.json(
-      { error: "登录服务未配置，请设置 KARUMA_AUTH_SECRET" },
+      { error: "Servicio de login no configurado. Define KARUMA_AUTH_SECRET" },
       { status: 503 },
     );
   }
@@ -45,14 +45,14 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as { email?: string; password?: string };
   } catch {
-    return NextResponse.json({ error: "请求格式错误" }, { status: 400 });
+    return NextResponse.json({ error: "Formato de solicitud inválido" }, { status: 400 });
   }
 
   const username = body.email?.trim().toLowerCase();
   const password = body.password ?? "";
 
   if (!username || !password) {
-    return NextResponse.json({ error: "账号和密码不能为空" }, { status: 400 });
+    return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
   }
 
   const builtInAdmin = await authenticateBuiltInAdmin(username, password);
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
   if (process.env.NODE_ENV === "production" && password === "123456") {
     return NextResponse.json(
-      { error: "默认演示密码已禁用" },
+      { error: "La contraseña demo por defecto está desactivada" },
       { status: 401 },
     );
   }
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     const account = findAccount(username, password);
     if (!account) {
-      return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 });
+      return NextResponse.json({ error: "Email o contraseña incorrectos" }, { status: 401 });
     }
     return createLoginResponse({
       name: account.name,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
-    return NextResponse.json({ error: "数据库未配置" }, { status: 503 });
+    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
   const { data: user, error } = await supabase
@@ -105,12 +105,12 @@ export async function POST(request: Request) {
     .returns<LoginUser>();
 
   if (error || !user) {
-    return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 });
+    return NextResponse.json({ error: "Email o contraseña incorrectos" }, { status: 401 });
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
-    return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 });
+    return NextResponse.json({ error: "Email o contraseña incorrectos" }, { status: 401 });
   }
 
   return createLoginResponse({

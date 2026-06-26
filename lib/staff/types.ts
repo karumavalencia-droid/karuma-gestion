@@ -1,7 +1,7 @@
 import type { RestDayKey } from "./rest-days";
 import type { StandardShift } from "./shifts";
 
-export type StaffStatus = "在职" | "离职";
+export type StaffStatus = "Activo" | "Inactivo";
 
 export type StaffDepartment = "Sala" | "Sushi" | "Hot Kitchen" | "Dishwasher";
 
@@ -22,13 +22,13 @@ export type StaffMember = {
   email: string;
   hireDate: string;
   contractType: string;
-  /** 合同工时；null 表示待确认 */
+  /** Horas de contrato; null significa pendiente. */
   weeklyHours: number | null;
   hourlyRate: number;
   status: StaffStatus;
   fixedRestDay1: RestDayKey | null;
   fixedRestDay2: RestDayKey | null;
-  /** 标准班次；null 表示待确认 */
+  /** Turno estándar; null significa pendiente. */
   fixedShift: StandardShift | null;
 };
 

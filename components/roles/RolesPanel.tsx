@@ -7,7 +7,7 @@ import { rolePermissions } from "@/lib/staff-mock/data";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export function RolesPanel() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <PageContent>
@@ -22,7 +22,7 @@ export function RolesPanel() {
             <div className="mb-2 flex items-start justify-between gap-2">
               <div>
                 <h3 className="font-semibold text-gray-900">
-                  {locale === "zh" ? role.rolZh : role.rol}
+                  {role.rol}
                 </h3>
                 <p className="mt-0.5 text-sm text-gray-500">{role.descripcion}</p>
               </div>

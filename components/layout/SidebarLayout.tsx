@@ -42,7 +42,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   if (!ready || !user) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 text-sm text-gray-500">
-        正在验证登录状态…
+        Verificando sesión...
       </div>
     );
   }
