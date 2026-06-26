@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock } from "lucide-react";
 
 type Servicio = "comida" | "cena";
 type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
@@ -23,6 +23,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // "13:00:00" → "13:00" (quita los segundos para mostrar la hora limpia)
 const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
+
+// Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
+// Mediodía = lunes a viernes de 13:00 a 16:30 → 19,90 €. Resto (tardes, noches,
+// fines de semana y festivos) → 24,90 €. No detecta festivos puntuales (esos son 24,90 €).
+function precioBuffet(fecha: string, hora: string): string {
+  if (!fecha || !hora) return "24,90 €";
+  const dow = new Date(fecha + "T12:00:00").getDay(); // 0=Dom … 6=Sáb
+  const [h, m] = hora.split(":").map(Number);
+  const esMediodiaLaborable = dow >= 1 && dow <= 5 && h * 60 + m < 16 * 60 + 30;
+  return esMediodiaLaborable ? "19,90 €" : "24,90 €";
+}
 
 interface PublicConfig {
   reservas_online_activas: boolean;
@@ -401,6 +412,7 @@ export default function ReservasPage() {
             <Fila etiqueta="Hora" valor={hora} />
             <Fila etiqueta="Personas" valor={String(personas)} />
             <Fila etiqueta="Servicio" valor={servicio === "comida" ? "Comida" : "Cena"} />
+            <Fila etiqueta="Precio buffet" valor={`${precioBuffet(fecha, hora)} / persona`} />
             <Fila etiqueta="Nombre" valor={nombre} />
             <Fila etiqueta="Email" valor={email} />
             {mesasAsignadas.length > 0 && <Fila etiqueta="Mesa" valor={mesasAsignadas.join(", ")} />}
@@ -472,12 +484,53 @@ export default function ReservasPage() {
             <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-stone-500">
               <MapPin className="h-3.5 w-3.5 text-karuma-700" /> {DIRECCION}
             </p>
+            <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-karuma-700/30 bg-karuma-50/70 px-3 py-1 text-xs font-semibold text-karuma-700">
+              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–23:30
+            </p>
           </div>
         </header>
 
         <main className="mx-auto max-w-md px-6">
-          {/* RESERVA */}
+          {/* HORARIO Y PRECIOS — destacado, encima del formulario de reserva */}
           <section className="border-t border-[#e2dac9] pt-10">
+            <Kicker jp="営業時間" es="Horario" />
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
+              Horario y precios
+            </h2>
+
+            <div className="mt-5 overflow-hidden rounded-2xl border-2 border-karuma-700/30 bg-karuma-50/60">
+              <div className="border-b border-karuma-700/15 px-5 py-5 text-center">
+                <p className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-karuma-700">
+                  <Clock className="h-3.5 w-3.5" /> Abierto todos los días
+                </p>
+                <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
+                  13:00 – 23:30
+                </p>
+                <p className="mt-2 text-xs text-stone-500">Cocina ininterrumpida</p>
+              </div>
+              <div className="px-5 py-1">
+                {[
+                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
+                  { t: "Tarde, noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
+                  { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
+                ].map((p) => (
+                  <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
+                    <div className="min-w-0">
+                      <p className="text-[0.95rem] font-semibold text-stone-900">{p.t}</p>
+                      {p.sub && <p className="mt-0.5 text-xs text-stone-500">{p.sub}</p>}
+                    </div>
+                    <span className="shrink-0 text-base font-semibold text-karuma-700" style={{ fontFamily: SERIF }}>
+                      {p.precio}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 text-center text-xs text-stone-400">Buffet libre · bebidas no incluidas.</p>
+          </section>
+
+          {/* RESERVA */}
+          <section className="mt-14 border-t border-[#e2dac9] pt-10">
             <Kicker jp="ご予約" es="Reserva" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               Reserva tu mesa
@@ -565,32 +618,6 @@ export default function ReservasPage() {
             </div>
           </section>
 
-          {/* MENÚS */}
-          <section className="mt-14 border-t border-[#e2dac9] pt-10">
-            <Kicker jp="食べ放題" es="Buffet" />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              Buffet libre
-            </h2>
-            <div className="mt-6">
-              {[
-                { nombre: "Buffet Mediodía", sub: "Entre semana", precio: "19,90 €" },
-                { nombre: "Buffet Cena / Fines de semana y festivos", sub: "", precio: "24,90 €" },
-                { nombre: "Menú Infantil", sub: "Hasta 8 años", precio: "12,50 €" },
-              ].map((m) => (
-                <div key={m.nombre} className="flex items-start justify-between gap-4 border-t border-[#e8e1d2] py-4 first:border-t-0">
-                  <div className="min-w-0">
-                    <p className="text-base font-medium text-stone-900">{m.nombre}</p>
-                    {m.sub && <p className="mt-0.5 text-xs text-stone-400">{m.sub}</p>}
-                  </div>
-                  <span className="shrink-0 text-base font-semibold text-karuma-700" style={{ fontFamily: SERIF }}>
-                    {m.precio}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-stone-400">Bebidas no incluidas.</p>
-          </section>
-
           {/* CARTA COMPLETA */}
           <section className="mt-14 border-t border-[#e2dac9] pt-10">
             <Kicker jp="お品書き" es="Carta" />
@@ -633,31 +660,6 @@ export default function ReservasPage() {
               })}
             </div>
             <p className="mt-3 text-xs text-stone-400">Carta orientativa · pueden existir variaciones. Las bebidas no están incluidas en el buffet.</p>
-          </section>
-
-          {/* HORARIO */}
-          <section className="mt-14 border-t border-[#e2dac9] pt-10">
-            <Kicker jp="営業時間" es="Horario" />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              Cuándo abrimos
-            </h2>
-            <div className="mt-6">
-              {[
-                { jp: "昼", t: "Comida", h: horarioComida, fin: comidaFin },
-                { jp: "夜", t: "Cena", h: horarioCena, fin: cenaFin },
-              ].map((s) => (
-                <div key={s.t} className="border-t border-[#e8e1d2] py-4 first:border-t-0">
-                  <div className="flex items-center gap-4">
-                    <span className="w-9 shrink-0 text-center text-lg text-karuma-700/80" style={{ fontFamily: KANJI }} aria-hidden>
-                      {s.jp}
-                    </span>
-                    <p className="flex-1 text-base font-semibold text-stone-900">{s.t}</p>
-                    <p className="text-base text-stone-700" style={{ fontFamily: SERIF }}>{s.h}</p>
-                  </div>
-                  <p className="mt-1.5 pl-[3.25rem] text-xs text-stone-400">Última entrada · {s.fin}</p>
-                </div>
-              ))}
-            </div>
           </section>
 
           {/* UBICACIÓN + GOOGLE MAPS */}
@@ -940,6 +942,7 @@ export default function ReservasPage() {
               <Fila etiqueta="Día y hora" valor={`${formatFecha(fecha)} · ${hora}`} />
               <Fila etiqueta="Personas" valor={String(personas)} />
               <Fila etiqueta="Servicio" valor={servicio === "comida" ? "Comida" : "Cena"} />
+              <Fila etiqueta="Precio buffet" valor={`${precioBuffet(fecha, hora)} / persona`} />
             </div>
 
             {error && (
