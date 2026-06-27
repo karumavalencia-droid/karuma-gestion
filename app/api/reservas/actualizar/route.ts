@@ -55,12 +55,9 @@ export async function POST(req: NextRequest) {
     case "cambiar-mesa":
       if (!mesaIds?.length) return NextResponse.json({ error: "Falta mesaIds" }, { status: 400 });
       {
-        const [{ data: actual }, { data: configData }] = await Promise.all([
-          supabase.from("reservas").select("*").eq("id", id).single(),
-          supabase.from("reservas_config").select("*").eq("id", 1).single(),
-        ]);
-        if (!actual || !configData) {
-          return NextResponse.json({ error: "Reserva o configuración no encontrada" }, { status: 404 });
+        const { data: actual } = await supabase.from("reservas").select("*").eq("id", id).single();
+        if (!actual) {
+          return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
         }
 
         const reserva = actual as Reserva;
@@ -71,27 +68,12 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Esta reserva todavía no tiene mesa asignada" }, { status: 409 });
         }
 
-        const config = configData as ReservasConfig;
-        const [{ data: reservasDia }, { data: mesasSeleccionadas }] = await Promise.all([
-          supabase
-            .from("reservas")
-            .select("*")
-            .eq("fecha", reserva.fecha),
-          supabase
-            .from("mesas")
-            .select("id, capacidad")
-            .in("id", mesaIds),
-        ]);
-        const ocupadas = mesasOcupadasEnSlot(
-          ((reservasDia ?? []) as Reserva[]).filter((r) => r.id !== id),
-          reserva.fecha,
-          reserva.hora_inicio,
-          reserva.duracion_min || duracionPorPersonas(reserva.personas, config),
-          config.turno_gap_min ?? 30,
-        );
-        if (mesaIds.some((mesaId) => ocupadas.has(mesaId))) {
-          return NextResponse.json({ error: MESA_NO_DISPONIBLE_ERROR }, { status: 409 });
-        }
+        // Cambio manual de mesa: el admin puede mover a CUALQUIER mesa, incluso
+        // ocupada (override consciente). Solo validamos el aforo, no la disponibilidad.
+        const { data: mesasSeleccionadas } = await supabase
+          .from("mesas")
+          .select("id, capacidad")
+          .in("id", mesaIds);
 
         const capacidad = ((mesasSeleccionadas ?? []) as MesaCapacidad[])
           .reduce((total, mesa) => total + mesa.capacidad, 0);

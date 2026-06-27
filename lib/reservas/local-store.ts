@@ -320,6 +320,7 @@ function validarMesasLibres(
   servicio: string,
   personas: number,
   excludeId?: string,
+  allowOcupadas = false,
 ): { ok: true; mesaIds: string[] } | { ok: false; error: string } {
   const ids = uniqueMesaIds(mesaIds);
   if (!ids.length) return { ok: false, error: "Selecciona al menos una mesa." };
@@ -329,9 +330,12 @@ function validarMesasLibres(
     return { ok: false, error: "Una de las mesas seleccionadas no existe." };
   }
 
-  const ocupadas = ocupadasEn(fecha, hora, servicio, personas, excludeId);
-  if (ids.some((id) => ocupadas.has(id))) {
-    return { ok: false, error: MESA_NO_DISPONIBLE_ERROR };
+  // El cambio manual de mesa permite ocupar mesas no libres (override del admin).
+  if (!allowOcupadas) {
+    const ocupadas = ocupadasEn(fecha, hora, servicio, personas, excludeId);
+    if (ids.some((id) => ocupadas.has(id))) {
+      return { ok: false, error: MESA_NO_DISPONIBLE_ERROR };
+    }
   }
 
   return { ok: true, mesaIds: ids };
@@ -352,20 +356,11 @@ export function mesasDisponiblesParaCambio(reservaId: string): MesaLocal[] {
   if (!reserva) return [];
   if (!canMoveReservation(reserva.estado) || reserva.mesaIds.length === 0) return [];
 
-  const hoy = new Date().toISOString().split("T")[0];
-  const horaReferencia = isOccupied(reserva) && reserva.fecha === hoy
-    ? new Date().toTimeString().slice(0, 5)
-    : reserva.hora;
-  const ocupadas = ocupadasEn(
-    reserva.fecha,
-    horaReferencia,
-    reserva.servicio,
-    reserva.personas,
-    reserva.id,
-  );
-
+  // El admin puede mover la reserva a CUALQUIER mesa (también ocupadas): es un
+  // cambio manual con criterio. Mostramos todas las mesas salvo la(s) actual(es).
+  // El control de aforo se mantiene al guardar.
   return loadMesas()
-    .filter((m) => !ocupadas.has(m.id) && !reserva.mesaIds.includes(m.id))
+    .filter((m) => !reserva.mesaIds.includes(m.id))
     .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero);
 }
 
@@ -555,7 +550,8 @@ export function cambiarMesas(
     ? new Date().toTimeString().slice(0, 5)
     : r.hora;
 
-  const validacion = validarMesasLibres(ids, r.fecha, horaReferencia, r.servicio, r.personas, r.id);
+  // allowOcupadas=true: el cambio manual de mesa admite cualquier mesa (override).
+  const validacion = validarMesasLibres(ids, r.fecha, horaReferencia, r.servicio, r.personas, r.id, true);
   if (!validacion.ok) return { ok: false, error: validacion.error };
 
   const seleccionadas = validacion.mesaIds
