@@ -17,6 +17,16 @@ type ReservationReviewInput = {
   reviewLink: string;
 };
 
+type ReservationReminderInput = {
+  to: string;
+  nombre: string;
+  fecha: string;
+  hora: string;
+  personas: number;
+  reservaId: string;
+  telefonoRestaurante?: string | null;
+};
+
 type EmailSendResult =
   | { sent: true }
   | { sent: false; reason: "missing_config" | "request_failed" | "invalid_recipient"; error?: string };
@@ -136,6 +146,54 @@ function buildReviewEmail(input: ReservationReviewInput) {
   return { subject, text, html };
 }
 
+function buildReminderEmail(input: ReservationReminderInput) {
+  const nombre = input.nombre.trim() || "cliente";
+  const fecha = formatFecha(input.fecha);
+  const phoneLine = input.telefonoRestaurante
+    ? `Si no puedes venir, avisanos o cancela llamando al ${input.telefonoRestaurante}.`
+    : "Si no puedes venir, avisanos o cancela contactando con el restaurante.";
+
+  const subject = `Recordatorio: tu reserva de manana - ${RESTAURANT_NAME}`;
+  const text = [
+    `Hola ${nombre},`,
+    "",
+    "Te recordamos tu reserva para manana:",
+    `Fecha: ${fecha}`,
+    `Hora: ${input.hora}`,
+    `Personas: ${input.personas}`,
+    "",
+    "Te esperamos!",
+    "",
+    RESTAURANT_NAME,
+    RESTAURANT_ADDRESS,
+    MAPS_URL,
+    "",
+    phoneLine,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;max-width:560px;margin:0 auto;padding:24px">
+      <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(RESTAURANT_NAME)}</h1>
+      <p style="margin:0 0 20px;color:#4b5563">Recordatorio de tu reserva</p>
+      <p>Hola ${escapeHtml(nombre)},</p>
+      <p>Te recordamos que manana tienes una reserva con nosotros. Te esperamos en Karuma.</p>
+      <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0">
+        <tbody>
+          <tr><td style="padding:10px 14px;color:#6b7280">Fecha</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(fecha)}</td></tr>
+          <tr><td style="padding:10px 14px;color:#6b7280">Hora</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(input.hora)}</td></tr>
+          <tr><td style="padding:10px 14px;color:#6b7280">Personas</td><td style="padding:10px 14px;font-weight:700;text-align:right">${input.personas}</td></tr>
+        </tbody>
+      </table>
+      <p style="font-weight:700;margin-bottom:4px">${escapeHtml(RESTAURANT_NAME)}</p>
+      <p style="margin:0 0 8px;color:#4b5563">${escapeHtml(RESTAURANT_ADDRESS)}</p>
+      <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicacion en Google Maps</a></p>
+      <p style="font-size:13px;color:#6b7280">${escapeHtml(phoneLine)}</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
 async function sendEmailViaResend({
   to,
   subject,
@@ -206,5 +264,19 @@ export async function sendReservationReviewEmail(
     text: email.text,
     html: email.html,
     idempotencyKey: `reservation-review-${input.reservaId}`,
+  });
+}
+
+export async function sendReservationReminderEmail(
+  input: ReservationReminderInput,
+): Promise<EmailSendResult> {
+  const email = buildReminderEmail(input);
+  // La clave de idempotencia evita duplicados si el cron se reintenta el mismo dia.
+  return sendEmailViaResend({
+    to: input.to,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
+    idempotencyKey: `reservation-reminder-${input.reservaId}`,
   });
 }

@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/reservas-review-emails",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron/reservas-recordatorio",
+      "schedule": "0 10 * * *"
     }
   ]
 }
