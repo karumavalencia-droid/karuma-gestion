@@ -909,3 +909,31 @@ index 5246029..d8c26f8 100644
  }
  
  export interface FacturasStore {
+--- a/components/layout/Sidebar.tsx
++++ b/components/layout/Sidebar.tsx
+@@ -31,6 +31,7 @@
+   "/schedule": CalendarDays,
+   "/marketing": Megaphone,
+   "/delivery": Truck,
++  "/facturas": ShoppingBasket,
+   "/dashboard/reservas": CalendarCheck,
+ };
+ 
+--- a/lib/layout/navigation.ts
++++ b/lib/layout/navigation.ts
+@@ -3,7 +3,7 @@
+ /**
+  * Rutas del sidebar ERP (fuente única).
+  */
+-export const ERP_NAV_ROUTES = ["/dashboard", "/attendance", "/staff", "/schedule", "/marketing", "/delivery", "/dashboard/reservas"] as const;
++export const ERP_NAV_ROUTES = ["/dashboard", "/attendance", "/staff", "/schedule", "/marketing", "/delivery", "/facturas", "/dashboard/reservas"] as const;
+ 
+ export type ErpNavRoute = (typeof ERP_NAV_ROUTES)[number];
+ 
+@@ -14,5 +14,6 @@
+   "/schedule": "schedule",
+   "/marketing": "marketing",
+   "/delivery": "delivery",
++  "/facturas": "facturas",
+   "/dashboard/reservas": "reservas",
+ };
