@@ -536,36 +536,6 @@ index ebf8eab..608d1a9 100644
              className="border-red-200 text-red-600 hover:bg-red-50"
            >
              Eliminar
-diff --git a/components/layout/Sidebar.tsx b/components/layout/Sidebar.tsx
-index 6770e0f..05cd3ec 100644
---- a/components/layout/Sidebar.tsx
-+++ b/components/layout/Sidebar.tsx
-@@ -3,7 +3,16 @@
- import Link from "next/link";
- import { usePathname } from "next/navigation";
- import type { LucideIcon } from "lucide-react";
--import { CalendarDays, Clock3, LayoutDashboard, Megaphone, Truck, Users, X } from "lucide-react";
-+import {
-+  CalendarDays,
-+  Clock3,
-+  LayoutDashboard,
-+  Megaphone,
-+  ReceiptText,
-+  Truck,
-+  Users,
-+  X,
-+} from "lucide-react";
- import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
- import { useLanguage } from "@/lib/i18n/LanguageProvider";
- import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
-@@ -13,6 +22,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
-   "/staff": Users,
-   "/schedule": CalendarDays,
-   "/kiosk": Clock3,
-+  "/facturas": ReceiptText,
-   "/marketing": Megaphone,
-   "/delivery": Truck,
- };
 diff --git a/lib/facturas/helpers.ts b/lib/facturas/helpers.ts
 index a427de0..e6c5741 100644
 --- a/lib/facturas/helpers.ts
@@ -914,26 +884,6 @@ index 2bde12f..97719ca 100644
    "/staff": "staff.title",
    "/schedule": "schedule.title",
    "/marketing": "marketing.title",
-diff --git a/lib/layout/navigation.ts b/lib/layout/navigation.ts
-index 150c905..45b995e 100644
---- a/lib/layout/navigation.ts
-+++ b/lib/layout/navigation.ts
-@@ -8,6 +8,7 @@ export const ERP_NAV_ROUTES = [
-   "/staff",
-   "/schedule",
-   "/kiosk",
-+  "/facturas",
-   "/marketing",
-   "/delivery",
- ] as const;
-@@ -19,6 +20,7 @@ export const ERP_NAV_KEYS: Record<ErpNavRoute, keyof TranslationTree["nav"]> = {
-   "/staff": "staff",
-   "/schedule": "schedule",
-   "/kiosk": "kiosk",
-+  "/facturas": "facturas",
-   "/marketing": "marketing",
-   "/delivery": "delivery",
- };
 diff --git a/lib/types.ts b/lib/types.ts
 index 5246029..d8c26f8 100644
 --- a/lib/types.ts
