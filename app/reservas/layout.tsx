@@ -6,12 +6,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#f6f3ec",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
 };
 
 export default function ReservasLayout({ children }: { children: React.ReactNode }) {
-  return <div lang="es" className="min-h-[100dvh] overflow-x-hidden bg-white text-gray-900 antialiased">{children}</div>;
+  return <div lang="es" className="min-h-[100dvh] overflow-x-hidden bg-[#f6f3ec] text-stone-900 antialiased">{children}</div>;
 }

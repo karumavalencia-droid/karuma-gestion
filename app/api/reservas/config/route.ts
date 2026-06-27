@@ -19,10 +19,14 @@ export async function GET() {
     });
   }
 
+  // turno_gap_min se omite a propósito: la migración que añade esa columna aún no
+  // está aplicada en producción. Si se incluye en el SELECT, la consulta falla y la
+  // config cae a valores por defecto (horario incorrecto). La página pública no usa
+  // ese campo, así que pedimos solo las columnas que existen seguro.
   const { data } = await supabase
     .from("reservas_config")
     .select(
-      "reservas_online_activas, max_personas_online, dias_max_antelacion, turno_gap_min, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin",
+      "reservas_online_activas, max_personas_online, dias_max_antelacion, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin",
     )
     .eq("id", 1)
     .single();
