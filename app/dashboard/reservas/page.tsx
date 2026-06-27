@@ -162,6 +162,17 @@ function MesaPicker({ mesas, selected, onToggle }: {
   );
 }
 
+// Formatea cuándo hizo el cliente la reserva (created_at): "19/06 · 22:32 · hace 3 días".
+function infoCreado(creadoEn: string): { label: string; dias: number } | null {
+  const d = new Date(creadoEn);
+  if (Number.isNaN(d.getTime())) return null;
+  const fecha = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const hora = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const rel = dias <= 0 ? "hoy" : dias === 1 ? "ayer" : `hace ${dias} días`;
+  return { label: `${fecha} · ${hora} · ${rel}`, dias };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReservasPage() {
@@ -783,6 +794,14 @@ export default function ReservasPage() {
                         <span>{r.personas} pax</span>
                         {mesa !== "—" && <span className="ml-3 font-semibold text-karuma-600">{mesa}</span>}
                       </p>
+                      {(() => {
+                        const c = infoCreado(r.creadoEn);
+                        return c ? (
+                          <p className={`mt-0.5 text-[10px] ${c.dias >= 3 ? "font-semibold text-amber-600" : "text-gray-400"}`}>
+                            Reservado: {c.label}
+                          </p>
+                        ) : null;
+                      })()}
                       {r.notas && <p className="mt-1 text-xs italic text-gray-500">{r.notas}</p>}
                       {r.seatedAt && (
                         <p className="mt-0.5 text-[10px] text-gray-400">
