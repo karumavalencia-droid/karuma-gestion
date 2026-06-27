@@ -150,7 +150,7 @@ async function writeBlobBytes(
   contentType: string,
 ): Promise<void> {
   const headers = blobHeaders(credentials);
-  headers.set("x-vercel-blob-access", "private");
+  headers.set("x-vercel-blob-access", "public");
   headers.set("x-add-random-suffix", "0");
   headers.set("x-allow-overwrite", "1");
   headers.set("x-content-type", contentType);
@@ -162,7 +162,12 @@ async function writeBlobBytes(
     body,
   });
   if (!response.ok) {
-    throw new Error(`Vercel Blob write failed with ${response.status}`);
+    const details = await response.text().catch(() => "");
+    throw new Error(
+      `Vercel Blob write failed with ${response.status}${
+        details ? `: ${details.slice(0, 200)}` : ""
+      }`,
+    );
   }
 }
 
