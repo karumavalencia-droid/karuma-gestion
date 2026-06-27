@@ -19,29 +19,6 @@ jobs:
         run: |
           test -f .github/karuma-release.patch
           git apply --3way --index .github/karuma-release.patch
-          python3 - <<'PY'
-          from pathlib import Path
-
-          nav = Path('lib/layout/navigation.ts')
-          text = nav.read_text()
-          if '"/facturas"' not in text:
-              text = text.replace('"/delivery", "/dashboard/reservas"', '"/delivery", "/facturas", "/dashboard/reservas"')
-              text = text.replace('  "/delivery": "delivery",
-  "/dashboard/reservas"', '  "/delivery": "delivery",
-  "/facturas": "facturas",
-  "/dashboard/reservas"')
-              nav.write_text(text)
-
-          sidebar = Path('components/layout/Sidebar.tsx')
-          text = sidebar.read_text()
-          if '"/facturas":' not in text:
-              text = text.replace('  "/delivery": Truck,
-  "/dashboard/reservas": CalendarCheck,', '  "/delivery": Truck,
-  "/facturas": ShoppingBasket,
-  "/dashboard/reservas": CalendarCheck,')
-              sidebar.write_text(text)
-          PY
-          git add components/layout/Sidebar.tsx lib/layout/navigation.ts
           git rm .github/karuma-release.patch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
