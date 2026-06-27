@@ -53,10 +53,6 @@ function blobHeaders(credentials: BlobCredentials): Headers {
   });
 }
 
-function encodeBlobPath(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
-}
-
 function normalizeCategory(value: unknown): CategoriaFactura {
   const categoria = String(value ?? "Otros");
   return (CATEGORIAS_FACTURA as readonly string[]).includes(categoria)
@@ -150,13 +146,16 @@ async function writeBlobBytes(
   contentType: string,
 ): Promise<void> {
   const headers = blobHeaders(credentials);
-  headers.set("x-vercel-blob-access", "public");
+  headers.set("x-vercel-blob-access", "private");
   headers.set("x-add-random-suffix", "0");
   headers.set("x-allow-overwrite", "1");
   headers.set("x-content-type", contentType);
   headers.set("x-cache-control-max-age", "0");
 
-  const response = await fetch(`${BLOB_API_URL}/${encodeBlobPath(path)}`, {
+  const uploadUrl = new URL(BLOB_API_URL);
+  uploadUrl.searchParams.set("pathname", path);
+
+  const response = await fetch(uploadUrl, {
     method: "PUT",
     headers,
     body,
