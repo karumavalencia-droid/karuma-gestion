@@ -1321,7 +1321,7 @@ export default function ReservasPage() {
             {changeErr && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{changeErr}</p>}
             {disponibles.length > 0 ? (
               <div>
-                <p className="mb-2 text-xs text-gray-500">Selecciona una o varias mesas libres:</p>
+                <p className="mb-2 text-xs text-gray-500">Selecciona una o varias mesas (puedes mover a cualquier mesa):</p>
                 <MesaPicker mesas={disponibles} selected={changeIds}
                   onToggle={(id) => setChangeIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
                 <p className={`mt-2 text-xs font-semibold ${capacidad >= changeR.personas ? "text-emerald-700" : "text-gray-500"}`}>
