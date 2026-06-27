@@ -730,6 +730,7 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
   "/purchases": "pages.purchases.title",
   "/inventory": "pages.inventory.title",
   "/ingredients": "pages.ingredients.title",
+  "/facturas": "nav.facturas",
   "/staff": "staff.title",
   "/schedule": "schedule.title",
   "/marketing": "marketing.title",

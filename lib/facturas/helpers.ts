@@ -4,6 +4,7 @@ export const STORAGE_KEY = "karuma_facturas_v1";
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 export const CATEGORIAS_FACTURA: CategoriaFactura[] = [
+  "Factura",
   "Pescado",
   "Carne",
   "Verdura",

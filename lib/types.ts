@@ -358,6 +358,7 @@ export interface FoodCostStore {
 }
 
 export type CategoriaFactura =
+  | "Factura"
   | "Pescado"
   | "Carne"
   | "Verdura"
@@ -377,7 +378,12 @@ export interface Factura {
   archivoNombre: string;
   archivoTipo: string;
   archivoData: string;
+  archivoPath?: string;
+  archivoUrl?: string;
+  archivoSource?: "upload" | "google-drive" | "legacy";
+  driveFileId?: string;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface FacturasStore {

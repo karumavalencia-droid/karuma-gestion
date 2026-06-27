@@ -31,6 +31,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/schedule": CalendarDays,
   "/marketing": Megaphone,
   "/delivery": Truck,
+  "/facturas": ShoppingBasket,
   "/dashboard/reservas": CalendarCheck,
 };
 

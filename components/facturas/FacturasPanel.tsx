@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Receipt,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -42,6 +43,7 @@ const categoriaVariant: Record<
   CategoriaFactura,
   "info" | "success" | "warning" | "danger" | "neutral"
 > = {
+  Factura: "neutral",
   Pescado: "info",
   Carne: "danger",
   Verdura: "success",
@@ -112,8 +114,28 @@ function Field({
 const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
 
+type FacturasApiResponse = {
+  configured?: boolean;
+  updatedAt?: string | null;
+  facturas?: Factura[];
+  error?: string;
+};
+
+function hasAttachment(factura: Factura): boolean {
+  return Boolean(factura.archivoData || factura.archivoPath || factura.archivoUrl);
+}
+
+function facturaFileSrc(factura: Factura): string {
+  if (factura.archivoData) return factura.archivoData;
+  if (factura.archivoUrl && !factura.archivoPath) return factura.archivoUrl;
+  return `/api/facturas/${encodeURIComponent(factura.id)}/file`;
+}
+
 export function FacturasPanel() {
   const [store, setStore] = useState<FacturasStore | null>(null);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<Tab>("lista");
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<Factura | null>(null);
@@ -128,16 +150,69 @@ export function FacturasPanel() {
   const [formError, setFormError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState<CategoriaFactura | "">("");
+  const [syncError, setSyncError] = useState("");
   const [toast, setToast] = useState("");
 
-  useEffect(() => {
-    setStore(loadFacturas());
+  const loadFromCloud = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/facturas", { cache: "no-store" });
+      const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
+
+      if (response.ok && data.configured) {
+        setStore({ facturas: data.facturas ?? [] });
+        setCloudReady(true);
+        setSyncError("");
+        return;
+      }
+
+      setCloudReady(false);
+      setStore(loadFacturas());
+      setSyncError("Modo local: la nube de facturas todavía no está disponible.");
+    } catch {
+      setCloudReady(false);
+      setStore(loadFacturas());
+      setSyncError("Modo local: no se pudo conectar con la nube de facturas.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const persist = useCallback((next: FacturasStore) => {
+  useEffect(() => {
+    loadFromCloud();
+  }, [loadFromCloud]);
+
+  const persistLocal = useCallback((next: FacturasStore) => {
     saveFacturas(next);
     setStore(next);
   }, []);
+
+  const saveFacturaRecord = async (factura: Factura) => {
+    if (!store) return;
+
+    if (!cloudReady) {
+      const exists = store.facturas.some((f) => f.id === factura.id);
+      const next = exists
+        ? store.facturas.map((f) => (f.id === factura.id ? factura : f))
+        : [factura, ...store.facturas];
+      persistLocal({ facturas: next });
+      return;
+    }
+
+    const response = await fetch("/api/facturas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ factura }),
+    });
+    const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
+    if (!response.ok) {
+      throw new Error(data.error || "No se pudo guardar la factura");
+    }
+
+    setStore({ facturas: data.facturas ?? [] });
+    setCloudReady(true);
+    setSyncError("");
+  };
 
   const stats = useMemo(
     () => computeStats(store?.facturas ?? []),
@@ -197,7 +272,7 @@ export function FacturasPanel() {
     e.target.value = "";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!store) return;
 
     const parsed = parseFacturaForm(
@@ -211,35 +286,63 @@ export function FacturasPanel() {
       return;
     }
 
-    if (editing) {
-      const facturas = store.facturas.map((f) =>
-        f.id === editing.id ? { ...f, ...parsed } : f,
-      );
-      persist({ facturas });
-      showToast("Factura actualizada");
-    } else {
-      const nueva: Factura = {
-        id: genId(),
-        ...parsed,
-        createdAt: Date.now(),
-      };
-      persist({ facturas: [nueva, ...store.facturas] });
-      showToast("Factura añadida");
-    }
+    setSaving(true);
+    try {
+      if (editing) {
+        await saveFacturaRecord({
+          ...editing,
+          ...parsed,
+          updatedAt: Date.now(),
+        });
+        showToast("Factura actualizada");
+      } else {
+        const nueva: Factura = {
+          id: genId(),
+          ...parsed,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await saveFacturaRecord(nueva);
+        showToast("Factura añadida");
+      }
 
-    setModal(null);
-    setEditing(null);
-    setArchivoNuevo(null);
+      setModal(null);
+      setEditing(null);
+      setArchivoNuevo(null);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "No se pudo guardar la factura");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!store || !deleteTarget) return;
-    persist({
-      facturas: store.facturas.filter((f) => f.id !== deleteTarget.id),
-    });
-    showToast("Factura eliminada");
-    setModal(null);
-    setDeleteTarget(null);
+    setSaving(true);
+    try {
+      if (cloudReady) {
+        const response = await fetch(
+          `/api/facturas?id=${encodeURIComponent(deleteTarget.id)}`,
+          { method: "DELETE" },
+        );
+        const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudo eliminar la factura");
+        }
+        setStore({ facturas: data.facturas ?? [] });
+      } else {
+        persistLocal({
+          facturas: store.facturas.filter((f) => f.id !== deleteTarget.id),
+        });
+      }
+      showToast("Factura eliminada");
+      setModal(null);
+      setDeleteTarget(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "No se pudo eliminar la factura");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const archivoActual = editing
@@ -250,9 +353,9 @@ export function FacturasPanel() {
       }
     : archivoNuevo;
 
-  const tieneArchivo = Boolean(archivoActual?.data);
+  const tieneArchivo = Boolean(archivoActual?.data || editing?.archivoPath || editing?.archivoUrl);
 
-  if (!store) {
+  if (loading || !store) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
         Cargando facturas…
@@ -264,13 +367,41 @@ export function FacturasPanel() {
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Facturas"
-        description="Archivo de facturas de compras — Karuma Sushi & Grill"
+        description={
+          cloudReady
+            ? "Archivo online de facturas de compras — Karuma Sushi & Grill"
+            : "Archivo de facturas de compras — Karuma Sushi & Grill"
+        }
       >
         <Button onClick={openNew} className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Nueva factura
         </Button>
       </PageHeader>
+
+      <div
+        className={`rounded-xl border px-4 py-3 text-sm ${
+          cloudReady
+            ? "border-green-100 bg-green-50 text-green-700"
+            : "border-amber-100 bg-amber-50 text-amber-700"
+        }`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {cloudReady
+              ? "Facturas conectadas a la nube. Todos los dispositivos verán el mismo archivo."
+              : syncError || "Facturas en modo local."}
+          </span>
+          <button
+            type="button"
+            onClick={loadFromCloud}
+            className="inline-flex items-center gap-1 text-xs font-semibold"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Actualizar
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard
@@ -375,7 +506,7 @@ export function FacturasPanel() {
                         <StatusBadge variant={categoriaVariant[f.categoria]}>
                           {f.categoria}
                         </StatusBadge>
-                        {f.archivoData && (
+                        {hasAttachment(f) && (
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                             {isPdf(f.archivoTipo) ? (
                               <FileText className="h-3.5 w-3.5" />
@@ -397,7 +528,7 @@ export function FacturasPanel() {
                       )}
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      {f.archivoData && (
+                      {hasAttachment(f) && (
                         <button
                           type="button"
                           onClick={() => {
@@ -566,7 +697,9 @@ export function FacturasPanel() {
                 className="sr-only"
               />
             </label>
-            <p className="mt-1 text-xs text-gray-400">Máximo 2 MB por archivo</p>
+            <p className="mt-1 text-xs text-gray-400">
+              Máximo 2 MB por archivo. Para muchas facturas, las importaremos desde Drive.
+            </p>
             {tieneArchivo && archivoActual && (
               <p className="mt-1 text-xs text-green-600">
                 {isPdf(archivoActual.tipo) ? "PDF" : "Imagen"} listo: {archivoActual.nombre}
@@ -582,7 +715,7 @@ export function FacturasPanel() {
             <Button variant="secondary" onClick={() => setModal(null)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={saving}>
               {editing ? "Guardar cambios" : "Añadir factura"}
             </Button>
           </div>
@@ -598,18 +731,33 @@ export function FacturasPanel() {
         }}
         wide
       >
-        {preview?.archivoData && (
+        {preview && hasAttachment(preview) && (
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-            {isPdf(preview.archivoTipo) ? (
+            {preview.archivoUrl && !preview.archivoPath && !preview.archivoData ? (
+              <div className="space-y-3 p-6 text-center">
+                <FileText className="mx-auto h-10 w-10 text-gray-300" />
+                <p className="text-sm text-gray-600">
+                  Esta factura está guardada como enlace de Google Drive.
+                </p>
+                <a
+                  href={preview.archivoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-karuma-600 px-4 py-2 text-sm font-medium text-white hover:bg-karuma-700"
+                >
+                  Abrir factura
+                </a>
+              </div>
+            ) : isPdf(preview.archivoTipo) ? (
               <iframe
-                src={preview.archivoData}
+                src={facturaFileSrc(preview)}
                 title={preview.archivoNombre || "Factura PDF"}
                 className="h-[60vh] w-full"
               />
             ) : isImage(preview.archivoTipo) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={preview.archivoData}
+                src={facturaFileSrc(preview)}
                 alt={preview.archivoNombre || "Factura"}
                 className="mx-auto max-h-[60vh] w-full object-contain"
               />
@@ -647,6 +795,7 @@ export function FacturasPanel() {
           <Button
             variant="outline"
             onClick={handleDelete}
+            disabled={saving}
             className="border-red-200 text-red-600 hover:bg-red-50"
           >
             Eliminar
