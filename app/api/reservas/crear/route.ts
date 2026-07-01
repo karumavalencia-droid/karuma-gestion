@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
+import { buildTableBlockNotes } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
 
 function isValidEmail(email: string): boolean {
@@ -14,23 +15,29 @@ export async function POST(req: NextRequest) {
     nombre, telefono, email, personas, fecha, hora, servicio, notas,
     origen = "online",
     forceMesaIds,  // number[] | undefined — skip auto-assign if provided
+    bloqueo = false,
+    duracionMin,
   } = body as {
     nombre: string; telefono: string; email?: string; personas: number;
     fecha: string; hora: string; servicio: string; notas?: string;
-    origen?: string; forceMesaIds?: number[];
+    origen?: string; forceMesaIds?: number[]; bloqueo?: boolean; duracionMin?: number;
   };
   const emailCliente = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const isTableBlock = bloqueo === true;
+  const personasReserva = Number(personas);
 
-  // For walk-in/manual, nombre and telefono are optional
-  if (!personas || !fecha || !hora || !servicio) {
+  if (!fecha || !hora || !servicio || (!isTableBlock && (!personasReserva || personasReserva < 1))) {
     return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
   }
-  if (origen === "online" || origen === "telefono" || origen === "manual") {
+  if (isTableBlock && (!forceMesaIds || forceMesaIds.length === 0)) {
+    return NextResponse.json({ error: "Selecciona al menos una mesa para bloquear" }, { status: 400 });
+  }
+  if (!isTableBlock && (origen === "online" || origen === "telefono" || origen === "manual")) {
     if (!telefono) {
       return NextResponse.json({ error: "El teléfono es obligatorio" }, { status: 400 });
     }
   }
-  if (origen === "online" && !emailCliente) {
+  if (!isTableBlock && origen === "online" && !emailCliente) {
     return NextResponse.json({ error: "El email es obligatorio para enviar la confirmación" }, { status: 400 });
   }
   if (emailCliente && !isValidEmail(emailCliente)) {
@@ -54,16 +61,18 @@ export async function POST(req: NextRequest) {
 
   const config = configData as ReservasConfig;
 
-  if (origen === "online") {
+  if (!isTableBlock && origen === "online") {
     if (!config.reservas_online_activas) {
       return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
     }
-    if (personas > config.max_personas_online) {
+    if (personasReserva > config.max_personas_online) {
       return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
     }
   }
 
-  const duracion = personas <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
+  const duracion = isTableBlock
+    ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
+    : personasReserva <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
 
   // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
   let mesaIds: number[];
@@ -89,7 +98,7 @@ export async function POST(req: NextRequest) {
       fecha,
       hora,
       duracion,
-      personas,
+      personasReserva,
       config,
     );
     if (!assigned) {
@@ -100,11 +109,11 @@ export async function POST(req: NextRequest) {
 
   const isWalkIn = origen === "walkin";
   const nombreReserva = typeof nombre === "string" ? nombre.trim() : "";
-  const nombreCliente = nombreReserva || (isWalkIn ? "Walk-In" : "Sin nombre");
+  const nombreCliente = nombreReserva || (isTableBlock ? "Bloqueo mesa" : isWalkIn ? "Walk-In" : "Sin nombre");
 
   // Upsert cliente por teléfono (optional for walk-in)
   let clienteId: string | null = null;
-  if (telefono) {
+  if (!isTableBlock && telefono) {
     const { data: clienteExistente } = await supabase
       .from("clientes_reservas")
       .select("id, visitas")
@@ -143,11 +152,11 @@ export async function POST(req: NextRequest) {
       hora_inicio: hora,
       duracion_min: duracion,
       servicio: servicio as "comida" | "cena",
-      personas,
+      personas: isTableBlock ? 0 : personasReserva,
       mesa_ids: mesaIds,
       estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
-      notas: notas ?? null,
-      origen: origen as "online" | "telefono" | "walkin" | "manual",
+      notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
+      origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
     })
     .select("id")
     .single();
@@ -156,14 +165,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
   }
 
-  const emailResult = emailCliente
+  const emailResult = !isTableBlock && emailCliente
     ? await sendReservationConfirmationEmail({
         to: emailCliente,
         nombre: nombreCliente,
         fecha,
         hora,
         servicio,
-        personas,
+        personas: personasReserva,
         reservaId: reserva.id,
         mesaIds,
         telefonoRestaurante: config.telefono,
@@ -174,7 +183,7 @@ export async function POST(req: NextRequest) {
       }))
     : { sent: false as const, reason: "invalid_recipient" as const };
 
-  if (!emailResult.sent && emailResult.reason !== "missing_config") {
+  if (!isTableBlock && !emailResult.sent && emailResult.reason !== "missing_config") {
     console.warn("Reservation confirmation email not sent", {
       reservaId: reserva.id,
       reason: emailResult.reason,

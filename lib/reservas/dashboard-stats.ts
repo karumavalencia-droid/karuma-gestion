@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { isActiveReservation } from "@/lib/reservas/helpers";
+import { isActiveReservation, isTableBlockReservation } from "@/lib/reservas/helpers";
 
 export interface ReservasDashboardStats {
   reservasHoy: number;
@@ -23,13 +23,14 @@ export async function getReservasDashboardStats(): Promise<ReservasDashboardStat
     personas: number;
     hora_inicio: string;
     mesa_ids: number[];
+    notas: string | null;
     clientes_reservas: { nombre: string } | null;
   };
 
   const [{ data: rawReservas }, { data: mesas }] = await Promise.all([
     sb
       .from("reservas")
-      .select("estado, personas, hora_inicio, mesa_ids, clientes_reservas(nombre)")
+      .select("estado, personas, hora_inicio, mesa_ids, notas, clientes_reservas(nombre)")
       .eq("fecha", hoy),
     sb.from("mesas").select("id").eq("activa", true),
   ]);
@@ -39,7 +40,7 @@ export async function getReservasDashboardStats(): Promise<ReservasDashboardStat
 
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = reservas.filter((r) => isActiveReservation(r.estado));
+  const activas = reservas.filter((r) => isActiveReservation(r.estado) && !isTableBlockReservation(r));
 
   const walkIns = reservas.filter((r) => r.estado === "WalkIn").length;
   const noShows = reservas.filter((r) => r.estado === "NoShow").length;

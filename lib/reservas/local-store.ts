@@ -1,6 +1,12 @@
 // ─── Karuma Reservas — localStorage engine v2 ────────────────────────────────
 // Keys: karuma_reservas_v1 / karuma_clientes_v1 / karuma_tables_v1
-import { canMoveReservation, isActiveReservation } from "@/lib/reservas/helpers";
+import {
+  buildTableBlockNotes,
+  canMoveReservation,
+  isActiveReservation,
+  isTableBlockReservation,
+  stripTableBlockNotes,
+} from "@/lib/reservas/helpers";
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
@@ -38,7 +44,7 @@ export type EstadoLocal =
 
 export type MesaStatus = "available" | "reserved" | "occupied" | "cleaning";
 export type ServicioLocal = "comida" | "cena";
-export type TipoReserva = "reservation" | "walk_in";
+export type TipoReserva = "reservation" | "walk_in" | "table_block";
 
 export interface MesaLocal {
   id: string;       // 'T1'..'T21'
@@ -52,6 +58,7 @@ export interface ReservaLocal {
   type: TipoReserva;
   fecha: string;         // YYYY-MM-DD
   hora: string;          // HH:MM
+  duracionMin?: number;
   servicio: ServicioLocal;
   personas: number;
   mesaIds: string[];     // e.g. ['T7'] or ['T3','T4']
@@ -219,10 +226,13 @@ const MESA_NO_DISPONIBLE_ERROR =
 export function duracionReserva(personas: number): number {
   return personas <= 2 ? DURACION_1_2_MIN : DURACION_3_4_MIN;
 }
+function duracionReservaLocal(r: ReservaLocal): number {
+  return r.duracionMin ?? duracionReserva(r.personas);
+}
 // ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [hora, hora+turno)
 function cubreMomento(r: ReservaLocal, tMin: number): boolean {
   const ini = toMin(r.hora);
-  return tMin >= ini && tMin < ini + duracionReserva(r.personas);
+  return tMin >= ini && tMin < ini + duracionReservaLocal(r);
 }
 
 // Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
@@ -289,10 +299,15 @@ function toMin(hora: string): number {
 }
 
 export function ocupadasEn(
-  fecha: string, hora: string, servicio: string, personas: number, excludeId?: string,
+  fecha: string,
+  hora: string,
+  servicio: string,
+  personas: number,
+  excludeId?: string,
+  duracionMin?: number,
 ): Set<string> {
   const nuevaIni = toMin(hora);
-  const nuevaFin = nuevaIni + duracionReserva(personas);
+  const nuevaFin = nuevaIni + (duracionMin ?? duracionReserva(personas));
   const taken = new Set<string>();
   for (const r of loadReservas()) {
     if (r.id === excludeId || !isActive(r)) continue;
@@ -302,7 +317,7 @@ export function ocupadasEn(
       continue;
     }
     const ini = toMin(r.hora);
-    const fin = ini + duracionReserva(r.personas);
+    const fin = ini + duracionReservaLocal(r);
     // Solapan [nuevaIni,nuevaFin) ∩ [ini,fin) ≠ ∅  → la mesa no está libre en ese turno
     if (nuevaIni < fin && ini < nuevaFin) r.mesaIds.forEach((id) => taken.add(id));
   }
@@ -320,6 +335,7 @@ function validarMesasLibres(
   servicio: string,
   personas: number,
   excludeId?: string,
+  duracionMin?: number,
   allowOcupadas = false,
 ): { ok: true; mesaIds: string[] } | { ok: false; error: string } {
   const ids = uniqueMesaIds(mesaIds);
@@ -332,7 +348,7 @@ function validarMesasLibres(
 
   // El cambio manual de mesa permite ocupar mesas no libres (override del admin).
   if (!allowOcupadas) {
-    const ocupadas = ocupadasEn(fecha, hora, servicio, personas, excludeId);
+    const ocupadas = ocupadasEn(fecha, hora, servicio, personas, excludeId, duracionMin);
     if (ids.some((id) => ocupadas.has(id))) {
       return { ok: false, error: MESA_NO_DISPONIBLE_ERROR };
     }
@@ -354,7 +370,7 @@ export function asignarMesa(
 export function mesasDisponiblesParaCambio(reservaId: string): MesaLocal[] {
   const reserva = loadReservas().find((r) => r.id === reservaId);
   if (!reserva) return [];
-  if (!canMoveReservation(reserva.estado) || reserva.mesaIds.length === 0) return [];
+  if (isTableBlockReservation(reserva) || !canMoveReservation(reserva.estado) || reserva.mesaIds.length === 0) return [];
 
   // El admin puede mover la reserva a CUALQUIER mesa (también ocupadas): es un
   // cambio manual con criterio. Mostramos todas las mesas salvo la(s) actual(es).
@@ -460,6 +476,51 @@ export function createReserva(
   return { ok: true, reserva };
 }
 
+export interface CreateTableBlockInput {
+  fecha: string;
+  hora: string;
+  servicio: ServicioLocal;
+  duracionMin: number;
+  mesaIds: string[];
+  notas?: string;
+}
+
+export function createTableBlock(
+  input: CreateTableBlockInput,
+): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
+  const hoy = new Date().toISOString().split("T")[0];
+  const max = new Date(); max.setDate(max.getDate() + MAX_DIAS);
+  if (input.fecha < hoy) return { ok: false, error: "No se puede bloquear una fecha pasada." };
+  if (input.fecha > max.toISOString().split("T")[0])
+    return { ok: false, error: `Máximo ${MAX_DIAS} días de antelación.` };
+
+  const duracionMin = Math.max(SLOT_INTERVAL_MIN, Math.min(480, Number(input.duracionMin) || DURACION_1_2_MIN));
+  const validacion = validarMesasLibres(input.mesaIds, input.fecha, input.hora, input.servicio, 1, undefined, duracionMin);
+  if (!validacion.ok) return { ok: false, error: validacion.error };
+
+  const reserva: ReservaLocal = {
+    id: crypto.randomUUID(),
+    type: "table_block",
+    fecha: input.fecha,
+    hora: input.hora,
+    duracionMin,
+    servicio: input.servicio,
+    personas: 0,
+    mesaIds: validacion.mesaIds,
+    nombre: "Bloqueo mesa",
+    telefono: "",
+    notas: stripTableBlockNotes(buildTableBlockNotes(input.notas)),
+    estado: "confirmada",
+    creadoEn: new Date().toISOString(),
+    origen: "manual",
+  };
+
+  const list = loadReservas();
+  list.push(reserva);
+  saveReservas(list);
+  return { ok: true, reserva };
+}
+
 // ─── Create walk-in for a specific mesa ──────────────────────────────────────
 
 export function createWalkInForMesa(
@@ -491,6 +552,7 @@ export function sentarReserva(
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
 
   const r = list[idx];
+  if (isTableBlockReservation(r)) return { ok: false, error: "Un bloqueo de mesa no se puede sentar." };
   let mesaIds = r.mesaIds;
 
   if (forceMesaIds && forceMesaIds.length) {
@@ -535,6 +597,9 @@ export function cambiarMesas(
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
 
   const r = list[idx];
+  if (isTableBlockReservation(r)) {
+    return { ok: false, error: "Un bloqueo de mesa no permite cambiar mesa." };
+  }
   if (!canMoveReservation(r.estado)) {
     return { ok: false, error: "Esta reserva ya no permite cambiar de mesa." };
   }
@@ -551,7 +616,7 @@ export function cambiarMesas(
     : r.hora;
 
   // allowOcupadas=true: el cambio manual de mesa admite cualquier mesa (override).
-  const validacion = validarMesasLibres(ids, r.fecha, horaReferencia, r.servicio, r.personas, r.id, true);
+  const validacion = validarMesasLibres(ids, r.fecha, horaReferencia, r.servicio, r.personas, r.id, undefined, true);
   if (!validacion.ok) return { ok: false, error: validacion.error };
 
   const seleccionadas = validacion.mesaIds
@@ -590,6 +655,9 @@ export function desplazarReserva(
   const idx = list.findIndex((r) => r.id === id);
   if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
   const next = { ...list[idx], hora: nuevaHora, ...(nuevaFecha ? { fecha: nuevaFecha } : {}) };
+  if (isTableBlockReservation(next)) {
+    return { ok: false, error: "Edita el bloqueo desde el plano de mesas." };
+  }
   if (next.mesaIds.length) {
     const validacion = validarMesasLibres(
       next.mesaIds,
@@ -618,6 +686,12 @@ export function editReserva(
   if (typeof cambios.personas === "number" && cambios.personas > 0) limpio.personas = cambios.personas;
   if (cambios.hora && cambios.hora.length >= 4) limpio.hora = cambios.hora;
   const next = { ...list[idx], ...limpio };
+  if (isTableBlockReservation(next)) {
+    return { ok: false, error: "Edita el bloqueo desde el plano de mesas." };
+  }
+  if (typeof cambios.personas === "number" && cambios.personas > 0) {
+    next.duracionMin = duracionReserva(cambios.personas);
+  }
   if (next.mesaIds.length) {
     const validacion = validarMesasLibres(
       next.mesaIds,
@@ -661,7 +735,7 @@ export function getAnalytics(diasAtras = 30): AnalyticsData {
   const desdeStr = desde.toISOString().split("T")[0];
 
   const todas = loadReservas().filter((r) => r.fecha >= desdeStr);
-  const activas = todas.filter((r) => isActiveReservation(r.estado));
+  const activas = todas.filter((r) => isActiveReservation(r.estado) && !isTableBlockReservation(r));
   const canceladas = todas.filter((r) => r.estado === "cancelada").length;
   const noShows = todas.filter((r) => r.estado === "no-show").length;
 
@@ -709,7 +783,7 @@ export function getDashboardStats(fecha: string): StatsLocal {
   const all = loadReservas().filter((r) => r.fecha === fecha);
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = all.filter((r) => isActiveReservation(r.estado));
+  const activas = all.filter((r) => isActiveReservation(r.estado) && !isTableBlockReservation(r));
   const sentadas = all.filter((r) => r.estado === "sentada" || r.estado === "walkin");
   const mesasOc = new Set<string>();
   sentadas.forEach((r) => r.mesaIds.forEach((id) => mesasOc.add(id)));

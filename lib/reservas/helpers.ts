@@ -1,6 +1,7 @@
 export type ReservationLike = {
   estado?: unknown;
   status?: unknown;
+  type?: unknown;
   service?: unknown;
   servicio?: unknown;
   turno?: unknown;
@@ -14,7 +15,13 @@ export type ReservationLike = {
   mesa_id?: unknown;
   table_id?: unknown;
   table_ids?: unknown;
+  nombre?: unknown;
+  name?: unknown;
+  notas?: unknown;
+  notes?: unknown;
 };
+
+export const TABLE_BLOCK_NOTES_PREFIX = "[BLOQUEO_MESA]";
 
 const INACTIVE_STATUSES = new Set([
   "cancelled",
@@ -42,7 +49,28 @@ export function canMoveReservation(status: unknown): boolean {
   return isActiveReservation(status);
 }
 
+export function buildTableBlockNotes(reason?: string | null): string {
+  const cleanReason = String(reason ?? "").trim();
+  return cleanReason ? `${TABLE_BLOCK_NOTES_PREFIX} ${cleanReason}` : TABLE_BLOCK_NOTES_PREFIX;
+}
+
+export function stripTableBlockNotes(notes: unknown): string {
+  const value = String(notes ?? "").trim();
+  if (!value.startsWith(TABLE_BLOCK_NOTES_PREFIX)) return value;
+  return value.slice(TABLE_BLOCK_NOTES_PREFIX.length).trim();
+}
+
+export function isTableBlockReservation(reservation: ReservationLike): boolean {
+  const type = String(reservation.type ?? "").trim().toLowerCase();
+  if (type === "table_block" || type === "table-block" || type === "bloqueo") return true;
+
+  const notes = String(reservation.notas ?? reservation.notes ?? "").trim();
+  return notes.startsWith(TABLE_BLOCK_NOTES_PREFIX);
+}
+
 export function getReservationGuests(reservation: ReservationLike): number {
+  if (isTableBlockReservation(reservation)) return 0;
+
   const value =
     reservation.party_size ??
     reservation.guests ??

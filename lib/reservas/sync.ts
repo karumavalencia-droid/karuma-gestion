@@ -4,6 +4,7 @@
 //   - Existing Supabase-backed entries are refreshed from Supabase so tablet/mobile stay aligned.
 
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { isTableBlockReservation, stripTableBlockNotes } from "@/lib/reservas/helpers";
 import {
   loadReservas,
   saveReservas,
@@ -30,18 +31,21 @@ type SbRow = Record<string, unknown>;
 function mapSbRow(r: SbRow): ReservaLocal {
   const cliente = (r.clientes_reservas ?? {}) as { nombre?: string; telefono?: string; email?: string | null };
   const origen = (r.origen as "online" | "telefono" | "walkin" | "manual") ?? "online";
+  const notas = (r.notas as string) ?? "";
+  const isBlock = isTableBlockReservation({ notas });
   return {
     id: r.id as string,
-    type: origen === "walkin" ? "walk_in" : "reservation",
+    type: isBlock ? "table_block" : origen === "walkin" ? "walk_in" : "reservation",
     fecha: r.fecha as string,
     hora: (r.hora_inicio as string).slice(0, 5), // "20:15:00" → "20:15"
+    duracionMin: r.duracion_min as number,
     servicio: r.servicio as ServicioLocal,
-    personas: r.personas as number,
+    personas: isBlock ? 0 : r.personas as number,
     mesaIds: ((r.mesa_ids as number[]) ?? []).map((n) => `T${n}`),
-    nombre: cliente.nombre ?? "Online",
-    telefono: cliente.telefono ?? "",
+    nombre: isBlock ? "Bloqueo mesa" : cliente.nombre ?? "Online",
+    telefono: isBlock ? "" : cliente.telefono ?? "",
     email: cliente.email ?? null,
-    notas: (r.notas as string) ?? "",
+    notas: isBlock ? stripTableBlockNotes(notas) : notas,
     estado: mapEstadoSb(r.estado as EstadoReserva),
     creadoEn: r.created_at as string,
     origen,

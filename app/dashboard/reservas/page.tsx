@@ -10,6 +10,7 @@ import {
   getReservationGuests,
   getReservationService,
   isActiveReservation,
+  isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
 import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
@@ -55,6 +56,7 @@ const ESTADO_STYLE: Record<EstadoLocal, { bg: string; text: string; label: strin
   "no-show":  { bg: "bg-gray-100",    text: "text-gray-500",    label: "No Show"    },
   cancelada:  { bg: "bg-gray-100",    text: "text-gray-400",    label: "Cancelada"  },
 };
+const BLOCK_ESTADO_STYLE = { bg: "bg-rose-100", text: "text-rose-700", label: "Bloqueo" };
 
 const CANAL_LABELS: Record<CanalLocal, string> = {
   google:     "🔍 Google",
@@ -85,7 +87,12 @@ function autoServicio(): ServicioLocal {
 function toMin(hora: string) { const [h, m] = hora.split(":").map(Number); return h * 60 + m; }
 
 function canMoveLocalReservation(reserva: ReservaLocal): boolean {
-  return canMoveReservation(reserva.estado) && reserva.mesaIds.length > 0;
+  return !isTableBlockReservation(reserva) && canMoveReservation(reserva.estado) && reserva.mesaIds.length > 0;
+}
+
+function duracionBloqueoLabel(minutos?: number) {
+  const total = minutos ?? 90;
+  return total < 60 ? `${total} min` : `${Math.floor(total / 60)}h${total % 60 ? ` ${total % 60}m` : ""}`;
 }
 
 function canRequestReview(reserva: ReservaLocal): boolean {
@@ -98,7 +105,7 @@ function canRequestReview(reserva: ReservaLocal): boolean {
 
 function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
   const activas = reservas.filter(
-    (r) => isActiveReservation(r.estado) && getReservationService(r) === servicio,
+    (r) => isActiveReservation(r.estado) && getReservationService(r) === servicio && !isTableBlockReservation(r),
   );
   return {
     pax: activas.reduce((s, r) => s + getReservationGuests(r), 0),
@@ -756,14 +763,15 @@ export default function ReservasPage() {
         ) : (
           <div className="space-y-2">
             {filtradas.map((r) => {
-              const st = ESTADO_STYLE[r.estado];
+              const isBlock = isTableBlockReservation(r);
+              const st = isBlock ? BLOCK_ESTADO_STYLE : ESTADO_STYLE[r.estado];
               const mesa = mesaLabel(r.mesaIds);
               const isAct = isActiveReservation(r.estado);
               const canMove = canMoveLocalReservation(r);
-              const canReview = canRequestReview(r);
+              const canReview = !isBlock && canRequestReview(r);
               const reviewSent = Boolean(r.reviewEmailSentAt);
               const showActions = isAct || canReview || reviewSent;
-              const visitas = getVisitasCliente(r.telefono);
+              const visitas = isBlock ? 0 : getVisitasCliente(r.telefono);
               return (
                 <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -774,15 +782,18 @@ export default function ReservasPage() {
                         {vistaServicio === "dia" && (
                           <span className="text-xs text-gray-400 capitalize">{r.servicio}</span>
                         )}
-                        {r.origen === "online" && (
+                        {isBlock && (
+                          <span className="rounded-full bg-rose-700 px-2 py-0.5 text-[10px] font-bold text-white">Bloqueo mesa</span>
+                        )}
+                        {!isBlock && r.origen === "online" && (
                           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-600">🌐 Online</span>
                         )}
-                        {r.canal && r.canal !== "presencial" && r.canal !== "otro" && (
+                        {!isBlock && r.canal && r.canal !== "presencial" && r.canal !== "otro" && (
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">{CANAL_LABELS[r.canal]}</span>
                         )}
                       </div>
                       <div className="mt-0.5 flex items-center gap-2">
-                        <p className="font-semibold text-gray-900">{r.nombre}</p>
+                        <p className="font-semibold text-gray-900">{isBlock ? "Bloqueo mesa" : r.nombre}</p>
                         {visitas > 1 && (
                           <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black text-white" title={`${visitas} visitas`}>
                             {visitas}
@@ -790,8 +801,8 @@ export default function ReservasPage() {
                         )}
                       </div>
                       <p className="text-sm text-gray-400">
-                        {r.telefono && <span className="mr-3">{r.telefono}</span>}
-                        <span>{r.personas} pax</span>
+                        {!isBlock && r.telefono && <span className="mr-3">{r.telefono}</span>}
+                        <span>{isBlock ? duracionBloqueoLabel(r.duracionMin) : `${r.personas} pax`}</span>
                         {mesa !== "—" && <span className="ml-3 font-semibold text-karuma-600">{mesa}</span>}
                       </p>
                       {(() => {
@@ -813,7 +824,13 @@ export default function ReservasPage() {
 
                     {showActions && (
                       <div className="flex flex-wrap gap-1.5 no-print">
-                        {isAct && (
+                        {isBlock && isAct && (
+                          <button onClick={() => handleEstado(r, "cancelada")}
+                            className="rounded-lg bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-600">
+                            Desbloquear
+                          </button>
+                        )}
+                        {!isBlock && isAct && (
                           <>
                             {r.estado === "pendiente" && (
                               <button onClick={() => handleEstado(r, "confirmada")}
@@ -927,9 +944,13 @@ export default function ReservasPage() {
                 };
                 const nTurnos = m.agenda?.length ?? 0;
                 const visualStatus = m.status === "available" && nTurnos > 0 ? "reserved" : m.status;
+                const primaryReserva = m.reserva ?? m.agenda?.[0];
+                const blocked = !!primaryReserva && isTableBlockReservation(primaryReserva);
                 return (
                   <button key={m.id} onClick={() => setMesaSel(m)}
-                    className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${colors[visualStatus]}`}>
+                    className={`relative rounded-lg border-2 p-1.5 text-center transition-all active:scale-95 ${
+                      blocked ? "border-rose-300 bg-rose-100 text-rose-900" : colors[visualStatus]
+                    }`}>
                     {nTurnos > 1 && (
                       <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gray-900 px-0.5 text-[8px] font-bold text-white"
                         title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
@@ -937,8 +958,8 @@ export default function ReservasPage() {
                     <p className="text-xs font-black">T{m.numero}</p>
                     <p className="text-[9px] opacity-70">{m.capacidad}p</p>
                     {m.reserva
-                      ? <p className="truncate text-[8px] font-semibold leading-tight">{m.reserva.nombre.split(" ")[0]}</p>
-                      : nTurnos > 0 && <p className="truncate text-[8px] font-semibold leading-tight text-emerald-700">{m.agenda![0].hora}</p>}
+                      ? <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.nombre.split(" ")[0]}</p>
+                      : nTurnos > 0 && <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : m.agenda![0].hora}</p>}
                   </button>
                 );
               })}
@@ -946,6 +967,7 @@ export default function ReservasPage() {
             <div className="mt-2 flex gap-2 text-[10px] text-gray-400">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-gray-300 bg-white"/>&nbsp;Libre</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-200"/>&nbsp;Reservada</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-rose-200"/>&nbsp;Bloqueada</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-700"/>&nbsp;Ocupada</span>
             </div>
           </div>
@@ -966,9 +988,15 @@ export default function ReservasPage() {
       <Modal open={!!mesaSel && !wiInlineMesa} title={`Mesa T${mesaSel?.numero}`} onClose={() => setMesaSel(null)}>
         {mesaSel && (
           <div className="space-y-3">
+            {(() => {
+              const mesaBlock = mesaSel.reserva && isTableBlockReservation(mesaSel.reserva);
+              return (
+                <>
             <p className="text-sm text-gray-500">
               {mesaSel.capacidad} pax · {
-                mesaSel.status === "occupied"
+                mesaBlock
+                  ? "Bloqueada"
+                  : mesaSel.status === "occupied"
                   ? "Ocupada"
                   : mesaSel.status === "reserved" || (mesaSel.agenda?.length ?? 0) > 0
                     ? "Reservada"
@@ -976,12 +1004,15 @@ export default function ReservasPage() {
               }
             </p>
             {mesaSel.reserva && (
-              <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-emerald-700 text-white" : "bg-emerald-100"}`}>
-                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Cliente</span><span className="font-semibold">{mesaSel.reserva.nombre}</span></div>
-                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Hora</span><span>{mesaSel.reserva.hora}</span></div>
-                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : "text-gray-500"}>Personas</span><span>{mesaSel.reserva.personas}</span></div>
+              <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-emerald-700 text-white" : mesaBlock ? "bg-rose-100 text-rose-950" : "bg-emerald-100"}`}>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>{mesaBlock ? "Tipo" : "Cliente"}</span><span className="font-semibold">{mesaBlock ? "Bloqueo mesa" : mesaSel.reserva.nombre}</span></div>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>Hora</span><span>{mesaSel.reserva.hora}</span></div>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>{mesaBlock ? "Duración" : "Personas"}</span><span>{mesaBlock ? duracionBloqueoLabel(mesaSel.reserva.duracionMin) : `${mesaSel.reserva.personas}`}</span></div>
               </div>
             )}
+                </>
+              );
+            })()}
             {/* Agenda del día: varios turnos */}
             {((mesaSel.agenda?.length ?? 0) > 1 || (!mesaSel.reserva && (mesaSel.agenda?.length ?? 0) > 0)) && (
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -991,7 +1022,7 @@ export default function ReservasPage() {
                     <div key={a.id} className={`flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-sm ${a.id === mesaSel.reserva?.id ? "ring-2 ring-karuma-400" : "border border-gray-100"}`}>
                       <div className="flex min-w-0 items-center gap-2"><span className="font-black text-gray-900">{a.hora}</span><span className="truncate text-gray-600">{a.nombre}</span></div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-xs text-gray-400">{a.personas}p</span>
+                        <span className="text-xs text-gray-400">{isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`}</span>
                         {canMoveLocalReservation(a) && (
                           <button
                             onClick={() => { openChange(a); setMesaSel(null); }}
@@ -1014,15 +1045,24 @@ export default function ReservasPage() {
             )}
             {mesaSel.status === "reserved" && mesaSel.reserva && (
               <>
-                <button onClick={() => { openSeat(mesaSel.reserva!); setMesaSel(null); }}
-                  className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-                  → Sentar
-                </button>
-                {canMoveLocalReservation(mesaSel.reserva) && (
-                  <button onClick={() => { openChange(mesaSel.reserva!); setMesaSel(null); }}
-                    className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 font-bold text-emerald-800 hover:bg-emerald-100">
-                    ⇄ Cambiar mesa
+                {isTableBlockReservation(mesaSel.reserva) ? (
+                  <button onClick={() => { handleEstado(mesaSel.reserva!, "cancelada"); setMesaSel(null); }}
+                    className="w-full rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
+                    Desbloquear mesa
                   </button>
+                ) : (
+                  <>
+                    <button onClick={() => { openSeat(mesaSel.reserva!); setMesaSel(null); }}
+                      className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
+                      → Sentar
+                    </button>
+                    {canMoveLocalReservation(mesaSel.reserva) && (
+                      <button onClick={() => { openChange(mesaSel.reserva!); setMesaSel(null); }}
+                        className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 font-bold text-emerald-800 hover:bg-emerald-100">
+                        ⇄ Cambiar mesa
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

@@ -2,7 +2,7 @@
 // All reads go directly to Supabase. No localStorage for reservations.
 
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { isActiveReservation } from "@/lib/reservas/helpers";
+import { isActiveReservation, isTableBlockReservation, stripTableBlockNotes } from "@/lib/reservas/helpers";
 import type { EstadoReserva } from "@/lib/reservas/types";
 import {
   MESAS_SEED,
@@ -47,18 +47,21 @@ export function mapSbRow(row: Record<string, unknown>): ReservaLocal {
   const cliente = (row.clientes_reservas ?? {}) as { nombre?: string; telefono?: string; email?: string | null };
   const origen = (row.origen as "online" | "telefono" | "walkin" | "manual") ?? "online";
   const mesaIds = ((row.mesa_ids as number[]) ?? []).map((n: number) => `T${n}`);
+  const notas = (row.notas as string) ?? "";
+  const isBlock = isTableBlockReservation({ notas });
   return {
     id: row.id as string,
-    type: (origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
+    type: (isBlock ? "table_block" : origen === "walkin" ? "walk_in" : "reservation") as ReservaLocal["type"],
     fecha: row.fecha as string,
     hora: String(row.hora_inicio ?? "").slice(0, 5),
+    duracionMin: row.duracion_min as number,
     servicio: row.servicio as ServicioLocal,
-    personas: row.personas as number,
+    personas: isBlock ? 0 : row.personas as number,
     mesaIds,
-    nombre: cliente.nombre ?? "Sin nombre",
-    telefono: cliente.telefono ?? "",
+    nombre: isBlock ? "Bloqueo mesa" : cliente.nombre ?? "Sin nombre",
+    telefono: isBlock ? "" : cliente.telefono ?? "",
     email: cliente.email ?? null,
-    notas: (row.notas as string) ?? "",
+    notas: isBlock ? stripTableBlockNotes(notas) : notas,
     estado: mapEstadoSb(row.estado as EstadoReserva),
     creadoEn: (row.created_at as string) ?? new Date().toISOString(),
     origen,
@@ -157,7 +160,7 @@ export async function fetchStatsSb(fecha: string): Promise<StatsLocal> {
   const all = (data as Record<string, unknown>[]).map(mapSbRow);
   const ahora = new Date().toTimeString().slice(0, 5);
 
-  const activas = all.filter((r) => isActiveReservation(r.estado));
+  const activas = all.filter((r) => isActiveReservation(r.estado) && !isTableBlockReservation(r));
   const sentadas = all.filter((r) => r.estado === "sentada" || r.estado === "walkin");
   const mesasOc = new Set<string>();
   sentadas.forEach((r) => r.mesaIds.forEach((id) => mesasOc.add(id)));

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 import {
+  createTableBlock,
   createReserva,
   editReserva,
   loadReservas,
@@ -112,4 +113,24 @@ test("editing a reservation cannot move it into another turn on the same table",
 
   const stored = loadReservas().find((r) => r.id === second.reserva.id);
   assert.equal(stored?.hora, "15:00");
+});
+
+test("table blocks reserve the selected table for their configured duration", () => {
+  const fecha = futureDate();
+  const block = createTableBlock({
+    fecha,
+    hora: "13:00",
+    servicio: "comida",
+    duracionMin: 60,
+    mesaIds: ["T2"],
+    notas: "Mantenimiento",
+  });
+  assert.equal(block.ok, true);
+
+  const conflict = createReserva(reservaInput({ fecha, hora: "13:30", forceMesaIds: ["T2"] }));
+  assert.equal(conflict.ok, false);
+  if (!conflict.ok) assert.match(conflict.error, /1h30|disponible/);
+
+  const allowed = createReserva(reservaInput({ fecha, hora: "14:00", forceMesaIds: ["T2"] }));
+  assert.equal(allowed.ok, true);
 });

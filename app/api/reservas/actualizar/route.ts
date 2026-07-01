@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { canMoveReservation } from "@/lib/reservas/helpers";
+import { canMoveReservation, isTableBlockReservation } from "@/lib/reservas/helpers";
 import { mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import type { EstadoReserva, Reserva, ReservasConfig } from "@/lib/reservas/types";
 import type { DbReserva } from "@/lib/supabase/types";
@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
 
   switch (action) {
     case "seat":
+      {
+        const { data: actual } = await supabase
+          .from("reservas")
+          .select("id, notas")
+          .eq("id", id)
+          .single();
+        if (actual && isTableBlockReservation(actual)) {
+          return NextResponse.json({ error: "Un bloqueo de mesa no se puede sentar" }, { status: 409 });
+        }
+      }
       update = { estado: "Sentado" as EstadoReserva };
       break;
     case "liberar":
@@ -61,6 +71,9 @@ export async function POST(req: NextRequest) {
         }
 
         const reserva = actual as Reserva;
+        if (isTableBlockReservation(reserva)) {
+          return NextResponse.json({ error: "Un bloqueo de mesa no permite cambiar mesa" }, { status: 409 });
+        }
         if (!canMoveReservation(reserva.estado)) {
           return NextResponse.json({ error: "Esta reserva ya no permite cambiar de mesa" }, { status: 409 });
         }
@@ -97,6 +110,9 @@ export async function POST(req: NextRequest) {
         }
 
         const reserva = actual as Reserva;
+        if (isTableBlockReservation(reserva)) {
+          return NextResponse.json({ error: "Edita el bloqueo desde el plano de mesas" }, { status: 409 });
+        }
         const config = configData as ReservasConfig;
         const nextPersonas =
           typeof body.personas === "number" && body.personas > 0 ? body.personas : reserva.personas;
