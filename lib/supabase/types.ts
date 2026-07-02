@@ -107,6 +107,28 @@ export type DbAttendanceEventInsert = {
   distance_from_store?: number | null;
 };
 
+export type TurnoServicio = "Comida" | "Cena" | "Descanso";
+
+export type DbTurno = {
+  id: string;
+  employee_key: string;
+  dia: number;
+  servicio: TurnoServicio;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  updated_at: string;
+};
+
+export type DbTurnoInsert = {
+  id?: string;
+  employee_key: string;
+  dia: number;
+  servicio: TurnoServicio;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  updated_at?: string;
+};
+
 // ── Reservas types ──────────────────────────────────────────────────────────
 
 export type DbMesa = {
@@ -215,6 +237,12 @@ export type Database = {
         Row: DbAttendanceEvent;
         Insert: DbAttendanceEventInsert;
         Update: Partial<DbAttendanceEventInsert>;
+        Relationships: [];
+      };
+      turnos: {
+        Row: DbTurno;
+        Insert: DbTurnoInsert;
+        Update: Partial<DbTurnoInsert>;
         Relationships: [];
       };
       mesas: {

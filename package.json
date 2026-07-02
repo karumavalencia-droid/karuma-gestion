@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "test:attendance": "node --import tsx --test tests/attendance-rules.test.ts tests/attendance-geofence.test.ts tests/attendance-mobile-api.test.ts",
-    "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts"
+    "test:portal": "node --import tsx --test tests/schedule-portal.test.ts tests/schedule-me-api.test.ts",
+    "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts",
+    "seed:turnos": "node --import tsx scripts/seed-turnos.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
