@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   CalendarCheck,
   CalendarDays,
+  ChefHat,
   ChevronDown,
   LayoutDashboard,
   Megaphone,
@@ -32,6 +33,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/marketing": Megaphone,
   "/delivery": Truck,
   "/facturas": ShoppingBasket,
+  "/recetas": ChefHat,
   "/dashboard/reservas": CalendarCheck,
 };
 
