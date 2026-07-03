@@ -14,7 +14,8 @@ INSERT INTO staff (
   contract_type, weekly_hours, hourly_rate, status,
   fixed_rest_day_1, fixed_rest_day_2, fixed_shift
 ) VALUES
-  ('b0000001-0000-4000-8000-000000000001', 'Jhoan', 'Sala', '服务员', 'waiter', 'jhoan@karuma.es', '全职', NULL, 0, '在职', 'Thursday', NULL, NULL),
+  ('b0000001-0000-4000-8000-000000000000', 'Zhou', 'Gerencia', '老板', 'owner', 'zhouzhou@karuma.es', '全职', NULL, 0, '在职', NULL, NULL, NULL),
+  ('b0000001-0000-4000-8000-000000000001', 'Carlos', 'Sala', '服务员', 'waiter', 'carlos@karuma.es', '全职', NULL, 0, '在职', 'Thursday', NULL, NULL),
   ('b0000001-0000-4000-8000-000000000002', 'Isabel', 'Sala', '服务员', 'waiter', 'isabel@karuma.es', '全职', 40, 0, '在职', 'Sunday', NULL, NULL),
   ('b0000001-0000-4000-8000-000000000003', 'Celeste', 'Sala', '服务员', 'waiter', 'celeste@karuma.es', '全职', 40, 0, '在职', 'Tuesday', NULL, NULL),
   ('b0000001-0000-4000-8000-000000000004', 'Edu', 'Sala', '服务员', 'waiter', 'edu@karuma.es', '全职', 40, 0, '在职', 'Wednesday', NULL, NULL),
@@ -24,7 +25,7 @@ INSERT INTO staff (
   ('b0000001-0000-4000-8000-000000000008', 'Sebastian Gomez', 'Sushi', '寿司师傅', 'sushi', 'sebastiangomez@karuma.es', '全职', 40, 0, '在职', NULL, NULL, NULL),
   ('b0000001-0000-4000-8000-000000000009', 'Hoscar', 'Sushi', '寿司师傅', 'sushi', 'hoscar@karuma.es', '全职', 40, 0, '在职', NULL, NULL, NULL),
   ('b0000001-0000-4000-8000-00000000000a', 'Junfeng', 'Sushi', '寿司师傅', 'sushi', 'junfeng@karuma.es', '全职', 40, 0, '在职', NULL, NULL, NULL),
-  ('b0000001-0000-4000-8000-00000000000b', 'Mauricio', 'Hot Kitchen', '厨房', 'kitchen', 'mauricio@karuma.es', '全职', 40, 0, '在职', 'Thursday', 'Friday', NULL),
+  ('b0000001-0000-4000-8000-00000000000b', 'Jhon', 'Hot Kitchen', '厨房', 'kitchen', 'jhon@karuma.es', '全职', 40, 0, '在职', 'Thursday', 'Friday', NULL),
   ('b0000001-0000-4000-8000-00000000000c', 'Alex', 'Hot Kitchen', '厨房', 'kitchen', 'alex@karuma.es', '全职', 40, 0, '在职', NULL, NULL, NULL),
   ('b0000001-0000-4000-8000-00000000000d', 'Karina', 'Dishwasher', '洗碗', 'dishwasher', 'karina@karuma.es', '全职', 40, 0, '在职', 'Monday', NULL, NULL)
 ON CONFLICT (id) DO UPDATE SET

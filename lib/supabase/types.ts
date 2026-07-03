@@ -204,6 +204,32 @@ export type DbCierreServicio = {
   created_at: string;
 };
 
+export type DbListaEspera = {
+  id: string;
+  fecha: string;
+  servicio: "comida" | "cena";
+  nombre: string;
+  telefono: string;
+  personas: number;
+  notas: string | null;
+  origen: "online" | "staff";
+  estado: "esperando" | "sentado" | "cancelado";
+  created_at: string;
+};
+
+export type DbListaEsperaInsert = {
+  id?: string;
+  fecha: string;
+  servicio: "comida" | "cena";
+  nombre: string;
+  telefono: string;
+  personas: number;
+  notas?: string | null;
+  origen?: "online" | "staff";
+  estado?: "esperando" | "sentado" | "cancelado";
+  created_at?: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 export type Database = {
@@ -287,6 +313,12 @@ export type Database = {
         Row: DbCierreServicio;
         Insert: Omit<DbCierreServicio, "id" | "created_at">;
         Update: Partial<Omit<DbCierreServicio, "id" | "created_at">>;
+        Relationships: [];
+      };
+      lista_espera: {
+        Row: DbListaEspera;
+        Insert: DbListaEsperaInsert;
+        Update: Partial<DbListaEsperaInsert>;
         Relationships: [];
       };
     };

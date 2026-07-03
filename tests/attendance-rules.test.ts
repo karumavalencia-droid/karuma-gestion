@@ -35,13 +35,13 @@ function event(
 test("the state machine alternates Entrada and Salida", () => {
   assert.equal(nextAttendanceAction([]), "in");
   assert.equal(
-    nextAttendanceAction([event("jhoan", "in", "2026-06-22T09:30:00Z")]),
+    nextAttendanceAction([event("carlos", "in", "2026-06-22T09:30:00Z")]),
     "out",
   );
   assert.equal(
     nextAttendanceAction([
-      event("jhoan", "in", "2026-06-22T09:30:00Z"),
-      event("jhoan", "out", "2026-06-22T14:00:00Z"),
+      event("carlos", "in", "2026-06-22T09:30:00Z"),
+      event("carlos", "out", "2026-06-22T14:00:00Z"),
     ]),
     "in",
   );
@@ -49,11 +49,11 @@ test("the state machine alternates Entrada and Salida", () => {
 
 test("12:30–13:00 is deducted from actual worked time", () => {
   const row = buildAttendanceDayRow(
-    { id: "jhoan", name: "Jhoan", department: "Sala" },
+    { id: "carlos", name: "Jhoan", department: "Sala" },
     "2026-06-22",
     [
-      event("jhoan", "in", "2026-06-22T10:00:00Z"),
-      event("jhoan", "out", "2026-06-22T12:00:00Z"),
+      event("carlos", "in", "2026-06-22T10:00:00Z"),
+      event("carlos", "out", "2026-06-22T12:00:00Z"),
     ],
     new Date("2026-06-22T18:00:00Z"),
   );
@@ -87,9 +87,9 @@ test("rest days are not counted as absences", () => {
 
 test("late arrival is compared with the employee's real schedule", () => {
   const row = buildAttendanceDayRow(
-    { id: "jhoan", name: "Jhoan", department: "Sala" },
+    { id: "carlos", name: "Jhoan", department: "Sala" },
     "2026-06-22",
-    [event("jhoan", "in", "2026-06-22T09:50:00Z")],
+    [event("carlos", "in", "2026-06-22T09:50:00Z")],
     new Date("2026-06-22T10:00:00Z"),
   );
   assert.equal(row.anomalies.includes("late"), true);
@@ -97,11 +97,11 @@ test("late arrival is compared with the employee's real schedule", () => {
 
 test("duplicate transition sequences are marked as anomalous", () => {
   const row = buildAttendanceDayRow(
-    { id: "jhoan", name: "Jhoan", department: "Sala" },
+    { id: "carlos", name: "Jhoan", department: "Sala" },
     "2026-06-22",
     [
-      event("jhoan", "in", "2026-06-22T09:30:00Z", "one"),
-      event("jhoan", "in", "2026-06-22T09:35:00Z", "two"),
+      event("carlos", "in", "2026-06-22T09:30:00Z", "one"),
+      event("carlos", "in", "2026-06-22T09:35:00Z", "two"),
     ],
     new Date("2026-06-22T10:00:00Z"),
   );

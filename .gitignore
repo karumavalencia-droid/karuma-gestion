@@ -37,3 +37,12 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# gmail -> facturas script (secretos y descargas locales)
+credentials.json
+token.json
+/facturas/
+.env*
+
+# exportaciones locales de facturas (datos reales)
+/facturas-export/

@@ -10,10 +10,11 @@ import { formatFixedRestDays } from "@/lib/staff/rest-days";
 import type { StaffDepartment, StaffInput, StaffMember } from "@/lib/staff/types";
 
 const DEPT_ORDER: Record<StaffDepartment, number> = {
-  Sala: 0,
-  Sushi: 1,
-  "Hot Kitchen": 2,
-  Dishwasher: 3,
+  Gerencia: 0,
+  Sala: 1,
+  Sushi: 2,
+  "Hot Kitchen": 3,
+  Dishwasher: 4,
 };
 
 export default function StaffPage() {

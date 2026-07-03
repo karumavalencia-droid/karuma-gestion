@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
@@ -1351,6 +1352,9 @@ export default function MesaViewPage() {
           );
         })()}
       </Modal>
+
+      {/* Resumen de mesas hechas por servicio (esquina) */}
+      <ResumenServicios reservas={reservas} />
     </div>
   );
 }

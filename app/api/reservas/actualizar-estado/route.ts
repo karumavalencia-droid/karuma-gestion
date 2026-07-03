@@ -21,11 +21,38 @@ export async function POST(req: NextRequest) {
   const sb = getSupabaseAdmin();
   if (!sb) return NextResponse.json({ ok: false, error: "no admin" });
 
+  const nuevoEstado = mapLocalToSb(estado);
+
+  const { data: actual } = await sb
+    .from("reservas")
+    .select("estado, cliente_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await sb
     .from("reservas")
-    .update({ estado: mapLocalToSb(estado) })
+    .update({ estado: nuevoEstado })
     .eq("id", id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message });
+
+  // Mantener el contador de no-shows del cliente al entrar o salir del estado NoShow.
+  const clienteId = actual?.cliente_id;
+  const antes = actual?.estado;
+  if (clienteId && antes !== nuevoEstado && (antes === "NoShow" || nuevoEstado === "NoShow")) {
+    const delta = nuevoEstado === "NoShow" ? 1 : -1;
+    const { data: cliente } = await sb
+      .from("clientes_reservas")
+      .select("no_shows")
+      .eq("id", clienteId)
+      .single();
+    if (cliente) {
+      await sb
+        .from("clientes_reservas")
+        .update({ no_shows: Math.max(0, (cliente.no_shows ?? 0) + delta) })
+        .eq("id", clienteId);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

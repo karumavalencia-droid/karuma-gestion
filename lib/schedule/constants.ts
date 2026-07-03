@@ -2,18 +2,19 @@ export const WEEK_DAYS = ["周一", "周二", "周三", "周四", "周五", "周
 
 export type WeekDay = (typeof WEEK_DAYS)[number];
 
-export type ScheduleDepartment = "Sala" | "Cocina";
+export type ScheduleDepartment = "Gerencia" | "Sala" | "Cocina";
 
 /** 岗位编制（用于顶部统计） */
-export type StaffTeam = "服务员" | "寿司" | "热厨" | "洗碗";
+export type StaffTeam = "老板" | "服务员" | "寿司" | "热厨" | "洗碗";
 
-export const STAFF_TEAMS: StaffTeam[] = ["服务员", "寿司", "热厨", "洗碗"];
+export const STAFF_TEAMS: StaffTeam[] = ["老板", "服务员", "寿司", "热厨", "洗碗"];
 
 export const SCHEDULE_DEPARTMENTS: {
   id: ScheduleDepartment;
   title: string;
   subtitle: string;
 }[] = [
+  { id: "Gerencia", title: "Gerencia", subtitle: "老板" },
   { id: "Sala", title: "Sala", subtitle: "服务员" },
   { id: "Cocina", title: "Cocina", subtitle: "厨房" },
 ];

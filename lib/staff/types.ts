@@ -3,9 +3,10 @@ import type { StandardShift } from "./shifts";
 
 export type StaffStatus = "Activo" | "Inactivo";
 
-export type StaffDepartment = "Sala" | "Sushi" | "Hot Kitchen" | "Dishwasher";
+export type StaffDepartment = "Gerencia" | "Sala" | "Sushi" | "Hot Kitchen" | "Dishwasher";
 
 export const STAFF_DEPARTMENTS: StaffDepartment[] = [
+  "Gerencia",
   "Sala",
   "Sushi",
   "Hot Kitchen",

@@ -46,12 +46,12 @@ test("an admin account without employee link cannot read the employee schedule",
 
 test("an employee receives their own week, Monday first", async () => {
   const response = await GET(
-    scheduleRequest(await sessionCookie("jhoan", "Jhoan")),
+    scheduleRequest(await sessionCookie("carlos", "Jhoan")),
   );
   const payload = (await response.json()) as SchedulePayload;
 
   assert.equal(response.status, 200);
-  assert.equal(payload.employee.id, "jhoan");
+  assert.equal(payload.employee.id, "carlos");
   assert.equal(payload.days.length, 7);
   assert.equal(payload.days[0].weekday, "Lunes");
   assert.equal(payload.days.filter((day) => day.isToday).length, 1);
@@ -63,28 +63,28 @@ test("an employee receives their own week, Monday first", async () => {
 });
 
 test("two different employees only see their own schedule", async () => {
-  const jhoanResponse = await GET(
-    scheduleRequest(await sessionCookie("jhoan", "Jhoan")),
+  const carlosResponse = await GET(
+    scheduleRequest(await sessionCookie("carlos", "Jhoan")),
   );
   const isabelResponse = await GET(
     scheduleRequest(await sessionCookie("isabel", "Isabel")),
   );
-  const jhoan = (await jhoanResponse.json()) as SchedulePayload;
+  const carlos = (await carlosResponse.json()) as SchedulePayload;
   const isabel = (await isabelResponse.json()) as SchedulePayload;
 
-  assert.equal(jhoan.employee.id, "jhoan");
+  assert.equal(carlos.employee.id, "carlos");
   assert.equal(isabel.employee.id, "isabel");
   // Las semanas son distintas: Isabel trabaja el jueves partido, Jhoan descansa;
   // Isabel descansa el domingo, Jhoan trabaja.
-  assert.equal(jhoan.days[3].descanso, true);
+  assert.equal(carlos.days[3].descanso, true);
   assert.equal(isabel.days[3].descanso, false);
   assert.equal(isabel.days[3].turnos.length, 2);
   assert.equal(isabel.days[6].descanso, true);
-  assert.equal(jhoan.days[6].descanso, false);
+  assert.equal(carlos.days[6].descanso, false);
 });
 
 test("the middleware lets an employee reach the portal pages and APIs", async () => {
-  const cookie = await sessionCookie("jhoan", "Jhoan");
+  const cookie = await sessionCookie("carlos", "Jhoan");
 
   for (const path of ["/my-schedule", "/my-attendance", "/api/schedule/me"]) {
     const response = await middleware(
@@ -95,7 +95,7 @@ test("the middleware lets an employee reach the portal pages and APIs", async ()
 });
 
 test("the middleware still blocks an employee from the rest of the ERP", async () => {
-  const cookie = await sessionCookie("jhoan", "Jhoan");
+  const cookie = await sessionCookie("carlos", "Jhoan");
 
   const page = await middleware(
     new NextRequest("http://localhost/schedule", { headers: { cookie } }),

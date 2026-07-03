@@ -26,7 +26,7 @@ export async function GET() {
   const { data } = await supabase
     .from("reservas_config")
     .select(
-      "reservas_online_activas, max_personas_online, dias_max_antelacion, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin",
+      "reservas_online_activas, max_personas_online, dias_max_antelacion, telefono, whatsapp, comida_inicio, comida_fin, cena_inicio, cena_fin, google_review_link",
     )
     .eq("id", 1)
     .single();

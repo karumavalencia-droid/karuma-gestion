@@ -7,7 +7,7 @@ import {
 } from "../lib/schedule/portal";
 
 test("a rest day in the template becomes a Descanso row", () => {
-  const rows = turnoRowsFromMock("jhoan");
+  const rows = turnoRowsFromMock("carlos");
   assert.ok(rows);
   // Jhoan descansa el jueves (dia 4)
   const thursday = rows!.filter((row) => row.dia === 4);
@@ -47,7 +47,7 @@ test("an afternoon-spanning segment counts as Comida", () => {
 test("the full seed covers every employee and every weekday", () => {
   const rows = allTurnoRowsFromMock();
   const employees = new Set(rows.map((row) => row.employee_key));
-  assert.equal(employees.size, 13);
+  assert.equal(employees.size, 14);
   for (const key of employees) {
     const days = new Set(
       rows.filter((row) => row.employee_key === key).map((row) => row.dia),
@@ -61,7 +61,7 @@ test("an unknown employee gets no template rows", () => {
 });
 
 test("getEmployeeWeek falls back to the local template without Supabase", async () => {
-  const week = await getEmployeeWeek("jhoan");
+  const week = await getEmployeeWeek("carlos");
   assert.equal(week.source, "plantilla");
   assert.equal(week.days.length, 7);
   assert.equal(week.days[4].descanso, true);

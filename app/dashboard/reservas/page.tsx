@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, Mail } from "lucide-react";
+import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, Mail, MessageCircle } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
   canMoveReservation,
@@ -95,12 +96,56 @@ function duracionBloqueoLabel(minutos?: number) {
   return total < 60 ? `${total} min` : `${Math.floor(total / 60)}h${total % 60 ? ` ${total % 60}m` : ""}`;
 }
 
+// Lee la lista de espera compartida (Supabase). Devuelve null si el API no responde,
+// para que el llamador caiga a la copia de localStorage.
+async function fetchEsperaRemota(fecha: string): Promise<EsperaLocal[] | null> {
+  try {
+    const res = await fetch(`/api/reservas/lista-espera?fecha=${fecha}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      entradas?: {
+        id: string; fecha: string; servicio: string; nombre: string; telefono: string;
+        personas: number; notas: string | null; estado: EsperaLocal["estado"]; created_at: string;
+      }[];
+    };
+    return (data.entradas ?? []).map((e) => ({
+      id: e.id,
+      fecha: e.fecha,
+      servicio: (e.servicio === "cena" ? "cena" : "comida") as ServicioLocal,
+      nombre: e.nombre,
+      telefono: e.telefono,
+      personas: e.personas,
+      notas: e.notas ?? "",
+      creadoEn: e.created_at,
+      estado: e.estado,
+    }));
+  } catch {
+    return null;
+  }
+}
+
 function canRequestReview(reserva: ReservaLocal): boolean {
   return Boolean(
     reserva.email &&
     !reserva.reviewEmailSentAt &&
     (reserva.estado === "sentada" || reserva.estado === "walkin" || reserva.estado === "finished"),
   );
+}
+
+// WhatsApp como alternativa para clientes sin email (reservas por teléfono / walk-in).
+function canWhatsappReview(reserva: ReservaLocal): boolean {
+  return Boolean(
+    reserva.telefono &&
+    (reserva.estado === "sentada" || reserva.estado === "walkin" || reserva.estado === "finished"),
+  );
+}
+
+function whatsappReviewUrl(telefono: string, nombre: string, reviewLink: string): string {
+  const digits = telefono.replace(/\D/g, "");
+  const phone = digits.length === 9 ? `34${digits}` : digits;
+  const saludo = nombre.trim() ? `Hola ${nombre.trim()}!` : "Hola!";
+  const texto = `${saludo} Gracias por visitar Karuma Sushi & Grill. Si disfrutaste la experiencia, nos ayudaria mucho una resena en Google: ${reviewLink}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(texto)}`;
 }
 
 function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
@@ -216,6 +261,14 @@ export default function ReservasPage() {
   const [toast, setToast] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [reviewSendingId, setReviewSendingId] = useState<string | null>(null);
+  const [reviewLink, setReviewLink] = useState("");
+
+  // Bloquear mesa desde el modal del plano
+  const [blockInline, setBlockInline] = useState(false);
+  const [blockHora, setBlockHora] = useState("");
+  const [blockDuracion, setBlockDuracion] = useState(90);
+  const [blockError, setBlockError] = useState("");
+  const [blockSaving, setBlockSaving] = useState(false);
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────
   const [showNueva, setShowNueva] = useState(false);
@@ -281,21 +334,36 @@ export default function ReservasPage() {
   const servicioPlano: ServicioLocal = vistaServicio === "cena" ? "cena" : "comida";
 
   const reload = useCallback(() => {
+    // Espera compartida primero (Supabase); localStorage como respaldo.
+    void fetchEsperaRemota(fecha).then((remota) => {
+      setEspera(remota ?? loadEspera().filter((e) => e.fecha === fecha));
+    });
     syncAndLoadReservas(fecha).then((all) => {
       setReservas(all);
-      setEspera(loadEspera().filter((e) => e.fecha === fecha));
       setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
       setLoaded(true);
     }).catch(() => {
       const all = loadReservas().filter((r) => r.fecha === fecha);
       setReservas(all);
-      setEspera(loadEspera().filter((e) => e.fecha === fecha));
       setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
       setLoaded(true);
     });
   }, [fecha, servicioPlano, horaPanel]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  useEffect(() => {
+    fetch("/api/reservas/config")
+      .then((r) => r.json())
+      .then((c: { google_review_link?: string | null }) => setReviewLink(c.google_review_link?.trim() ?? ""))
+      .catch(() => {});
+  }, []);
+
+  // Al abrir/cambiar de mesa, cerrar el mini-formulario de bloqueo.
+  useEffect(() => {
+    setBlockInline(false);
+    setBlockError("");
+  }, [mesaSel]);
 
   // Visor del plano por hora en el panel lateral.
   useEffect(() => { setHoraPanel(defaultHoraPlano(fecha, servicioPlano)); }, [fecha, servicioPlano]);
@@ -517,15 +585,81 @@ export default function ReservasPage() {
     setWNombre(""); setWTelefono(""); setWNotas(""); setWPersonas(2); setWMesaIds([]); setWCanal("presencial");
   }
 
-  // ── Lista de espera ────────────────────────────────────────────────────────
-  function submitEspera() {
+  // ── Bloquear mesa desde el modal del plano ─────────────────────────────────
+  function openBlockInline() {
+    setBlockHora(horaPanel);
+    setBlockDuracion(90);
+    setBlockError("");
+    setBlockInline(true);
+  }
+  async function submitBlockMesa() {
+    if (!mesaSel) return;
+    setBlockSaving(true);
+    setBlockError("");
+    try {
+      const response = await fetch("/api/reservas/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bloqueo: true,
+          fecha,
+          hora: blockHora || horaPanel,
+          servicio: servicioPlano,
+          duracionMin: blockDuracion,
+          personas: 0,
+          nombre: "Bloqueo mesa",
+          telefono: "",
+          notas: "",
+          origen: "manual",
+          forceMesaIds: [mesaSel.numero],
+        }),
+      });
+      const json = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !json.ok) {
+        setBlockError(json.error ?? "No se pudo bloquear la mesa.");
+        return;
+      }
+      const numero = mesaSel.numero;
+      setMesaSel(null);
+      setBlockInline(false);
+      reload();
+      showToast(`T${numero} bloqueada`);
+    } catch {
+      setBlockError("No se pudo bloquear la mesa.");
+    } finally {
+      setBlockSaving(false);
+    }
+  }
+
+  // ── Lista de espera (Supabase compartida; localStorage como respaldo) ──────
+  async function submitEspera() {
     if (!eNombre.trim()) return;
-    addEspera(fecha, eServicio, eNombre, eTelefono, ePersonas, eNotas);
+    try {
+      const res = await fetch("/api/reservas/lista-espera", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha, servicio: eServicio, nombre: eNombre, telefono: eTelefono,
+          personas: ePersonas, notas: eNotas, origen: "staff",
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      addEspera(fecha, eServicio, eNombre, eTelefono, ePersonas, eNotas);
+    }
     setShowAddEspera(false); setENombre(""); setETelefono(""); setEPersonas(2); setENotas("");
     reload(); showToast("Añadido a lista de espera");
   }
-  function handleEsperaEstado(id: string, estado: EsperaLocal["estado"]) {
-    updateEspera(id, estado); reload();
+  async function handleEsperaEstado(id: string, estado: EsperaLocal["estado"]) {
+    try {
+      const res = await fetch("/api/reservas/lista-espera", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, estado }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      updateEspera(id, estado);
+    }
+    reload();
   }
 
   async function submitInlineWalkIn() {
@@ -769,8 +903,9 @@ export default function ReservasPage() {
               const isAct = isActiveReservation(r.estado);
               const canMove = canMoveLocalReservation(r);
               const canReview = !isBlock && canRequestReview(r);
+              const canWhats = !isBlock && Boolean(reviewLink) && canWhatsappReview(r);
               const reviewSent = Boolean(r.reviewEmailSentAt);
-              const showActions = isAct || canReview || reviewSent;
+              const showActions = isAct || canReview || canWhats || reviewSent;
               const visitas = isBlock ? 0 : getVisitasCliente(r.telefono);
               return (
                 <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -897,6 +1032,17 @@ export default function ReservasPage() {
                             {reviewSendingId === r.id ? "Enviando" : "Pedir reseña"}
                           </button>
                         )}
+                        {canWhats && (
+                          <a
+                            href={whatsappReviewUrl(r.telefono, r.nombre, reviewLink)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            Reseña WhatsApp
+                          </a>
+                        )}
                         {!canReview && reviewSent && (
                           <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                             Reseña enviada
@@ -977,6 +1123,9 @@ export default function ReservasPage() {
         </>)}
       </div>
 
+      {/* Resumen de mesas hechas por servicio (esquina) */}
+      <ResumenServicios reservas={reservas} />
+
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
@@ -1042,6 +1191,54 @@ export default function ReservasPage() {
                 className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">
                 + Walk-In directo
               </button>
+            )}
+            {/* Bloquear esta mesa (con hora y duración ajustables) */}
+            {mesaSel.status === "available" && !blockInline && (
+              <button onClick={openBlockInline}
+                className="w-full rounded-xl border border-rose-200 bg-rose-50 py-3 font-bold text-rose-700 hover:bg-rose-100">
+                🔒 Bloquear T{mesaSel.numero}
+              </button>
+            )}
+            {blockInline && (
+              <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                <p className="text-sm font-bold text-rose-800">Bloquear T{mesaSel.numero}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-rose-700">Desde</span>
+                    <input
+                      type="time"
+                      value={blockHora}
+                      onChange={(e) => setBlockHora(e.target.value)}
+                      className="w-full rounded-lg border border-rose-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-rose-700">Duración</span>
+                    <select
+                      value={blockDuracion}
+                      onChange={(e) => setBlockDuracion(Number(e.target.value))}
+                      className="w-full rounded-lg border border-rose-200 bg-white px-2 py-1.5 text-sm text-gray-900"
+                    >
+                      <option value={60}>1 hora</option>
+                      <option value={90}>1h 30m</option>
+                      <option value={120}>2 horas</option>
+                      <option value={180}>3 horas</option>
+                      <option value={360}>Todo el servicio</option>
+                    </select>
+                  </label>
+                </div>
+                {blockError && <p className="text-sm font-semibold text-rose-700">{blockError}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => setBlockInline(false)}
+                    className="flex-1 rounded-lg border border-rose-200 bg-white py-2 text-sm font-semibold text-gray-600">
+                    Cancelar
+                  </button>
+                  <button onClick={() => void submitBlockMesa()} disabled={blockSaving}
+                    className="flex-1 rounded-lg bg-rose-700 py-2 text-sm font-bold text-white hover:bg-rose-600 disabled:opacity-50">
+                    {blockSaving ? "Bloqueando…" : "Bloquear"}
+                  </button>
+                </div>
+              </div>
             )}
             {mesaSel.status === "reserved" && mesaSel.reserva && (
               <>

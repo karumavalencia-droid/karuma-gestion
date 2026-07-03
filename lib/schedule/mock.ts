@@ -41,8 +41,15 @@ const D2000_2200: TimeRange = { start: "20:00", end: "22:00" };
 /** 本周真实排班 mock（第一批） */
 export const EMPLOYEE_SCHEDULES: EmployeeSchedule[] = [
   {
-    id: "jhoan",
-    name: "Jhoan",
+    id: "zhouzhou",
+    name: "Zhou",
+    department: "Gerencia",
+    team: "老板",
+    days: week([], [L1130_1600, D1930_2330]),
+  },
+  {
+    id: "carlos",
+    name: "Carlos",
     department: "Sala",
     team: "服务员",
     days: {
@@ -121,8 +128,8 @@ export const EMPLOYEE_SCHEDULES: EmployeeSchedule[] = [
     }),
   },
   {
-    id: "mauricio",
-    name: "Mauricio",
+    id: "jhon",
+    name: "Jhon",
     department: "Cocina",
     team: "热厨",
     days: week(["周四", "周五"], [L1130_1600, D1930_2330]),
@@ -146,10 +153,10 @@ export const EMPLOYEE_SCHEDULES: EmployeeSchedule[] = [
 /** 上周排班（复制来源，与本周略有不同） */
 export const LAST_WEEK_SCHEDULES: EmployeeSchedule[] = (() => {
   const rows = cloneSchedules(EMPLOYEE_SCHEDULES);
-  const jhoan = rows.find((r) => r.id === "jhoan");
-  if (jhoan) {
-    jhoan.days.周四 = work(L1130_1600);
-    jhoan.days.周五 = REST;
+  const carlos = rows.find((r) => r.id === "carlos");
+  if (carlos) {
+    carlos.days.周四 = work(L1130_1600);
+    carlos.days.周五 = REST;
   }
   const edu = rows.find((r) => r.id === "edu");
   if (edu) {
