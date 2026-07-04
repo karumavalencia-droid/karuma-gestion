@@ -194,10 +194,11 @@ export default function MesaViewPage() {
   // Cancel confirm
   const [cancelReservaId, setCancelReservaId] = useState<string | null>(null);
 
-  // Edit (personas + hora) inline en el modal de detalle
+  // Edit (personas + hora + mesa) inline en el modal de detalle
   const [editing, setEditing]           = useState(false);
   const [editPersonas, setEditPersonas] = useState(2);
   const [editHora, setEditHora]         = useState("");
+  const [editMesaIds, setEditMesaIds]   = useState<string[]>([]);
   const [editError, setEditError]       = useState("");
 
   // ── Load ─────────────────────────────────────────────────────────────────────
@@ -416,21 +417,31 @@ export default function MesaViewPage() {
     setCancelReservaId(null); setSel(null); reload(); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
   }
 
-  // ── Editar (personas + hora) ──────────────────────────────────────────────────
+  // ── Editar (personas + hora + mesa) ───────────────────────────────────────────
   function openEdit(r: ReservaLocal) {
     setEditPersonas(r.personas);
     setEditHora((r.hora || "").slice(0, 5));
+    setEditMesaIds(r.mesaIds);
     setEditError("");
     setEditing(true);
   }
   function submitEdit(r: ReservaLocal) {
     setEditError("");
-    const res = editReserva(r.id, { personas: editPersonas, hora: editHora });
+    const mesaCambiada = editMesaIds.length > 0 &&
+      (editMesaIds.length !== r.mesaIds.length || editMesaIds.some((id) => !r.mesaIds.includes(id)));
+    const res = editReserva(r.id, {
+      personas: editPersonas,
+      hora: editHora,
+      ...(mesaCambiada ? { mesaIds: editMesaIds } : {}),
+    });
     if (!res.ok) { setEditError(res.error); return; }
     if (r.origen) {
       void fetch("/api/reservas/actualizar", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "editar", id: r.id, personas: editPersonas, hora: editHora }),
+        body: JSON.stringify({
+          action: "editar", id: r.id, personas: editPersonas, hora: editHora,
+          ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
+        }),
       });
     }
     setEditing(false); setSel(null); reload(); showToast("Reserva actualizada");
@@ -480,13 +491,8 @@ export default function MesaViewPage() {
 
   function handleMesaClick(m: MesaConEstado) {
     const agenda = m.agenda ?? [];
-    // Mesa libre SIN ninguna reserva del día → crear directamente
-    if (m.status === "available" && agenda.length === 0) {
-      if (fecha === hoy()) openWalkIn(m);   // hoy → walk-in (ahora)
-      else openNuevaParaMesa(m);            // otra fecha → nueva reserva
-      return;
-    }
-    // Mesa con reservas (en este momento o en otros turnos del día) → abrir detalle
+    // Siempre abre el detalle de la mesa. Si está libre ofrece todas las
+    // acciones: nueva reserva, bloquear y (solo hoy) sentar un walk-in.
     setEditing(false);
     setEditError("");
     setFocusReservaId(m.reserva?.id ?? agenda[0]?.id ?? null);
@@ -639,7 +645,7 @@ export default function MesaViewPage() {
             </button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-600">
-            <span className="rounded-full bg-gray-50 px-3 py-1 font-semibold">Toca una mesa libre para abrir un alta rápida</span>
+            <span className="rounded-full bg-gray-50 px-3 py-1 font-semibold">Toca una mesa libre para reservar o sentar un walk-in</span>
             <span className="rounded-full bg-gray-50 px-3 py-1 font-semibold">Las mesas con agenda muestran su siguiente turno</span>
           </div>
         </div>
@@ -746,7 +752,7 @@ export default function MesaViewPage() {
           ))}
         </div>
         <p className="mesa-tablet-hide mb-4 text-xs text-gray-500">
-          Toca una mesa libre para {fecha === hoy() ? "registrar un walk-in" : "crear una reserva"} · una mesa reservada u ocupada para abrir su detalle.
+          Toca una mesa libre para {fecha === hoy() ? "reservar, registrar un walk-in o bloquearla" : "reservar o bloquear la mesa"} · una mesa reservada u ocupada para abrir su detalle.
         </p>
 
         {reservasDia > 0 && (
@@ -843,7 +849,7 @@ export default function MesaViewPage() {
                           {isTableBlockReservation(agenda[0]) ? "Bloqueada" : "Reservada"} · {agenda[0].hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
                         </p>
                       </div>
-                    : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In" : "+ Reservar"}</p>
+                    : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
                 )}
                 {/* Otros turnos del día */}
                 {m.status !== "available" && otras.length > 0 && (
@@ -885,7 +891,7 @@ export default function MesaViewPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
-                <p className="text-sm text-gray-500">{sel.capacidad} personas · Interior</p>
+                <p className="text-sm text-gray-500">{sel.capacidad} personas · {sel.zona}</p>
               </div>
               <button onClick={() => { setSel(null); setEditing(false); setEditError(""); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
@@ -942,6 +948,11 @@ export default function MesaViewPage() {
                       servicio={focusR.servicio}
                       compact
                     />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-bold text-gray-500">Mesa · actual: {mesaLabel(focusR.mesaIds)}</p>
+                    <MesaPicker mesas={mesasList} selectedIds={editMesaIds}
+                      onToggle={(id) => setEditMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
                   </div>
                 </div>
                 <button onClick={() => submitEdit(focusR)}
@@ -1006,7 +1017,7 @@ export default function MesaViewPage() {
                   <>
                     <button onClick={() => openEdit(focusR)}
                       className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                      ✏️ Editar personas / hora
+                      ✏️ Editar personas / hora / mesa
                     </button>
                     <button onClick={() => setCancelReservaId(focusR.id)}
                       className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100">
@@ -1027,13 +1038,19 @@ export default function MesaViewPage() {
             {/* Crear otra reserva en esta mesa (libre en el momento mostrado) */}
             {!editing && sel.status === "available" && (
               <div className="space-y-2">
+                {!focusR && fecha === hoy() && (
+                  <button onClick={() => { openWalkIn(sel); setSel(null); }}
+                    className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                    🚶 Sentar Walk-In en T{sel.numero}
+                  </button>
+                )}
+                <button onClick={() => { openNuevaParaMesa(sel); setSel(null); }}
+                  className="w-full rounded-xl bg-karuma-600 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
+                  + Nueva reserva en T{sel.numero}
+                </button>
                 <button onClick={() => { openBlock(sel); setSel(null); }}
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100">
                   <Lock className="h-4 w-4" /> Bloquear T{sel.numero}
-                </button>
-                <button onClick={() => { openNuevaParaMesa(sel); setSel(null); }}
-                  className="w-full rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">
-                  + Nueva reserva en T{sel.numero}
                 </button>
               </div>
             )}

@@ -10,7 +10,7 @@ import {
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
-export const TABLES_KEY   = "karuma_tables_v2";
+export const TABLES_KEY   = "karuma_tables_v3"; // v3: 20 mesas reales (sin T28), zonas Terraza/Privado
 export const HORARIO_KEY  = "karuma_horario_v1";
 export const ESPERA_KEY   = "karuma_espera_v1";
 export const RESERVAS_CONFIG_KEY = "karuma_reservas_config_v1";
@@ -47,7 +47,7 @@ export type ServicioLocal = "comida" | "cena";
 export type TipoReserva = "reservation" | "walk_in" | "table_block";
 
 export interface MesaLocal {
-  id: string;       // 'T1'..'T21'
+  id: string;       // 'T1'..'T20'
   numero: number;
   capacidad: number;
   zona: string;
@@ -134,15 +134,14 @@ export const MESAS_SEED: MesaLocal[] = [
   { id: "T10", numero: 10, capacidad: 2, zona: "Interior" },
   { id: "T11", numero: 11, capacidad: 2, zona: "Interior" },
   { id: "T12", numero: 12, capacidad: 2, zona: "Interior" },
-  { id: "T13", numero: 13, capacidad: 4, zona: "Interior" },
-  { id: "T14", numero: 14, capacidad: 4, zona: "Interior" },
-  { id: "T15", numero: 15, capacidad: 4, zona: "Interior" },
-  { id: "T16", numero: 16, capacidad: 4, zona: "Interior" },
-  { id: "T17", numero: 17, capacidad: 4, zona: "Interior" },
-  { id: "T18", numero: 18, capacidad: 2, zona: "Interior" },
-  { id: "T19", numero: 19, capacidad: 2, zona: "Interior" },
-  { id: "T20", numero: 20, capacidad: 4, zona: "Interior" },
-  { id: "T28", numero: 28, capacidad: 2, zona: "Interior" },
+  { id: "T13", numero: 13, capacidad: 4, zona: "Terraza" },
+  { id: "T14", numero: 14, capacidad: 4, zona: "Terraza" },
+  { id: "T15", numero: 15, capacidad: 4, zona: "Terraza" },
+  { id: "T16", numero: 16, capacidad: 4, zona: "Terraza" },
+  { id: "T17", numero: 17, capacidad: 4, zona: "Privado" },
+  { id: "T18", numero: 18, capacidad: 2, zona: "Privado" },
+  { id: "T19", numero: 19, capacidad: 2, zona: "Privado" },
+  { id: "T20", numero: 20, capacidad: 4, zona: "Privado" },
 ];
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
@@ -675,9 +674,9 @@ export function desplazarReserva(
   return { ok: true };
 }
 
-// Edita datos básicos de una reserva (personas y/o hora) sin cambiar su estado.
+// Edita datos básicos de una reserva (personas, hora y/o mesa) sin cambiar su estado.
 export function editReserva(
-  id: string, cambios: { personas?: number; hora?: string },
+  id: string, cambios: { personas?: number; hora?: string; mesaIds?: string[] },
 ): { ok: true } | { ok: false; error: string } {
   const list = loadReservas();
   const idx = list.findIndex((r) => r.id === id);
@@ -685,6 +684,10 @@ export function editReserva(
   const limpio: Partial<ReservaLocal> = {};
   if (typeof cambios.personas === "number" && cambios.personas > 0) limpio.personas = cambios.personas;
   if (cambios.hora && cambios.hora.length >= 4) limpio.hora = cambios.hora;
+  const nuevasMesas = cambios.mesaIds ? uniqueMesaIds(cambios.mesaIds) : [];
+  const mesaCambiada = nuevasMesas.length > 0 &&
+    (nuevasMesas.length !== list[idx].mesaIds.length || nuevasMesas.some((m) => !list[idx].mesaIds.includes(m)));
+  if (mesaCambiada) limpio.mesaIds = nuevasMesas;
   const next = { ...list[idx], ...limpio };
   if (isTableBlockReservation(next)) {
     return { ok: false, error: "Edita el bloqueo desde el plano de mesas." };
@@ -693,6 +696,8 @@ export function editReserva(
     next.duracionMin = duracionReserva(cambios.personas);
   }
   if (next.mesaIds.length) {
+    // Cambio manual de mesa → mismo criterio que cambiarMesas: el admin puede
+    // elegir cualquier mesa (override), solo se valida el aforo.
     const validacion = validarMesasLibres(
       next.mesaIds,
       next.fecha,
@@ -700,9 +705,24 @@ export function editReserva(
       next.servicio,
       next.personas,
       id,
+      undefined,
+      mesaCambiada,
     );
     if (!validacion.ok) return { ok: false, error: validacion.error };
     next.mesaIds = validacion.mesaIds;
+    if (mesaCambiada) {
+      const mesas = loadMesas();
+      const capacidad = next.mesaIds
+        .map((mid) => mesas.find((m) => m.id === mid))
+        .filter((m): m is MesaLocal => Boolean(m))
+        .reduce((total, mesa) => total + mesa.capacidad, 0);
+      if (capacidad < next.personas) {
+        return {
+          ok: false,
+          error: `Las mesas seleccionadas tienen ${capacidad} plazas para ${next.personas} personas.`,
+        };
+      }
+    }
   }
   list[idx] = next;
   saveReservas(list);

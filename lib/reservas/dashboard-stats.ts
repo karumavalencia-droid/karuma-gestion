@@ -68,7 +68,7 @@ export async function getReservasDashboardStats(): Promise<ReservasDashboardStat
     walkIns,
     noShows,
     mesasOcupadas: mesasOcupadasIds.size,
-    mesasTotal: (mesas ?? []).length || 21,
+    mesasTotal: (mesas ?? []).length || 20,
     proximaHora,
     proximaNombre,
   };

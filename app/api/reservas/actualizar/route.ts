@@ -119,8 +119,27 @@ export async function POST(req: NextRequest) {
         const nextFecha = body.fecha && body.fecha.length >= 8 ? body.fecha : reserva.fecha;
         const nextHora = body.hora && body.hora.length >= 4 ? body.hora : reserva.hora_inicio;
         const nextDuracion = duracionPorPersonas(nextPersonas, config);
+        const nextMesaIds = mesaIds?.length ? [...new Set(mesaIds)] : null;
+        const mesaCambiada = !!nextMesaIds &&
+          (nextMesaIds.length !== reserva.mesa_ids.length ||
+            nextMesaIds.some((mesaId) => !reserva.mesa_ids.includes(mesaId)));
 
-        if (reserva.mesa_ids.length > 0) {
+        if (mesaCambiada && nextMesaIds) {
+          // Cambio manual de mesa dentro de la edición: mismo criterio que
+          // "cambiar-mesa" — cualquier mesa vale (override), solo se valida el aforo.
+          const { data: mesasSeleccionadas } = await supabase
+            .from("mesas")
+            .select("id, capacidad")
+            .in("id", nextMesaIds);
+          const capacidad = ((mesasSeleccionadas ?? []) as MesaCapacidad[])
+            .reduce((total, mesa) => total + mesa.capacidad, 0);
+          if (capacidad < nextPersonas) {
+            return NextResponse.json(
+              { error: `Las mesas seleccionadas tienen ${capacidad} plazas para ${nextPersonas} personas.` },
+              { status: 409 },
+            );
+          }
+        } else if (reserva.mesa_ids.length > 0) {
           const { data: reservasDia } = await supabase
             .from("reservas")
             .select("*")
@@ -144,6 +163,7 @@ export async function POST(req: NextRequest) {
         }
         if (body.fecha && body.fecha.length >= 8) update.fecha = body.fecha;
         if (body.hora && body.hora.length >= 4) update.hora_inicio = body.hora;
+        if (mesaCambiada && nextMesaIds) update.mesa_ids = nextMesaIds;
       }
       if (Object.keys(update).length === 0) {
         return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
