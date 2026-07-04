@@ -121,6 +121,13 @@ test("multi-table reservation exposes the full party size on every joined table"
   assert.equal(mesas.length, 4);
   assert.deepEqual(mesas.map((m) => m.reserva?.personas), [10, 10, 10, 10]);
   assert.deepEqual(mesas.map((m) => m.reserva?.mesaIds), [mesaIds, mesaIds, mesaIds, mesaIds]);
+  assert.deepEqual(mesas.map((m) => m.capacidad), [10, 10, 10, 10]);
+
+  const previewMesas = getMesasConEstado(fecha, "comida", "13:00")
+    .filter((m) => mesaIds.includes(m.id));
+  assert.deepEqual(previewMesas.map((m) => m.status), ["available", "available", "available", "available"]);
+  assert.deepEqual(previewMesas.map((m) => m.capacidad), [10, 10, 10, 10]);
+  assert.ok(previewMesas.every((m) => m.zona.includes("T17 + T18 + T19 + T20")));
 });
 
 test("seating and freeing a multi-table reservation updates the whole joined group", () => {

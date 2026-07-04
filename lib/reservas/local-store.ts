@@ -257,6 +257,14 @@ function finVentana(r: ReservaLocal): number {
 function cubreMomento(r: ReservaLocal, tMin: number): boolean {
   return tMin >= iniVentana(r) && tMin < finVentana(r);
 }
+function mesaConGrupo(mesa: MesaLocal, reserva?: ReservaLocal): MesaLocal {
+  if (!reserva || reserva.mesaIds.length <= 1 || isTableBlockReservation(reserva)) return mesa;
+  return {
+    ...mesa,
+    capacidad: reserva.personas,
+    zona: `${mesa.zona} · ${mesaLabel(reserva.mesaIds)}`,
+  };
+}
 
 // Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
 export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: string }> = {
@@ -307,10 +315,12 @@ export function getMesasConEstado(
     // Ocupada solo mientras dura la ocupación (finVentana extiende hasta que se
     // libere): en franjas posteriores la mesa vuelve a mostrarse disponible.
     const occ = ahora.find((r) => isOccupied(r));
-    if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ, agenda };
     const res = ahora.find((r) => isReserved(r));
-    if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res, agenda };
-    return { ...m, status: "available" as MesaStatus, agenda };
+    const joinedPreview = occ ?? res ?? agenda.find((r) => r.mesaIds.length > 1);
+    const mesaVisible = mesaConGrupo(m, joinedPreview);
+    if (occ) return { ...mesaVisible, status: "occupied" as MesaStatus, reserva: occ, agenda };
+    if (res) return { ...mesaVisible, status: "reserved" as MesaStatus, reserva: res, agenda };
+    return { ...mesaVisible, status: "available" as MesaStatus, agenda };
   });
 }
 
