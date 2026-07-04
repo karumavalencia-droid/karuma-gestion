@@ -13,6 +13,16 @@ export const STAFF_DEPARTMENTS: StaffDepartment[] = [
   "Dishwasher",
 ];
 
+/** Categorías de personal (campo position en staff). */
+export const STAFF_POSITIONS = [
+  "Propietario",
+  "Encargada",
+  "Camarero",
+  "Sushiman",
+  "Cocina",
+  "Friegaplatos",
+];
+
 export type StaffMember = {
   id: string;
   name: string;

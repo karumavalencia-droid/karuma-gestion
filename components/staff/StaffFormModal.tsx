@@ -6,12 +6,19 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { REST_DAY_KEYS, REST_DAY_LABEL, type RestDayKey } from "@/lib/staff/rest-days";
 import { formatStandardShift, STANDARD_SHIFT_OPTIONS } from "@/lib/staff/shifts";
 import type { StaffDepartment, StaffInput, StaffMember } from "@/lib/staff/types";
-import { STAFF_DEPARTMENTS } from "@/lib/staff/types";
+import { STAFF_DEPARTMENTS, STAFF_POSITIONS } from "@/lib/staff/types";
 
 const ROLES = Object.keys(ROLE_LABELS) as Role[];
 
 const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
+
+const chipClass = (active: boolean) =>
+  `rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+    active
+      ? "border-karuma-600 bg-karuma-600 text-white"
+      : "border-gray-200 text-gray-700 hover:bg-gray-50"
+  }`;
 
 const emptyForm = (): StaffInput => ({
   name: "",
@@ -105,32 +112,39 @@ export function StaffFormModal({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">Departamento *</span>
-              <select
-                className={inputClass}
-                value={form.department}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, department: e.target.value as StaffDepartment }))
-                }
-              >
-                {STAFF_DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-gray-700">Puesto *</span>
-              <input
-                className={inputClass}
-                value={form.position}
-                onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
-                required
-              />
-            </label>
+          <div className="space-y-1">
+            <span className="text-sm font-medium text-gray-700">Departamento *</span>
+            <div className="flex flex-wrap gap-2">
+              {STAFF_DEPARTMENTS.map((dept) => (
+                <button
+                  key={dept}
+                  type="button"
+                  className={chipClass(form.department === dept)}
+                  onClick={() => setForm((f) => ({ ...f, department: dept as StaffDepartment }))}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-sm font-medium text-gray-700">Categoría *</span>
+            <div className="flex flex-wrap gap-2">
+              {(STAFF_POSITIONS.includes(form.position) || !form.position
+                ? STAFF_POSITIONS
+                : [...STAFF_POSITIONS, form.position]
+              ).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  className={chipClass(form.position === pos)}
+                  onClick={() => setForm((f) => ({ ...f, position: pos }))}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
           </div>
 
           <label className="block space-y-1">
@@ -330,7 +344,7 @@ export function StaffFormModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !form.position.trim()}
               className="rounded-lg bg-karuma-600 px-4 py-2 text-sm font-medium text-white hover:bg-karuma-700 disabled:opacity-60"
             >
               {saving ? t("common.saving") : t("common.save")}
