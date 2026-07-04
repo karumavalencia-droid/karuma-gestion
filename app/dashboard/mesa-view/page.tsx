@@ -26,6 +26,9 @@ import {
   editReserva,
   mesaLabel,
   mesasDisponiblesParaCambio,
+  esReservaIntercambiable,
+  reservasParaIntercambio,
+  intercambiarReservas,
   slotsPlano,
   defaultHoraPlano,
   loadReservas,
@@ -190,6 +193,10 @@ export default function MesaViewPage() {
   const [moveReserva, setMoveReserva] = useState<ReservaLocal | null>(null);
   const [moveMesaIds, setMoveMesaIds] = useState<string[]>([]);
   const [moveError, setMoveError]     = useState("");
+
+  // Intercambiar mesa entre dos reservas
+  const [swapReserva, setSwapReserva] = useState<ReservaLocal | null>(null);
+  const [swapError, setSwapError]     = useState("");
 
   // Cancel confirm
   const [cancelReservaId, setCancelReservaId] = useState<string | null>(null);
@@ -487,6 +494,34 @@ export default function MesaViewPage() {
     }
     const destino = mesaLabel(moveMesaIds);
     setMoveReserva(null); setSel(null); reload(); showToast(`Cliente trasladado a ${destino}`);
+  }
+
+  // ── Intercambiar mesa entre dos reservas ─────────────────────────────────────
+  function openSwap(r: ReservaLocal) {
+    setSwapReserva(r);
+    setSwapError("");
+  }
+  function submitSwap(objetivo: ReservaLocal) {
+    if (!swapReserva) return;
+    const mesasA = swapReserva.mesaIds;
+    const mesasB = objetivo.mesaIds;
+    const res = intercambiarReservas(swapReserva.id, objetivo.id);
+    if (!res.ok) { setSwapError(res.error); return; }
+    // Sincroniza con Supabase: cada reserva recibe las mesas de la otra
+    for (const [r, nuevas] of [[swapReserva, mesasB], [objetivo, mesasA]] as const) {
+      if (!r.origen) continue;
+      void fetch("/api/reservas/actualizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cambiar-mesa",
+          id: r.id,
+          mesaIds: nuevas.map((id) => Number(id.replace("T", ""))),
+        }),
+      });
+    }
+    setSwapReserva(null); setSel(null); reload();
+    showToast(`Mesas intercambiadas: ${mesaLabel(mesasA)} ↔ ${mesaLabel(mesasB)}`);
   }
 
   function handleMesaClick(m: MesaConEstado) {
@@ -1013,6 +1048,13 @@ export default function MesaViewPage() {
                     Cambiar mesa
                   </button>
                 )}
+                {esReservaIntercambiable(focusR) && (
+                  <button onClick={() => { openSwap(focusR); setSel(null); }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-sm font-bold text-sky-800 hover:bg-sky-100">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    Intercambiar con otra reserva
+                  </button>
+                )}
                 {!focusBlock && (
                   <>
                     <button onClick={() => openEdit(focusR)}
@@ -1391,6 +1433,57 @@ export default function MesaViewPage() {
                 <ArrowRightLeft className="h-4 w-4" />
                 Confirmar cambio
               </button>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* ── Intercambiar mesa entre dos reservas ─────────────────────────────── */}
+      <Modal open={!!swapReserva} onClose={() => setSwapReserva(null)}>
+        {swapReserva && (() => {
+          const candidatas = reservasParaIntercambio(swapReserva.id);
+          return (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900">Intercambiar mesa</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {swapReserva.nombre} · {swapReserva.personas} personas · {swapReserva.hora}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-sky-800">
+                    Mesa actual: {mesaLabel(swapReserva.mesaIds)}
+                  </p>
+                </div>
+                <button onClick={() => setSwapReserva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {swapError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{swapError}</p>}
+
+              {candidatas.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Toca la reserva con la que intercambiar mesa
+                  </p>
+                  <div className="space-y-1.5">
+                    {candidatas.map((c) => (
+                      <button key={c.id} onClick={() => submitSwap(c)}
+                        className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all hover:border-sky-300 hover:bg-sky-50">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="font-black text-gray-900">{c.hora}</span>
+                          <span className="truncate text-gray-600">{c.nombre}</span>
+                        </div>
+                        <span className="shrink-0 font-bold text-sky-800">{mesaLabel(c.mesaIds)} · {c.personas}p</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-xl bg-gray-100 px-3 py-4 text-center text-sm text-gray-600">
+                  No hay otras reservas sin sentar este día y servicio con las que intercambiar.
+                </p>
+              )}
             </div>
           );
         })()}

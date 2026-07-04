@@ -10,7 +10,7 @@ import {
 
 export const RESERVAS_KEY = "karuma_reservas_v1";
 export const CLIENTES_KEY = "karuma_clientes_v1";
-export const TABLES_KEY   = "karuma_tables_v3"; // v3: 20 mesas reales (sin T28), zonas Terraza/Privado
+export const TABLES_KEY   = "karuma_tables_v4"; // v4: 21 mesas (vuelve T28), zonas Terraza/Privado
 export const HORARIO_KEY  = "karuma_horario_v1";
 export const ESPERA_KEY   = "karuma_espera_v1";
 export const RESERVAS_CONFIG_KEY = "karuma_reservas_config_v1";
@@ -47,7 +47,7 @@ export type ServicioLocal = "comida" | "cena";
 export type TipoReserva = "reservation" | "walk_in" | "table_block";
 
 export interface MesaLocal {
-  id: string;       // 'T1'..'T20'
+  id: string;       // 'T1'..'T20' + 'T28'
   numero: number;
   capacidad: number;
   zona: string;
@@ -142,6 +142,7 @@ export const MESAS_SEED: MesaLocal[] = [
   { id: "T18", numero: 18, capacidad: 2, zona: "Privado" },
   { id: "T19", numero: 19, capacidad: 2, zona: "Privado" },
   { id: "T20", numero: 20, capacidad: 4, zona: "Privado" },
+  { id: "T28", numero: 28, capacidad: 2, zona: "Interior" },
 ];
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
@@ -631,6 +632,65 @@ export function cambiarMesas(
   }
 
   list[idx] = { ...r, mesaIds: validacion.mesaIds };
+  saveReservas(list);
+  return { ok: true };
+}
+
+// ─── Intercambiar mesas entre dos reservas ────────────────────────────────────
+
+// Solo reservas sin sentar (ni walk-ins, ni bloqueos, ni mesas ya ocupadas).
+export function esReservaIntercambiable(r: ReservaLocal): boolean {
+  return !isTableBlockReservation(r) &&
+    (r.estado === "pendiente" || r.estado === "confirmada" || r.estado === "llegada") &&
+    r.mesaIds.length > 0;
+}
+
+// Reservas del mismo día y servicio con las que se puede intercambiar la mesa.
+export function reservasParaIntercambio(reservaId: string): ReservaLocal[] {
+  const list = loadReservas();
+  const reserva = list.find((r) => r.id === reservaId);
+  if (!reserva || !esReservaIntercambiable(reserva)) return [];
+  return list
+    .filter((r) =>
+      r.id !== reserva.id &&
+      r.fecha === reserva.fecha &&
+      r.servicio === reserva.servicio &&
+      esReservaIntercambiable(r) &&
+      !r.mesaIds.some((id) => reserva.mesaIds.includes(id)),
+    )
+    .sort((a, b) => a.hora.localeCompare(b.hora) || a.nombre.localeCompare(b.nombre));
+}
+
+export function intercambiarReservas(
+  idA: string, idB: string,
+): { ok: true } | { ok: false; error: string } {
+  const list = loadReservas();
+  const ia = list.findIndex((r) => r.id === idA);
+  const ib = list.findIndex((r) => r.id === idB);
+  if (ia < 0 || ib < 0) return { ok: false, error: "Reserva no encontrada." };
+  const a = list[ia];
+  const b = list[ib];
+  if (!esReservaIntercambiable(a) || !esReservaIntercambiable(b)) {
+    return { ok: false, error: "Solo se pueden intercambiar reservas sin sentar (ni walk-ins ni bloqueos)." };
+  }
+  if (a.mesaIds.some((id) => b.mesaIds.includes(id))) {
+    return { ok: false, error: "Las dos reservas comparten mesa." };
+  }
+  const mesas = loadMesas();
+  const capacidadDe = (ids: string[]) => ids
+    .map((id) => mesas.find((m) => m.id === id))
+    .filter((m): m is MesaLocal => Boolean(m))
+    .reduce((total, mesa) => total + mesa.capacidad, 0);
+  const capB = capacidadDe(b.mesaIds);
+  if (capB < a.personas) {
+    return { ok: false, error: `${mesaLabel(b.mesaIds)} tiene ${capB} plazas para las ${a.personas} personas de ${a.nombre}.` };
+  }
+  const capA = capacidadDe(a.mesaIds);
+  if (capA < b.personas) {
+    return { ok: false, error: `${mesaLabel(a.mesaIds)} tiene ${capA} plazas para las ${b.personas} personas de ${b.nombre}.` };
+  }
+  list[ia] = { ...a, mesaIds: b.mesaIds };
+  list[ib] = { ...b, mesaIds: a.mesaIds };
   saveReservas(list);
   return { ok: true };
 }
