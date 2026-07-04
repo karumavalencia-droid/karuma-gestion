@@ -268,6 +268,42 @@ export default function ReservasPage() {
   const [error, setError] = useState("");
   const [cartaAbierta, setCartaAbierta] = useState<string | null>(null);
 
+  // Lista de espera cuando no hay disponibilidad (estilo CoverManager)
+  const [esperaForm, setEsperaForm] = useState(false);
+  const [esperaEnviando, setEsperaEnviando] = useState(false);
+  const [esperaOk, setEsperaOk] = useState(false);
+  const [esperaError, setEsperaError] = useState("");
+
+  async function apuntarseEspera() {
+    if (!nombre.trim() || !telefono.trim()) {
+      setEsperaError("Necesitamos tu nombre y teléfono para avisarte.");
+      return;
+    }
+    setEsperaEnviando(true);
+    setEsperaError("");
+    try {
+      const res = await fetch("/api/reservas/lista-espera", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha,
+          servicio,
+          nombre: nombre.trim(),
+          telefono: telefono.trim(),
+          personas,
+          notas: notas.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "No se pudo apuntar a la lista de espera");
+      setEsperaOk(true);
+    } catch (err) {
+      setEsperaError(err instanceof Error ? err.message : "No se pudo apuntar a la lista de espera");
+    } finally {
+      setEsperaEnviando(false);
+    }
+  }
+
   useEffect(() => {
     fetch("/api/reservas/config")
       .then((r) => r.json())
@@ -319,6 +355,9 @@ export default function ReservasPage() {
   async function cargarSlots(f: string, s: Servicio, p: number) {
     setLoadingSlots(true);
     setSlots([]);
+    setEsperaForm(false);
+    setEsperaOk(false);
+    setEsperaError("");
     try {
       const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`);
       const data = await res.json();
@@ -841,24 +880,85 @@ export default function ReservasPage() {
               </div>
             ) : !hayAlgunSlot ? (
               <div className="border-y border-[#e2dac9] py-10 text-center">
-                <p className="text-base font-semibold text-stone-700">No hay disponibilidad</p>
-                <p className="mt-1 text-sm text-stone-500">Elige otro día o contáctanos.</p>
-                <div className="mt-5 flex justify-center gap-2">
-                  <a
-                    href={`tel:${TELEFONO}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-medium text-[#f6f3ec]"
-                  >
-                    <Phone className="h-4 w-4" /> Llamar
-                  </a>
-                  <a
-                    href={`https://wa.me/${WHATSAPP.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700"
-                  >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </a>
-                </div>
+                {esperaOk ? (
+                  <>
+                    <p className="text-base font-semibold text-stone-700">Estás en la lista de espera</p>
+                    <p className="mx-auto mt-2 max-w-xs text-sm text-stone-500">
+                      Si queda una mesa libre para {personas} {personas === 1 ? "persona" : "personas"} te
+                      llamaremos o escribiremos por WhatsApp al {telefono}.
+                    </p>
+                  </>
+                ) : esperaForm ? (
+                  <div className="mx-auto max-w-xs text-left">
+                    <p className="text-center text-base font-semibold text-stone-700">Lista de espera</p>
+                    <p className="mt-1 text-center text-sm text-stone-500">
+                      Déjanos tu contacto y te avisamos si queda mesa libre.
+                    </p>
+                    <div className="mt-5 space-y-4">
+                      <input
+                        type="text"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Tu nombre *"
+                        className="w-full border-0 border-b border-stone-300 bg-transparent pb-2 text-base text-stone-900 placeholder-stone-400 focus:border-karuma-700 focus:outline-none"
+                      />
+                      <input
+                        type="tel"
+                        value={telefono}
+                        onChange={(e) => setTelefono(e.target.value)}
+                        placeholder="Teléfono / WhatsApp *"
+                        className="w-full border-0 border-b border-stone-300 bg-transparent pb-2 text-base text-stone-900 placeholder-stone-400 focus:border-karuma-700 focus:outline-none"
+                      />
+                    </div>
+                    {esperaError && (
+                      <p className="mt-3 border-l-2 border-karuma-700 bg-karuma-50 px-3 py-2 text-sm font-medium text-karuma-800">
+                        {esperaError}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => void apuntarseEspera()}
+                      disabled={esperaEnviando}
+                      className="mt-5 w-full rounded-xl bg-karuma-700 py-3 text-sm font-semibold text-[#f6f3ec] hover:bg-karuma-800 disabled:opacity-40"
+                    >
+                      {esperaEnviando ? "Apuntando…" : "Apuntarme"}
+                    </button>
+                    <button
+                      onClick={() => setEsperaForm(false)}
+                      className="mt-2 w-full py-2 text-xs text-stone-400 hover:text-stone-600"
+                    >
+                      Volver
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-base font-semibold text-stone-700">No hay disponibilidad</p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Elige otro día, contáctanos o apúntate a la lista de espera.
+                    </p>
+                    <div className="mt-5 flex flex-wrap justify-center gap-2">
+                      <a
+                        href={`tel:${TELEFONO}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-medium text-[#f6f3ec]"
+                      >
+                        <Phone className="h-4 w-4" /> Llamar
+                      </a>
+                      <a
+                        href={`https://wa.me/${WHATSAPP.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-700"
+                      >
+                        <MessageCircle className="h-4 w-4" /> WhatsApp
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => setEsperaForm(true)}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-karuma-700 px-4 py-2.5 text-sm font-semibold text-karuma-700 hover:bg-karuma-700 hover:text-[#f6f3ec]"
+                    >
+                      Lista de espera
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2.5">

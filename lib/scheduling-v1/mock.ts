@@ -176,8 +176,8 @@ export type ScheduleConflict = {
 export const SCHEDULE_CONFLICTS: ScheduleConflict[] = [
   {
     id: "conflict-1",
-    employeeId: "mauricio",
-    employee: "Mauricio",
+    employeeId: "jhon",
+    employee: "Jhon",
     day: "周六",
     shifts: ["全天", "晚班"],
     message: "全天已含晚班时段，不可同时排晚班",
@@ -213,7 +213,16 @@ function weekSchedule(
 
 /** 上周排班（复制来源） */
 export const LAST_WEEK_SCHEDULE: WeeklyScheduleRow[] = [
-  weekSchedule("jhoan", "Jhoan", {
+  weekSchedule("zhouzhou", "Zhou", {
+    周一: "晚班",
+    周二: "晚班",
+    周三: "晚班",
+    周四: "晚班",
+    周五: "晚班",
+    周六: "晚班",
+    周日: "晚班",
+  }),
+  weekSchedule("carlos", "Carlos", {
     周一: "晚班",
     周二: "午班",
     周三: "晚班",
@@ -280,7 +289,7 @@ export const LAST_WEEK_SCHEDULE: WeeklyScheduleRow[] = [
     周六: "晚班",
     周日: "晚班",
   }),
-  weekSchedule("mauricio", "Mauricio", {
+  weekSchedule("jhon", "Jhon", {
     周一: "午班",
     周二: "晚班",
     周三: "午班",

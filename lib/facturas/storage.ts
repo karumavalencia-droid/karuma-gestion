@@ -1,4 +1,10 @@
-import { CATEGORIAS_FACTURA, MAX_FILE_BYTES, fmtNum, genId } from "@/lib/facturas/helpers";
+import {
+  CATEGORIAS_FACTURA,
+  MAX_FILE_BYTES,
+  fmtNum,
+  genId,
+  normalizeEmpresa,
+} from "@/lib/facturas/helpers";
 import type { CategoriaFactura, Factura, FacturasStore } from "@/lib/types";
 
 const STORE_PATH = "facturas/facturas.json";
@@ -72,6 +78,7 @@ function normalizeFactura(raw: unknown): Factura | null {
     proveedor: String(r.proveedor ?? "").trim() || "Sin proveedor",
     importe: fmtNum(parseFloat(String(r.importe ?? 0)) || 0),
     categoria: normalizeCategory(r.categoria),
+    empresa: normalizeEmpresa(r.empresa),
     observaciones: String(r.observaciones ?? ""),
     archivoNombre: String(r.archivoNombre ?? ""),
     archivoTipo: String(r.archivoTipo ?? ""),
@@ -85,6 +92,8 @@ function normalizeFactura(raw: unknown): Factura | null {
         ? r.archivoSource
         : undefined,
     driveFileId: typeof r.driveFileId === "string" ? r.driveFileId : undefined,
+    enviadoAt: typeof r.enviadoAt === "number" ? r.enviadoAt : undefined,
+    enviadoA: typeof r.enviadoA === "string" ? r.enviadoA : undefined,
     createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
     updatedAt: typeof r.updatedAt === "number" ? r.updatedAt : undefined,
   };

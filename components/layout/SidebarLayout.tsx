@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY, ROUTE_PAGE_TITLE } from "@/lib/i18n/translations";
 
-const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance"];
+const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance", "/my-schedule"];
 
 function resolvePageTitle(pathname: string, t: (key: string) => string): string {
   const pageTitleKey = ROUTE_PAGE_TITLE[pathname];

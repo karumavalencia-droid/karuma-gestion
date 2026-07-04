@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck, Users, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
 import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
@@ -9,6 +10,16 @@ import { syncAndLoadReservas } from "@/lib/reservas/sync";
 
 interface SalesRecord { date: string; grossSales: number; customers: number; }
 interface SalesResponse { configured: boolean; records: SalesRecord[]; }
+
+interface FacturasResponse {
+  configured?: boolean;
+  facturas?: { enviadoAt?: number }[];
+}
+
+interface AttendanceResponse {
+  summary?: { scheduled: number; present: number; working: number };
+  rows?: { workedMinutes: number }[];
+}
 
 function fmt(n: number) {
   return `€${n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -19,6 +30,8 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState<StatsLocal | null>(null);
   const [sales, setSales] = useState<SalesResponse | null>(null);
+  const [facturas, setFacturas] = useState<FacturasResponse | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceResponse | null>(null);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -33,6 +46,16 @@ export default function DashboardPage() {
     fetch("/api/sales/daily?limit=31")
       .then((r) => r.json())
       .then((d: SalesResponse) => setSales(d))
+      .catch(() => null);
+
+    fetch("/api/facturas", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: FacturasResponse) => setFacturas(d))
+      .catch(() => null);
+
+    fetch("/api/attendance/admin", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: AttendanceResponse | null) => setAttendance(d))
       .catch(() => null);
   }, [todayStr]);
 
@@ -57,25 +80,32 @@ export default function DashboardPage() {
   const salesCards = [
     {
       label: t("dashboard.todaySales"),
-      value: salesConfigured ? (todayRec ? fmt(todayRec.grossSales) : "€0") : "€3,240",
+      value: salesConfigured ? (todayRec ? fmt(todayRec.grossSales) : "€0") : "—",
       live: salesConfigured,
     },
     {
       label: t("dashboard.yesterdaySales"),
-      value: salesConfigured ? (yesterdayRec ? fmt(yesterdayRec.grossSales) : "€0") : "€2,890",
+      value: salesConfigured ? (yesterdayRec ? fmt(yesterdayRec.grossSales) : "€0") : "—",
       live: salesConfigured,
     },
     {
       label: t("dashboard.monthSales"),
-      value: salesConfigured ? fmt(monthTotal) : "€68,500",
+      value: salesConfigured ? fmt(monthTotal) : "—",
       live: salesConfigured,
     },
     {
       label: t("dashboard.todayFootfall"),
-      value: salesConfigured ? String(todayRec?.customers ?? 0) : "142",
+      value: salesConfigured ? String(todayRec?.customers ?? 0) : "—",
       live: salesConfigured,
     },
   ];
+
+  const facturasPendientes = facturas?.configured
+    ? (facturas.facturas ?? []).filter((f) => !f.enviadoAt).length
+    : null;
+  const horasHoy = attendance?.rows
+    ? attendance.rows.reduce((s, r) => s + (r.workedMinutes || 0), 0) / 60
+    : null;
 
   return (
     <div className="space-y-6">
@@ -100,6 +130,44 @@ export default function DashboardPage() {
             <p className="mt-2 text-xl font-semibold text-gray-900">{item.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Operativa de hoy: facturas pendientes + equipo en turno */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-gray-700">Operativa hoy</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <Link href="/facturas" className="block">
+            <StatCard
+              title="Facturas por enviar"
+              value={facturasPendientes !== null ? String(facturasPendientes) : "—"}
+              subtitle={facturasPendientes !== null ? "a la asesoría" : "nube no configurada"}
+              icon={Receipt}
+              iconColor="bg-amber-50 text-amber-600"
+            />
+          </Link>
+          <Link href="/attendance" className="block">
+            <StatCard
+              title="Fichados ahora"
+              value={
+                attendance?.summary
+                  ? `${attendance.summary.working}/${attendance.summary.scheduled}`
+                  : "—"
+              }
+              subtitle="en turno / planificados"
+              icon={UserCheck}
+              iconColor="bg-emerald-50 text-emerald-600"
+            />
+          </Link>
+          <Link href="/attendance" className="block">
+            <StatCard
+              title="Horas trabajadas hoy"
+              value={horasHoy !== null ? `${horasHoy.toFixed(1)} h` : "—"}
+              subtitle="todo el equipo"
+              icon={Timer}
+              iconColor="bg-blue-50 text-blue-600"
+            />
+          </Link>
+        </div>
       </div>
 
       {/* Reservas de hoy - live desde localStorage */}

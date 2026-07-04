@@ -89,6 +89,22 @@
 
 ---
 
+### `turnos` (portal del empleado — migration `010_turnos.sql`)
+Plantilla semanal de turnos por empleado. Seed desde `lib/schedule/mock.ts` con `npm run seed:turnos`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| employee_key | TEXT | id de `lib/staff/data.ts` (mismo que attendance_events) |
+| dia | SMALLINT | 0 = Domingo … 6 = Sábado (como `horario_semanal`) |
+| servicio | TEXT | 'Comida', 'Cena' o 'Descanso' |
+| hora_inicio, hora_fin | TIME | NULL solo si servicio = 'Descanso' |
+| updated_at | TIMESTAMPTZ | |
+
+RLS: solo service role (igual que `attendance_events`); `GET /api/schedule/me` filtra por el empleado de la sesión. Si la tabla no existe o está vacía, la API cae a la plantilla local de `lib/schedule/mock.ts`.
+
+---
+
 ### `cierres_servicio`
 | Column | Type | Notes |
 |--------|------|-------|

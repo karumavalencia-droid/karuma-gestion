@@ -107,6 +107,28 @@ export type DbAttendanceEventInsert = {
   distance_from_store?: number | null;
 };
 
+export type TurnoServicio = "Comida" | "Cena" | "Descanso";
+
+export type DbTurno = {
+  id: string;
+  employee_key: string;
+  dia: number;
+  servicio: TurnoServicio;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  updated_at: string;
+};
+
+export type DbTurnoInsert = {
+  id?: string;
+  employee_key: string;
+  dia: number;
+  servicio: TurnoServicio;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  updated_at?: string;
+};
+
 // ── Reservas types ──────────────────────────────────────────────────────────
 
 export type DbMesa = {
@@ -182,6 +204,32 @@ export type DbCierreServicio = {
   created_at: string;
 };
 
+export type DbListaEspera = {
+  id: string;
+  fecha: string;
+  servicio: "comida" | "cena";
+  nombre: string;
+  telefono: string;
+  personas: number;
+  notas: string | null;
+  origen: "online" | "staff";
+  estado: "esperando" | "sentado" | "cancelado";
+  created_at: string;
+};
+
+export type DbListaEsperaInsert = {
+  id?: string;
+  fecha: string;
+  servicio: "comida" | "cena";
+  nombre: string;
+  telefono: string;
+  personas: number;
+  notas?: string | null;
+  origen?: "online" | "staff";
+  estado?: "esperando" | "sentado" | "cancelado";
+  created_at?: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 export type Database = {
@@ -215,6 +263,12 @@ export type Database = {
         Row: DbAttendanceEvent;
         Insert: DbAttendanceEventInsert;
         Update: Partial<DbAttendanceEventInsert>;
+        Relationships: [];
+      };
+      turnos: {
+        Row: DbTurno;
+        Insert: DbTurnoInsert;
+        Update: Partial<DbTurnoInsert>;
         Relationships: [];
       };
       mesas: {
@@ -259,6 +313,12 @@ export type Database = {
         Row: DbCierreServicio;
         Insert: Omit<DbCierreServicio, "id" | "created_at">;
         Update: Partial<Omit<DbCierreServicio, "id" | "created_at">>;
+        Relationships: [];
+      };
+      lista_espera: {
+        Row: DbListaEspera;
+        Insert: DbListaEsperaInsert;
+        Update: Partial<DbListaEsperaInsert>;
         Relationships: [];
       };
     };

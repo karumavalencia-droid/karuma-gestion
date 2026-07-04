@@ -21,10 +21,22 @@ function staff(row: StaffSeed): StaffMember {
 
 /** Primer bloque de empleados reales */
 export const STAFF_MEMBERS: StaffMember[] = [
+  // Gerencia
+  staff({
+    id: "zhouzhou",
+    name: "Zhou",
+    department: "Gerencia",
+    position: "Propietario",
+    role: "owner",
+    weeklyHours: null,
+    status: "Activo",
+    fixedRestDay1: null,
+    fixedRestDay2: null,
+  }),
   // Sala
   staff({
-    id: "jhoan",
-    name: "Jhoan",
+    id: "carlos",
+    name: "Carlos",
     department: "Sala",
     position: "Camarero",
     role: "waiter",
@@ -64,6 +76,17 @@ export const STAFF_MEMBERS: StaffMember[] = [
     weeklyHours: 40,
     status: "Activo",
     fixedRestDay1: "Wednesday",
+    fixedRestDay2: null,
+  }),
+  staff({
+    id: "vanessa",
+    name: "Vanessa",
+    department: "Sala",
+    position: "Camarero",
+    role: "waiter",
+    weeklyHours: 40,
+    status: "Activo",
+    fixedRestDay1: "Monday",
     fixedRestDay2: null,
   }),
   // Sushi
@@ -135,8 +158,8 @@ export const STAFF_MEMBERS: StaffMember[] = [
   }),
   // Hot Kitchen
   staff({
-    id: "mauricio",
-    name: "Mauricio",
+    id: "jhon",
+    name: "Jhon",
     department: "Hot Kitchen",
     position: "Cocina",
     role: "kitchen",

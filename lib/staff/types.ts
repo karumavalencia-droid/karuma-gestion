@@ -3,13 +3,24 @@ import type { StandardShift } from "./shifts";
 
 export type StaffStatus = "Activo" | "Inactivo";
 
-export type StaffDepartment = "Sala" | "Sushi" | "Hot Kitchen" | "Dishwasher";
+export type StaffDepartment = "Gerencia" | "Sala" | "Sushi" | "Hot Kitchen" | "Dishwasher";
 
 export const STAFF_DEPARTMENTS: StaffDepartment[] = [
+  "Gerencia",
   "Sala",
   "Sushi",
   "Hot Kitchen",
   "Dishwasher",
+];
+
+/** Categorías de personal (campo position en staff). */
+export const STAFF_POSITIONS = [
+  "Propietario",
+  "Encargada",
+  "Camarero",
+  "Sushiman",
+  "Cocina",
+  "Friegaplatos",
 ];
 
 export type StaffMember = {

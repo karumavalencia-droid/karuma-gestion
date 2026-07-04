@@ -1,7 +1,27 @@
-import { CategoriaFactura, Factura, FacturasStore } from "@/lib/types";
+import { CategoriaFactura, EmpresaFactura, Factura, FacturasStore } from "@/lib/types";
 
 export const STORAGE_KEY = "karuma_facturas_v1";
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+
+export const EMPRESAS_FACTURA: { id: Exclude<EmpresaFactura, "">; label: string }[] = [
+  { id: "kosushi", label: "Kosushi" },
+  { id: "spicy", label: "Spicy" },
+];
+
+export function normalizeEmpresa(value: unknown): EmpresaFactura {
+  return value === "kosushi" || value === "spicy" ? value : "";
+}
+
+// Regla de negocio: las facturas sin empresa asignada se tratan como Kosushi.
+export function empresaEfectiva(f: Pick<Factura, "empresa">): Exclude<EmpresaFactura, ""> {
+  return f.empresa === "spicy" ? "spicy" : "kosushi";
+}
+
+export function empresaLabel(empresa: EmpresaFactura): string {
+  if (empresa === "kosushi") return "Kosushi";
+  if (empresa === "spicy") return "Spicy";
+  return "Sin asignar";
+}
 
 export const CATEGORIAS_FACTURA: CategoriaFactura[] = [
   "Factura",
@@ -89,10 +109,13 @@ function normalizeFactura(raw: unknown): Factura | null {
     proveedor: String(r.proveedor ?? "").trim() || "Sin proveedor",
     importe: fmtNum(parseFloat(String(r.importe ?? 0)) || 0),
     categoria: categorias.includes(categoria) ? (categoria as CategoriaFactura) : "Otros",
+    empresa: normalizeEmpresa(r.empresa),
     observaciones: String(r.observaciones ?? ""),
     archivoNombre: String(r.archivoNombre ?? ""),
     archivoTipo: String(r.archivoTipo ?? ""),
     archivoData: String(r.archivoData ?? ""),
+    enviadoAt: typeof r.enviadoAt === "number" ? r.enviadoAt : undefined,
+    enviadoA: typeof r.enviadoA === "string" ? r.enviadoA : undefined,
     createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
   };
 }
@@ -229,6 +252,7 @@ export const EMPTY_FACTURA_FORM = {
   proveedor: "",
   importe: "",
   categoria: "Otros" as CategoriaFactura,
+  empresa: "" as EmpresaFactura,
   observaciones: "",
 };
 
@@ -240,6 +264,7 @@ export function facturaToForm(f: Factura): FacturaForm {
     proveedor: f.proveedor,
     importe: String(f.importe),
     categoria: f.categoria,
+    empresa: normalizeEmpresa(f.empresa),
     observaciones: f.observaciones,
   };
 }
@@ -263,6 +288,7 @@ export function parseFacturaForm(
     proveedor,
     importe,
     categoria: form.categoria,
+    empresa: normalizeEmpresa(form.empresa),
     observaciones: form.observaciones.trim(),
     archivoNombre: archivo?.nombre ?? existing?.archivoNombre ?? "",
     archivoTipo: archivo?.tipo ?? existing?.archivoTipo ?? "",

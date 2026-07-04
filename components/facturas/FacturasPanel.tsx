@@ -11,6 +11,7 @@ import {
   Receipt,
   RefreshCw,
   Search,
+  Send,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -21,8 +22,11 @@ import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   CATEGORIAS_FACTURA,
+  EMPRESAS_FACTURA,
   EMPTY_FACTURA_FORM,
   computeStats,
+  empresaEfectiva,
+  empresaLabel,
   facturaToForm,
   genId,
   isImage,
@@ -33,11 +37,13 @@ import {
   saveFacturas,
   type FacturaForm,
 } from "@/lib/facturas/helpers";
-import { CategoriaFactura, Factura, FacturasStore } from "@/lib/types";
+import { CategoriaFactura, EmpresaFactura, Factura, FacturasStore } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type Tab = "lista" | "estadisticas";
-type ModalKind = "form" | "preview" | "confirm" | null;
+type ModalKind = "form" | "preview" | "confirm" | "envio" | null;
+type EmpresaEnvio = Exclude<EmpresaFactura, "">;
+type FiltroEmpresa = "" | EmpresaEnvio | "sin";
 
 const categoriaVariant: Record<
   CategoriaFactura,
@@ -150,8 +156,14 @@ export function FacturasPanel() {
   const [formError, setFormError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState<CategoriaFactura | "">("");
+  const [filtroEmpresa, setFiltroEmpresa] = useState<FiltroEmpresa>("");
   const [syncError, setSyncError] = useState("");
   const [toast, setToast] = useState("");
+  const [envioEmpresa, setEnvioEmpresa] = useState<EmpresaEnvio>("kosushi");
+  const [envioIncluirEnviadas, setEnvioIncluirEnviadas] = useState(false);
+  const [envioError, setEnvioError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [recipients, setRecipients] = useState<Record<EmpresaEnvio, string> | null>(null);
 
   const loadFromCloud = useCallback(async () => {
     setLoading(true);
@@ -181,6 +193,15 @@ export function FacturasPanel() {
   useEffect(() => {
     loadFromCloud();
   }, [loadFromCloud]);
+
+  useEffect(() => {
+    fetch("/api/facturas/enviar")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { recipients?: Record<EmpresaEnvio, string> } | null) => {
+        if (data?.recipients) setRecipients(data.recipients);
+      })
+      .catch(() => {});
+  }, []);
 
   const persistLocal = useCallback((next: FacturasStore) => {
     saveFacturas(next);
@@ -229,9 +250,68 @@ export function FacturasPanel() {
         !busqueda.trim() ||
         f.proveedor.toLowerCase().includes(busqueda.trim().toLowerCase());
       const matchCat = !filtroCategoria || f.categoria === filtroCategoria;
-      return matchProv && matchCat;
+      const matchEmp =
+        !filtroEmpresa ||
+        (filtroEmpresa === "sin" ? !f.empresa : f.empresa === filtroEmpresa);
+      return matchProv && matchCat && matchEmp;
     });
-  }, [store?.facturas, busqueda, filtroCategoria]);
+  }, [store?.facturas, busqueda, filtroCategoria, filtroEmpresa]);
+
+  // Facturas que entrarían en el envío a la asesoría seleccionada.
+  // Regla: las facturas sin empresa asignada cuentan como Kosushi.
+  const facturasParaEnvio = useMemo(() => {
+    const all = (store?.facturas ?? []).filter(
+      (f) => empresaEfectiva(f) === envioEmpresa,
+    );
+    const pendientes = all.filter((f) => !f.enviadoAt);
+    return {
+      pendientes,
+      yaEnviadas: all.length - pendientes.length,
+      seleccionadas: envioIncluirEnviadas ? all : pendientes,
+    };
+  }, [store?.facturas, envioEmpresa, envioIncluirEnviadas]);
+
+  const openEnvio = () => {
+    setEnvioEmpresa(filtroEmpresa === "spicy" ? "spicy" : "kosushi");
+    setEnvioIncluirEnviadas(false);
+    setEnvioError("");
+    setModal("envio");
+  };
+
+  const handleEnviar = async () => {
+    const facturas = facturasParaEnvio.seleccionadas;
+    if (facturas.length === 0) return;
+
+    setEnviando(true);
+    setEnvioError("");
+    try {
+      const response = await fetch("/api/facturas/enviar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresa: envioEmpresa,
+          facturaIds: facturas.map((f) => f.id),
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        recipient?: string;
+        count?: number;
+        facturas?: Factura[];
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudieron enviar las facturas");
+      }
+
+      if (data.facturas) setStore({ facturas: data.facturas });
+      setModal(null);
+      showToast(`${data.count ?? facturas.length} facturas enviadas a ${data.recipient ?? ""}`);
+    } catch (err) {
+      setEnvioError(err instanceof Error ? err.message : "No se pudieron enviar las facturas");
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -373,10 +453,18 @@ export function FacturasPanel() {
             : "Archivo de facturas de compras — Karuma Sushi & Grill"
         }
       >
-        <Button onClick={openNew} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Nueva factura
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {cloudReady && (
+            <Button onClick={openEnvio} variant="secondary" className="w-full sm:w-auto">
+              <Send className="h-4 w-4" />
+              Enviar a asesoría
+            </Button>
+          )}
+          <Button onClick={openNew} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Nueva factura
+          </Button>
+        </div>
       </PageHeader>
 
       <div
@@ -451,7 +539,7 @@ export function FacturasPanel() {
       {tab === "lista" && (
         <>
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -462,6 +550,19 @@ export function FacturasPanel() {
                   className={`${inputClass} pl-9`}
                 />
               </div>
+              <select
+                value={filtroEmpresa}
+                onChange={(e) => setFiltroEmpresa(e.target.value as FiltroEmpresa)}
+                className={inputClass}
+              >
+                <option value="">Todas las tiendas</option>
+                {EMPRESAS_FACTURA.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.label}
+                  </option>
+                ))}
+                <option value="sin">Sin asignar</option>
+              </select>
               <select
                 value={filtroCategoria}
                 onChange={(e) =>
@@ -506,6 +607,12 @@ export function FacturasPanel() {
                         <StatusBadge variant={categoriaVariant[f.categoria]}>
                           {f.categoria}
                         </StatusBadge>
+                        <StatusBadge variant={f.empresa ? "info" : "neutral"}>
+                          {empresaLabel(f.empresa ?? "")}
+                        </StatusBadge>
+                        {f.enviadoAt && (
+                          <StatusBadge variant="success">Enviada</StatusBadge>
+                        )}
                         {hasAttachment(f) && (
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                             {isPdf(f.archivoTipo) ? (
@@ -660,21 +767,39 @@ export function FacturasPanel() {
             />
           </Field>
 
-          <Field label="Categoría" required>
-            <select
-              value={form.categoria}
-              onChange={(e) =>
-                setForm({ ...form, categoria: e.target.value as CategoriaFactura })
-              }
-              className={inputClass}
-            >
-              {CATEGORIAS_FACTURA.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Categoría" required>
+              <select
+                value={form.categoria}
+                onChange={(e) =>
+                  setForm({ ...form, categoria: e.target.value as CategoriaFactura })
+                }
+                className={inputClass}
+              >
+                {CATEGORIAS_FACTURA.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tienda / Empresa">
+              <select
+                value={form.empresa}
+                onChange={(e) =>
+                  setForm({ ...form, empresa: e.target.value as EmpresaFactura })
+                }
+                className={inputClass}
+              >
+                <option value="">Sin asignar (cuenta como Kosushi)</option>
+                {EMPRESAS_FACTURA.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
 
           <Field label="Observaciones">
             <textarea
@@ -800,6 +925,102 @@ export function FacturasPanel() {
           >
             Eliminar
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={modal === "envio"}
+        title="Enviar facturas a la asesoría"
+        onClose={() => setModal(null)}
+        wide
+      >
+        <div className="space-y-4">
+          <Field label="Tienda / Empresa" required>
+            <select
+              value={envioEmpresa}
+              onChange={(e) => setEnvioEmpresa(e.target.value as EmpresaEnvio)}
+              className={inputClass}
+            >
+              {EMPRESAS_FACTURA.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            <p>
+              Destinatario:{" "}
+              <strong>{recipients?.[envioEmpresa] ?? "cargando…"}</strong>
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Las facturas sin tienda asignada se envían con Kosushi.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={envioIncluirEnviadas}
+              onChange={(e) => setEnvioIncluirEnviadas(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            Incluir también las {facturasParaEnvio.yaEnviadas} ya enviadas
+          </label>
+
+          {facturasParaEnvio.seleccionadas.length === 0 ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              No hay facturas pendientes de enviar para {empresaLabel(envioEmpresa)}.
+            </p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
+                <tbody>
+                  {facturasParaEnvio.seleccionadas.map((f) => (
+                    <tr key={f.id} className="border-b border-gray-100 last:border-0">
+                      <td className="px-3 py-2 text-gray-500">{formatDate(f.fecha)}</td>
+                      <td className="max-w-0 truncate px-3 py-2 font-medium text-gray-800">
+                        {f.proveedor}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                        {formatCurrency(f.importe)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs text-gray-400">
+                        {hasAttachment(f) ? "PDF" : "sin adjunto"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="text-sm text-gray-600">
+            Se enviarán{" "}
+            <strong>{facturasParaEnvio.seleccionadas.length} facturas</strong> (
+            {formatCurrency(
+              facturasParaEnvio.seleccionadas.reduce((s, f) => s + f.importe, 0),
+            )}
+            ) a <strong>{empresaLabel(envioEmpresa)}</strong>.
+          </p>
+
+          {envioError && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{envioError}</p>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={() => setModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleEnviar}
+              disabled={enviando || facturasParaEnvio.seleccionadas.length === 0}
+            >
+              <Send className="h-4 w-4" />
+              {enviando ? "Enviando…" : "Confirmar envío"}
+            </Button>
+          </div>
         </div>
       </Modal>
 

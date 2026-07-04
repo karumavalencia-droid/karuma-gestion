@@ -16,6 +16,13 @@ Karuma ERP is an internal management system for **Karuma Sushi & Grill** (Valenc
 - `/delivery` — Delivery growth metrics
 - `/kiosk` — Staff clock-in/out tablet kiosk (PIN-based)
 
+### Portal del empleado (v1)
+- `/my-attendance` — Fichar entrada/salida con validación GPS en servidor (geofence 150 m, hora del servidor)
+- `/my-schedule` — Mi horario semanal (tabla `turnos` en Supabase con fallback a la plantilla local)
+- Barra inferior compartida (Fichar | Horario); huecos preparados para Nómina/Recetas/Tareas en v2
+- Login del empleado: PIN de 4 dígitos (usuario y contraseña); middleware confina la cuenta al portal
+- Pendiente manual: aplicar `supabase/migrations/010_turnos.sql` en el SQL Editor y ejecutar `npm run seed:turnos`
+
 ### Reservations Module (Reservas 1.0 — on main, deployed)
 - ✅ `/reservas` — Public booking wizard: Karuma branding, 5 steps, 7-day window, 30-min min notice, past slots hidden, elegant slot cards, correct menus (no Sushi Burger), phone +34 676 70 67 76, success page with address + assigned mesa
 - ✅ `/dashboard/reservas` — Management list: reservations by date/service, status transitions, Walk-In modal, Nueva Reserva manual modal (with slot picker + auto table assignment)

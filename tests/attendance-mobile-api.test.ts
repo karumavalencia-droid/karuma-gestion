@@ -15,9 +15,9 @@ process.env.KARUMA_ATTENDANCE_MAX_ACCURACY_METERS = "100";
 async function employeeCookie() {
   const token = await createSessionToken({
     name: "Jhoan",
-    email: "jhoan@karuma.es",
+    email: "carlos@karuma.es",
     role: "waiter",
-    employeeId: "jhoan",
+    employeeId: "carlos",
   });
   return `${SESSION_COOKIE_NAME}=${token}`;
 }
@@ -43,7 +43,7 @@ test("an employee can log in with the PIN as username and password", async () =>
   };
 
   assert.equal(response.status, 200);
-  assert.equal(payload.employeeId, "jhoan");
+  assert.equal(payload.employeeId, "carlos");
   assert.equal(payload.role, "waiter");
   assert.match(response.headers.get("set-cookie") ?? "", /karuma_session=/);
 });
@@ -71,7 +71,7 @@ test("an employee can punch inside the restaurant and only sees own events", asy
   };
 
   assert.equal(response.status, 201);
-  assert.equal(payload.event?.employeeId, "jhoan");
+  assert.equal(payload.event?.employeeId, "carlos");
   assert.equal(payload.event?.source, "mobile");
   assert.equal(payload.event?.latitude, 39.46995);
 
@@ -85,9 +85,9 @@ test("an employee can punch inside the restaurant and only sees own events", asy
     events: { employeeId: string }[];
   };
   assert.equal(status.status, 200);
-  assert.equal(statusPayload.employee.id, "jhoan");
+  assert.equal(statusPayload.employee.id, "carlos");
   assert.ok(
-    statusPayload.events.every((event) => event.employeeId === "jhoan"),
+    statusPayload.events.every((event) => event.employeeId === "carlos"),
   );
 });
 

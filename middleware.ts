@@ -11,6 +11,10 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/logout",
 ]);
 
+// Portal del empleado: rutas permitidas para cuentas con employeeId.
+const EMPLOYEE_PAGES = new Set(["/my-attendance", "/my-schedule"]);
+const EMPLOYEE_API_PREFIXES = ["/api/attendance/me", "/api/schedule/me"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -48,13 +52,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    if (!user.employeeId && pathname === "/my-attendance") {
+    if (!user.employeeId && EMPLOYEE_PAGES.has(pathname)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     if (
       user.employeeId &&
-      pathname !== "/my-attendance" &&
-      !pathname.startsWith("/api/attendance/me")
+      !EMPLOYEE_PAGES.has(pathname) &&
+      !EMPLOYEE_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))
     ) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(

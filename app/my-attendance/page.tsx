@@ -14,6 +14,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { PortalTabs } from "@/components/portal/PortalTabs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type {
   AttendanceEvent,
@@ -227,7 +228,7 @@ export default function MyAttendancePage() {
   const nextIsIn = data?.nextAction !== "out";
 
   return (
-    <main className="min-h-[100dvh] bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-4 py-5 text-white sm:py-8">
+    <main className="min-h-[100dvh] bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-4 py-5 pb-24 text-white sm:py-8">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-5 flex items-center justify-between gap-3">
           <div>
@@ -388,6 +389,7 @@ export default function MyAttendancePage() {
           {text.logout}
         </button>
       </div>
+      <PortalTabs />
     </main>
   );
 }

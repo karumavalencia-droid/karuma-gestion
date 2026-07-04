@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
@@ -1013,6 +1014,13 @@ export default function MesaViewPage() {
                     </button>
                   </>
                 )}
+                {fecha === hoy() && sel.status !== "occupied" &&
+                  !(sel.status === "reserved" && sel.reserva && isTableBlockReservation(sel.reserva)) && (
+                  <button onClick={() => { openWalkIn(sel); setSel(null); }}
+                    className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                    🚶 Sentar Walk-In en esta mesa
+                  </button>
+                )}
               </>
             )}
 
@@ -1085,24 +1093,43 @@ export default function MesaViewPage() {
                 <button onClick={closeWalkIn} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               {wiError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiError}</p>}
+              {!wiGeneral && (() => {
+                const proxima = (wiMesa.agenda ?? []).find((r) => !isTableBlockReservation(r) && r.estado !== "sentada" && r.estado !== "walkin");
+                return proxima ? (
+                  <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                    ⚠️ Esta mesa tiene reserva a las {proxima.hora} ({proxima.nombre}). El walk-in la ocupará ahora.
+                  </p>
+                ) : null;
+              })()}
               {wiGeneral && (
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Mesa *</label>
                   <div className="grid grid-cols-5 gap-1.5">
                     {mesasList.filter((m) => {
                       const mc = mesas.find((x) => x.id === m.id);
-                      return !mc || (mc.status === "available" && (mc.agenda?.length ?? 0) === 0);
-                    }).map((m) => (
+                      if (!mc) return true;
+                      if (mc.status === "occupied") return false;
+                      // Mesa bloqueada en este momento → no se puede sentar
+                      return !(mc.status === "reserved" && mc.reserva && isTableBlockReservation(mc.reserva));
+                    }).map((m) => {
+                      const mc = mesas.find((x) => x.id === m.id);
+                      const proxima = (mc?.agenda ?? []).find((r) => !isTableBlockReservation(r));
+                      return (
                       <button key={m.id} onClick={() => setWiSelectedId(m.id)}
                         className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
                           wiSelectedId === m.id
                             ? "border-emerald-700 bg-emerald-100 text-emerald-900 font-bold"
+                            : proxima
+                            ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-500"
                             : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400"
                         }`}>
                         <p className="text-xs font-bold">T{m.numero}</p>
-                        <p className="text-[10px] text-gray-500">{m.capacidad}p</p>
+                        <p className={`text-[10px] ${proxima ? "font-semibold text-amber-700" : "text-gray-500"}`}>
+                          {proxima ? `Res ${proxima.hora}` : `${m.capacidad}p`}
+                        </p>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1351,6 +1378,9 @@ export default function MesaViewPage() {
           );
         })()}
       </Modal>
+
+      {/* Resumen de mesas hechas por servicio (esquina) */}
+      <ResumenServicios reservas={reservas} />
     </div>
   );
 }

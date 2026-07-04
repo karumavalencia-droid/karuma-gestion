@@ -368,12 +368,15 @@ export type CategoriaFactura =
   | "Packaging"
   | "Otros";
 
+export type EmpresaFactura = "kosushi" | "spicy" | "";
+
 export interface Factura {
   id: string;
   fecha: string;
   proveedor: string;
   importe: number;
   categoria: CategoriaFactura;
+  empresa?: EmpresaFactura;
   observaciones: string;
   archivoNombre: string;
   archivoTipo: string;
@@ -382,6 +385,8 @@ export interface Factura {
   archivoUrl?: string;
   archivoSource?: "upload" | "google-drive" | "legacy";
   driveFileId?: string;
+  enviadoAt?: number;
+  enviadoA?: string;
   createdAt: number;
   updatedAt?: number;
 }
