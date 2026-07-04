@@ -1186,10 +1186,11 @@ export default function ReservasPage() {
                 </div>
               </div>
             )}
-            {mesaSel.status === "available" && (mesaSel.agenda?.length ?? 0) === 0 && (
+            {fecha === hoy() && mesaSel.status !== "occupied" &&
+              !(mesaSel.status === "reserved" && mesaSel.reserva && isTableBlockReservation(mesaSel.reserva)) && (
               <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
                 className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">
-                + Walk-In directo
+                + Walk-In directo{(mesaSel.agenda?.length ?? 0) > 0 ? " (mesa con reserva)" : ""}
               </button>
             )}
             {/* Bloquear esta mesa (con hora y duración ajustables) */}

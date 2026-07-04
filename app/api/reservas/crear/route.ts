@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
-import { buildTableBlockNotes } from "@/lib/reservas/helpers";
+import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
 
 function isValidEmail(email: string): boolean {
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   };
   const emailCliente = typeof email === "string" ? email.trim().toLowerCase() : "";
   const isTableBlock = bloqueo === true;
+  const isWalkIn = origen === "walkin";
   const personasReserva = Number(personas);
 
   if (!fecha || !hora || !servicio || (!isTableBlock && (!personasReserva || personasReserva < 1))) {
@@ -77,16 +78,26 @@ export async function POST(req: NextRequest) {
   // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
   let mesaIds: number[];
   if (forceMesaIds && forceMesaIds.length > 0) {
-    const ocupadas = mesasOcupadasEnSlot(
-      (reservasExistentes ?? []) as Reserva[],
-      fecha,
-      hora,
-      duracion,
-      config.turno_gap_min ?? 30,
-    );
+    const existentes = (reservasExistentes ?? []) as Reserva[];
+    let ocupadas: Set<number>;
+    if (isWalkIn) {
+      // Walk-in sentado por el personal: una reserva pendiente (Confirmada) no
+      // bloquea la mesa; solo las físicamente ocupadas ahora y los bloqueos.
+      ocupadas = mesasOcupadasEnSlot(existentes.filter(isTableBlockReservation), fecha, hora, duracion, 0);
+      for (const r of existentes) {
+        const st = normalizeReservationStatus(r.estado);
+        if (st === "sentado" || st === "walkin") r.mesa_ids.forEach((id) => ocupadas.add(id));
+      }
+    } else {
+      ocupadas = mesasOcupadasEnSlot(existentes, fecha, hora, duracion, config.turno_gap_min ?? 30);
+    }
     if (forceMesaIds.some((id) => ocupadas.has(id))) {
       return NextResponse.json(
-        { error: `Esta mesa necesita al menos ${config.turno_gap_min ?? 30} min entre dos turnos.` },
+        {
+          error: isWalkIn
+            ? "Esta mesa está ocupada o bloqueada ahora mismo."
+            : `Esta mesa necesita al menos ${config.turno_gap_min ?? 30} min entre dos turnos.`,
+        },
         { status: 409 },
       );
     }
@@ -107,7 +118,6 @@ export async function POST(req: NextRequest) {
     mesaIds = assigned;
   }
 
-  const isWalkIn = origen === "walkin";
   const nombreReserva = typeof nombre === "string" ? nombre.trim() : "";
   const nombreCliente = nombreReserva || (isTableBlock ? "Bloqueo mesa" : isWalkIn ? "Walk-In" : "Sin nombre");
 
