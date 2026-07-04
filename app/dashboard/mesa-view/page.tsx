@@ -91,6 +91,26 @@ function duracionBloqueoLabel(minutos?: number) {
 function canMoveLocalReservation(reserva: ReservaLocal): boolean {
   return !isTableBlockReservation(reserva) && canMoveReservation(reserva.estado) && reserva.mesaIds.length > 0;
 }
+function isRealReservation(reserva?: ReservaLocal | null): reserva is ReservaLocal {
+  return !!reserva && !isTableBlockReservation(reserva);
+}
+function mesaPartyLabel(mesa: MesaConEstado, reserva?: ReservaLocal | null): string {
+  return isRealReservation(reserva) ? `${reserva.personas}p` : `${mesa.capacidad}p`;
+}
+function joinedTablesLabel(reserva?: ReservaLocal | null): string | null {
+  if (!isRealReservation(reserva) || reserva.mesaIds.length <= 1) return null;
+  return `${reserva.mesaIds.length} mesas`;
+}
+function isJoinedReservation(reserva?: ReservaLocal | null): boolean {
+  return !!reserva && reserva.mesaIds.length > 1;
+}
+function reservationTablesLabel(reserva?: ReservaLocal | null, mesa?: MesaConEstado | null): string {
+  if (reserva?.mesaIds.length) return mesaLabel(reserva.mesaIds);
+  return mesa ? `T${mesa.numero}` : "Mesa";
+}
+function agendaItemTitle(a: ReservaLocal): string {
+  return isTableBlockReservation(a) ? `${a.hora} Bloqueo mesa` : `${a.hora} ${a.nombre} ${a.personas}p`;
+}
 function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
   const activas = reservas.filter(
     (r) => isActiveReservation(r.estado) && getReservationService(r) === servicio && !isTableBlockReservation(r),
@@ -886,6 +906,8 @@ export default function MesaViewPage() {
             const visualStatus = proxima ? "reserved" : m.status;
             const st = isBlocked ? BLOCKED_STYLE : STATUS_STYLE[visualStatus];
             const occupied = m.status === "occupied";
+            const partyLabel = mesaPartyLabel(m, shownReserva);
+            const joinedLabel = joinedTablesLabel(shownReserva);
             const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
@@ -899,8 +921,15 @@ export default function MesaViewPage() {
                   </span>
                 </span>
                 <p className={`mesa-card-number text-2xl font-black ${occupied ? "text-white" : "text-gray-900"}`}>T{m.numero}</p>
-                <div className="flex items-center gap-1.5">
-                  <p className={`text-sm ${occupied ? "text-emerald-100" : "text-gray-400"}`}>{m.capacidad}p</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className={`text-sm font-semibold ${occupied ? "text-emerald-100" : isRealReservation(shownReserva) ? "text-emerald-700" : "text-gray-400"}`}>
+                    {partyLabel}
+                  </p>
+                  {joinedLabel && (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${occupied ? "bg-white/20 text-white" : "bg-emerald-200 text-emerald-900"}`}>
+                      {joinedLabel}
+                    </span>
+                  )}
                   {agenda.length > 1 && (
                     <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-gray-900"}`}
                       title={`${agenda.length} reservas hoy`}>
@@ -935,8 +964,12 @@ export default function MesaViewPage() {
                         <p className={`mesa-card-detail-name truncate text-base font-bold ${isTableBlockReservation(proxima) ? "text-rose-800" : "text-emerald-900"}`}>
                           {isTableBlockReservation(proxima) ? "Bloqueo mesa" : proxima.nombre}
                         </p>
-                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
+                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map(agendaItemTitle).join(" · ")}>
+                          {isTableBlockReservation(proxima)
+                            ? `Bloqueada · ${proxima.hora}`
+                            : `Reservada · ${proxima.hora} · ${proxima.personas}p`}
+                          {!isTableBlockReservation(proxima) && proxima.mesaIds.length > 1 ? ` · ${proxima.mesaIds.length} mesas` : ""}
+                          {futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
                         </p>
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
@@ -976,12 +1009,20 @@ export default function MesaViewPage() {
           const focusOcc = !!focusR && (focusR.estado === "sentada" || focusR.estado === "walkin");
           const focusBlock = !!focusR && isTableBlockReservation(focusR);
           const focusCanMove = !!focusR && canMoveLocalReservation(focusR);
+          const focusTables = reservationTablesLabel(focusR, sel);
+          const joined = isJoinedReservation(focusR);
           return (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
-                <p className="text-sm text-gray-500">{sel.capacidad} personas · {sel.zona}</p>
+                <h2 className="text-2xl font-black text-gray-900">{focusTables}</h2>
+                <p className="text-sm text-gray-500">
+                  {focusR
+                    ? focusBlock
+                      ? `${duracionBloqueoLabel(focusR.duracionMin)} · operación conjunta`
+                      : `${focusR.personas} personas · ${joined ? "operación conjunta" : sel.zona}`
+                    : `${sel.capacidad} personas · ${sel.zona}`}
+                </p>
               </div>
               <button onClick={() => { setSel(null); setEditing(false); setEditError(""); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
@@ -1005,7 +1046,8 @@ export default function MesaViewPage() {
                           <span className="truncate text-gray-600">{a.nombre}</span>
                         </div>
                         <span className="shrink-0 text-xs text-gray-400">
-                          {isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`} · {ESTADO_CORTO[a.estado] ?? a.estado}
+                          {isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`}
+                          {a.mesaIds.length > 1 ? ` · ${mesaLabel(a.mesaIds)}` : ""} · {ESTADO_CORTO[a.estado] ?? a.estado}
                         </span>
                       </button>
                     );
@@ -1064,6 +1106,7 @@ export default function MesaViewPage() {
                     <span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusBlock ? "Tipo" : "Cliente"}</span>
                     <span className="font-semibold">{focusBlock ? "Bloqueo mesa" : focusR.nombre}</span>
                   </div>
+                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>Mesas</span><span className="font-semibold">{mesaLabel(focusR.mesaIds)}</span></div>
                   <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusR.estado === "walkin" ? "Sentado a las" : "Hora"}</span><span className="font-semibold">{focusR.hora}</span></div>
                   {focusBlock ? (
                     <div className="flex justify-between"><span className="text-rose-600">Duración</span><span className="font-semibold">{duracionBloqueoLabel(focusR.duracionMin)}</span></div>
@@ -1083,13 +1126,13 @@ export default function MesaViewPage() {
                 {focusBlock ? (
                   <button onClick={() => setCancelReservaId(focusR.id)}
                     className="w-full rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
-                    Desbloquear mesa
+                    Desbloquear {joined ? "mesas" : "mesa"}
                   </button>
                 ) : focusOcc ? (
                   <>
                     <button onClick={() => handleLiberar(focusR)}
                       className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
-                      ✓ Liberar mesa
+                      ✓ Liberar {joined ? "mesas" : "mesa"}
                     </button>
                     {focusR.estado === "sentada" && (
                       <button onClick={() => void handleDesSentar(focusR)}
@@ -1101,14 +1144,14 @@ export default function MesaViewPage() {
                 ) : (
                   <button onClick={() => { openSeat(focusR); setSel(null); }}
                     className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-                    → Sentar / Ocupar mesa
+                    → Sentar / Ocupar {joined ? "mesas" : "mesa"}
                   </button>
                 )}
                 {focusCanMove && (
                   <button onClick={() => { openMove(focusR); setSel(null); }}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
                     <ArrowRightLeft className="h-4 w-4" />
-                    Cambiar mesa
+                    Cambiar {joined ? "mesas" : "mesa"}
                   </button>
                 )}
                 {esReservaIntercambiable(focusR) && (
@@ -1149,7 +1192,7 @@ export default function MesaViewPage() {
             )}
 
             {/* Crear otra reserva en esta mesa (libre en el momento mostrado) */}
-            {!editing && sel.status === "available" && (
+            {!editing && sel.status === "available" && !focusR && (
               <div className="space-y-2">
                 {!focusR && fecha === hoy() && (
                   <button onClick={() => { openWalkIn(sel); setSel(null); }}
@@ -1431,8 +1474,10 @@ export default function MesaViewPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-black text-gray-900">Sentar reserva</h2>
-                <p className="text-sm text-gray-500">{seatReserva.nombre} · {seatReserva.personas} personas</p>
+                <h2 className="text-lg font-black text-gray-900">
+                  Sentar {isJoinedReservation(seatReserva) ? "mesas" : "reserva"}
+                </h2>
+                <p className="text-sm text-gray-500">{seatReserva.nombre} · {seatReserva.personas} personas · {mesaLabel(seatReserva.mesaIds)}</p>
               </div>
               <button onClick={() => setSeatReserva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
             </div>
@@ -1443,7 +1488,7 @@ export default function MesaViewPage() {
             </div>
             <button onClick={submitSeat}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-              {seatMesaIds.length ? `Sentar en ${seatMesaIds.join(", ")}` : "Sentar (auto-asignar)"}
+              {seatMesaIds.length ? `Sentar en ${mesaLabel(seatMesaIds)}` : "Sentar (auto-asignar)"}
             </button>
           </div>
         )}
@@ -1461,7 +1506,7 @@ export default function MesaViewPage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-gray-900">Cambiar de mesa</h2>
+                  <h2 className="text-lg font-black text-gray-900">Cambiar {isJoinedReservation(moveReserva) ? "mesas" : "mesa"}</h2>
                   <p className="text-sm text-gray-500">
                     {moveReserva.nombre} · {moveReserva.personas} personas
                   </p>
@@ -1502,7 +1547,7 @@ export default function MesaViewPage() {
                 disabled={!moveMesaIds.length || capacidad < moveReserva.personas}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
                 <ArrowRightLeft className="h-4 w-4" />
-                Confirmar cambio
+                Confirmar cambio de {isJoinedReservation(moveReserva) ? "mesas" : "mesa"}
               </button>
             </div>
           );

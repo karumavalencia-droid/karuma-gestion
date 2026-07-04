@@ -4,7 +4,10 @@ import {
   createTableBlock,
   createReserva,
   editReserva,
+  getMesasConEstado,
+  liberarMesa,
   loadReservas,
+  sentarReserva,
   type ServicioLocal,
 } from "../lib/reservas/local-store";
 
@@ -98,6 +101,53 @@ test("larger parties keep the table blocked for their configured duration", () =
 
   const allowed = createReserva(reservaInput({ fecha, hora: "15:30", personas: 4, forceMesaIds: ["T7"] }));
   assert.equal(allowed.ok, true);
+});
+
+test("multi-table reservation exposes the full party size on every joined table", () => {
+  const fecha = futureDate();
+  const mesaIds = ["T17", "T18", "T19", "T20"];
+  const reserva = createReserva(reservaInput({
+    fecha,
+    hora: "13:30",
+    personas: 10,
+    nombre: "Nicolas",
+    forceMesaIds: mesaIds,
+  }));
+  assert.equal(reserva.ok, true);
+
+  const mesas = getMesasConEstado(fecha, "comida", "13:30")
+    .filter((m) => mesaIds.includes(m.id));
+
+  assert.equal(mesas.length, 4);
+  assert.deepEqual(mesas.map((m) => m.reserva?.personas), [10, 10, 10, 10]);
+  assert.deepEqual(mesas.map((m) => m.reserva?.mesaIds), [mesaIds, mesaIds, mesaIds, mesaIds]);
+});
+
+test("seating and freeing a multi-table reservation updates the whole joined group", () => {
+  const fecha = futureDate();
+  const mesaIds = ["T17", "T18", "T19", "T20"];
+  const reserva = createReserva(reservaInput({
+    fecha,
+    hora: "13:30",
+    personas: 10,
+    nombre: "Nicolas",
+    forceMesaIds: mesaIds,
+  }));
+  assert.equal(reserva.ok, true);
+  if (!reserva.ok) return;
+
+  const seated = sentarReserva(reserva.reserva.id);
+  assert.equal(seated.ok, true);
+  const occupiedMesas = getMesasConEstado(fecha, "comida", "13:45")
+    .filter((m) => mesaIds.includes(m.id));
+  assert.deepEqual(occupiedMesas.map((m) => m.status), ["occupied", "occupied", "occupied", "occupied"]);
+  assert.deepEqual(occupiedMesas.map((m) => m.reserva?.id), Array(4).fill(reserva.reserva.id));
+
+  liberarMesa(reserva.reserva.id);
+  const freedMesas = getMesasConEstado(fecha, "comida", "13:45")
+    .filter((m) => mesaIds.includes(m.id));
+  assert.deepEqual(freedMesas.map((m) => m.status), ["available", "available", "available", "available"]);
+  assert.deepEqual(freedMesas.map((m) => m.agenda?.length ?? 0), [0, 0, 0, 0]);
 });
 
 test("editing a reservation cannot move it into another turn on the same table", () => {
