@@ -900,7 +900,6 @@ export default function MesaViewPage() {
                 </span>
                 <p className={`mesa-card-number text-2xl font-black ${occupied ? "text-white" : "text-gray-900"}`}>T{m.numero}</p>
                 <div className="flex items-center gap-1.5">
-                  <p className={`text-sm ${occupied ? "text-emerald-100" : "text-gray-400"}`}>{m.capacidad}p</p>
                   {agenda.length > 1 && (
                     <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-gray-900"}`}
                       title={`${agenda.length} reservas hoy`}>

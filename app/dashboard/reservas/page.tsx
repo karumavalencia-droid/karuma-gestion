@@ -1128,7 +1128,6 @@ export default function ReservasPage() {
                         title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
                     )}
                     <p className="text-xs font-black">T{m.numero}</p>
-                    <p className="text-[9px] opacity-70">{m.capacidad}p</p>
                     {m.reserva
                       ? <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.estado === "walkin" ? `${m.reserva.hora} ${m.reserva.nombre.split(" ")[0]}` : m.reserva.nombre.split(" ")[0]}</p>
                       : futuras.length > 0 && <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : futuras[0].hora}</p>}
