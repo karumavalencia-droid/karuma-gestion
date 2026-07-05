@@ -229,6 +229,21 @@ export function duracionReserva(personas: number): number {
 function duracionReservaLocal(r: ReservaLocal): number {
   return r.duracionMin ?? duracionReserva(r.personas);
 }
+// Inicio efectivo de la ventana de una reserva. Una sentada/walk-in ya está
+// físicamente en la mesa: cuenta desde que se sentó (seatedAt, por si se sentó
+// antes de su hora), redondeado a su franja para que el plano la muestre
+// ocupada en la franja "Ahora" (un walk-in de las 19:52 ocupa desde las 19:45).
+function iniVentana(r: ReservaLocal): number {
+  let ini = toMin(r.hora);
+  if (!isOccupied(r)) return ini;
+  if (r.seatedAt) {
+    const seated = new Date(r.seatedAt);
+    if (seated.toISOString().split("T")[0] === r.fecha) {
+      ini = Math.min(ini, seated.getHours() * 60 + seated.getMinutes());
+    }
+  }
+  return Math.floor(ini / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
+}
 // Fin efectivo de la ventana de una reserva. Para una sentada/walk-in de hoy,
 // la mesa sigue ocupada hasta que se libera aunque haya pasado su ventana
 // teórica: el fin nunca queda por detrás de "ahora" (+ un slot de margen).
@@ -238,9 +253,9 @@ function finVentana(r: ReservaLocal): number {
   const ahora = new Date();
   return Math.max(fin, ahora.getHours() * 60 + ahora.getMinutes() + SLOT_INTERVAL_MIN);
 }
-// ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [hora, fin)
+// ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [ini, fin)
 function cubreMomento(r: ReservaLocal, tMin: number): boolean {
-  return tMin >= toMin(r.hora) && tMin < finVentana(r);
+  return tMin >= iniVentana(r) && tMin < finVentana(r);
 }
 
 // Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
@@ -322,7 +337,7 @@ export function ocupadasEn(
     if (r.fecha !== fecha || r.servicio !== servicio) continue;
     // Una sentada/walk-in bloquea hasta que se libere (fin extendido a "ahora"),
     // pero deja la mesa reservable en franjas posteriores del mismo servicio.
-    const ini = toMin(r.hora);
+    const ini = iniVentana(r);
     const fin = finVentana(r);
     // Solapan [nuevaIni,nuevaFin) ∩ [ini,fin) ≠ ∅  → la mesa no está libre en ese turno
     if (nuevaIni < fin && ini < nuevaFin) r.mesaIds.forEach((id) => taken.add(id));
