@@ -20,6 +20,7 @@ import {
   updateEstado,
   liberarMesa,
   sentarReserva,
+  desSentarReserva,
   cambiarMesas,
   mesasDisponiblesParaCambio,
   desplazarReserva,
@@ -448,6 +449,22 @@ export default function ReservasPage() {
       });
     }
     reload(); showToast("Mesa liberada");
+  }
+
+  async function handleDesSentar(r: ReservaLocal) {
+    const res = desSentarReserva(r.id);
+    if (!res.ok) { showToast(res.error); return; }
+    if (r.origen) {
+      // Esperar la respuesta antes de recargar: si no, la sincronización lee el
+      // estado antiguo de Supabase y revierte el cambio local.
+      try {
+        await fetch("/api/reservas/actualizar-estado", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: r.id, estado: "confirmada" }),
+        });
+      } catch { /* sin red: el local ya está actualizado */ }
+    }
+    reload(); showToast("Reserva devuelta a confirmada");
   }
 
   function openSeat(r: ReservaLocal) { setSeatR(r); setSeatIds(r.mesaIds.length ? r.mesaIds : []); setSeatErr(""); }
@@ -991,6 +1008,12 @@ export default function ReservasPage() {
                                 Liberar
                               </button>
                             )}
+                            {r.estado === "sentada" && (
+                              <button onClick={() => void handleDesSentar(r)}
+                                className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200">
+                                Volver a confirmada
+                              </button>
+                            )}
                             <button onClick={() => openDesplazar(r)}
                               className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-200">
                               Desplazar
@@ -1089,8 +1112,11 @@ export default function ReservasPage() {
                   cleaning:  "border-gray-300 bg-gray-100 text-gray-600",
                 };
                 const nTurnos = m.agenda?.length ?? 0;
-                const visualStatus = m.status === "available" && nTurnos > 0 ? "reserved" : m.status;
-                const primaryReserva = m.reserva ?? m.agenda?.[0];
+                // Turnos desde la franja mostrada: un walk-in ya terminado no
+                // marca la mesa como reservada en franjas posteriores.
+                const futuras = (m.agenda ?? []).filter((a) => a.hora >= horaPanel);
+                const visualStatus = m.status === "available" && futuras.length > 0 ? "reserved" : m.status;
+                const primaryReserva = m.reserva ?? futuras[0];
                 const blocked = !!primaryReserva && isTableBlockReservation(primaryReserva);
                 return (
                   <button key={m.id} onClick={() => setMesaSel(m)}
@@ -1104,8 +1130,8 @@ export default function ReservasPage() {
                     <p className="text-xs font-black">T{m.numero}</p>
                     <p className="text-[9px] opacity-70">{m.capacidad}p</p>
                     {m.reserva
-                      ? <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.nombre.split(" ")[0]}</p>
-                      : nTurnos > 0 && <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : m.agenda![0].hora}</p>}
+                      ? <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.estado === "walkin" ? `${m.reserva.hora} ${m.reserva.nombre.split(" ")[0]}` : m.reserva.nombre.split(" ")[0]}</p>
+                      : futuras.length > 0 && <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : futuras[0].hora}</p>}
                   </button>
                 );
               })}
@@ -1155,7 +1181,7 @@ export default function ReservasPage() {
             {mesaSel.reserva && (
               <div className={`rounded-xl p-3 text-sm space-y-1 ${mesaSel.status === "occupied" ? "bg-emerald-700 text-white" : mesaBlock ? "bg-rose-100 text-rose-950" : "bg-emerald-100"}`}>
                 <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>{mesaBlock ? "Tipo" : "Cliente"}</span><span className="font-semibold">{mesaBlock ? "Bloqueo mesa" : mesaSel.reserva.nombre}</span></div>
-                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>Hora</span><span>{mesaSel.reserva.hora}</span></div>
+                <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>{mesaSel.reserva.estado === "walkin" ? "Sentado a las" : "Hora"}</span><span>{mesaSel.reserva.hora}</span></div>
                 <div className="flex justify-between"><span className={mesaSel.status === "occupied" ? "text-emerald-100" : mesaBlock ? "text-rose-600" : "text-gray-500"}>{mesaBlock ? "Duración" : "Personas"}</span><span>{mesaBlock ? duracionBloqueoLabel(mesaSel.reserva.duracionMin) : `${mesaSel.reserva.personas}`}</span></div>
               </div>
             )}

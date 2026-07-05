@@ -229,10 +229,18 @@ export function duracionReserva(personas: number): number {
 function duracionReservaLocal(r: ReservaLocal): number {
   return r.duracionMin ?? duracionReserva(r.personas);
 }
-// ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [hora, hora+turno)
+// Fin efectivo de la ventana de una reserva. Para una sentada/walk-in de hoy,
+// la mesa sigue ocupada hasta que se libera aunque haya pasado su ventana
+// teórica: el fin nunca queda por detrás de "ahora" (+ un slot de margen).
+function finVentana(r: ReservaLocal): number {
+  const fin = toMin(r.hora) + duracionReservaLocal(r);
+  if (!isOccupied(r) || r.fecha !== new Date().toISOString().split("T")[0]) return fin;
+  const ahora = new Date();
+  return Math.max(fin, ahora.getHours() * 60 + ahora.getMinutes() + SLOT_INTERVAL_MIN);
+}
+// ¿La reserva ocupa físicamente la mesa en el minuto `tMin`?  Ventana [hora, fin)
 function cubreMomento(r: ReservaLocal, tMin: number): boolean {
-  const ini = toMin(r.hora);
-  return tMin >= ini && tMin < ini + duracionReservaLocal(r);
+  return tMin >= toMin(r.hora) && tMin < finVentana(r);
 }
 
 // Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
@@ -281,9 +289,9 @@ export function getMesasConEstado(
       .filter((r) => r.mesaIds.includes(m.id))
       .sort((a, b) => toMin(a.hora) - toMin(b.hora));
     const ahora = agenda.filter(enMomento);
-    // Una mesa permanece ocupada hasta que se libera, aunque haya terminado
-    // la ventana horaria teórica de la reserva.
-    const occ = agenda.find((r) => isOccupied(r));
+    // Ocupada solo mientras dura la ocupación (finVentana extiende hasta que se
+    // libere): en franjas posteriores la mesa vuelve a mostrarse disponible.
+    const occ = ahora.find((r) => isOccupied(r));
     if (occ) return { ...m, status: "occupied" as MesaStatus, reserva: occ, agenda };
     const res = ahora.find((r) => isReserved(r));
     if (res) return { ...m, status: "reserved" as MesaStatus, reserva: res, agenda };
@@ -312,12 +320,10 @@ export function ocupadasEn(
   for (const r of loadReservas()) {
     if (r.id === excludeId || !isActive(r)) continue;
     if (r.fecha !== fecha || r.servicio !== servicio) continue;
-    if (isOccupied(r)) {
-      r.mesaIds.forEach((id) => taken.add(id));
-      continue;
-    }
+    // Una sentada/walk-in bloquea hasta que se libere (fin extendido a "ahora"),
+    // pero deja la mesa reservable en franjas posteriores del mismo servicio.
     const ini = toMin(r.hora);
-    const fin = ini + duracionReservaLocal(r);
+    const fin = finVentana(r);
     // Solapan [nuevaIni,nuevaFin) ∩ [ini,fin) ≠ ∅  → la mesa no está libre en ese turno
     if (nuevaIni < fin && ini < nuevaFin) r.mesaIds.forEach((id) => taken.add(id));
   }
@@ -570,6 +576,25 @@ export function sentarReserva(
   }
 
   list[idx] = { ...r, estado: "sentada", mesaIds, seatedAt: new Date().toISOString() };
+  saveReservas(list);
+  return { ok: true };
+}
+
+// ─── Des-sentar (volver a confirmada sin liberar la reserva) ─────────────────
+
+export function desSentarReserva(
+  reservaId: string,
+): { ok: true } | { ok: false; error: string } {
+  const list = loadReservas();
+  const idx = list.findIndex((r) => r.id === reservaId);
+  if (idx < 0) return { ok: false, error: "Reserva no encontrada." };
+
+  const r = list[idx];
+  if (r.estado !== "sentada") {
+    return { ok: false, error: "Solo una reserva sentada puede volver a confirmada." };
+  }
+
+  list[idx] = { ...r, estado: "confirmada", seatedAt: undefined };
   saveReservas(list);
   return { ok: true };
 }

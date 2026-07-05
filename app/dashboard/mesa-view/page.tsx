@@ -20,6 +20,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
   sentarReserva,
+  desSentarReserva,
   liberarMesa,
   cambiarMesas,
   updateEstado,
@@ -31,6 +32,7 @@ import {
   intercambiarReservas,
   slotsPlano,
   defaultHoraPlano,
+  duracionReserva,
   loadReservas,
   MESAS_SEED,
   type MesaConEstado,
@@ -310,10 +312,28 @@ export default function MesaViewPage() {
     setNHora(defaultHoraPlano(fecha, servicio)); setNServicio(servicio); setNMesaIds([]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
-  // Nueva reserva pre-rellenada para una mesa concreta (al tocar mesa libre en una fecha futura)
+  // Primera franja del plano en la que la mesa quedará libre tras su ocupación actual.
+  function horaTrasOcupacion(m: MesaConEstado): string | null {
+    const occ = (m.agenda ?? []).find((r) => r.estado === "sentada" || r.estado === "walkin");
+    if (!occ) return null;
+    const [h, mm] = occ.hora.split(":").map(Number);
+    let fin = h * 60 + mm + (occ.duracionMin ?? duracionReserva(occ.personas));
+    if (occ.fecha === hoy()) {
+      const now = new Date();
+      fin = Math.max(fin, now.getHours() * 60 + now.getMinutes());
+    }
+    return slotsPlano(servicio).find((s) => {
+      const [sh, sm] = s.split(":").map(Number);
+      return sh * 60 + sm >= fin;
+    }) ?? null;
+  }
+
+  // Nueva reserva pre-rellenada para una mesa concreta. Si la mesa está ocupada
+  // (walk-in / sentada), sugiere la primera hora en la que quedará libre.
   function openNuevaParaMesa(m: MesaConEstado) {
     setNNombre(""); setNTelefono(""); setNEmail(""); setNPersonas(Math.min(m.capacidad, 2));
-    setNHora(horaPlano); setNServicio(servicio); setNMesaIds([m.id]);
+    setNHora(m.status === "occupied" ? (horaTrasOcupacion(m) ?? horaPlano) : horaPlano);
+    setNServicio(servicio); setNMesaIds([m.id]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
   async function submitNueva() {
@@ -412,6 +432,23 @@ export default function MesaViewPage() {
     setSel(null); reload(); showToast("Mesa liberada");
   }
 
+  // ── Des-sentar (volver a confirmada) ─────────────────────────────────────────
+  async function handleDesSentar(r: ReservaLocal) {
+    const res = desSentarReserva(r.id);
+    if (!res.ok) { showToast(res.error); return; }
+    if (r.origen) {
+      // Esperar la respuesta antes de recargar: si no, la sincronización lee el
+      // estado antiguo de Supabase y revierte el cambio local.
+      try {
+        await fetch("/api/reservas/actualizar-estado", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: r.id, estado: "confirmada" }),
+        });
+      } catch { /* sin red: el local ya está actualizado */ }
+    }
+    setSel(null); reload(); showToast("Reserva devuelta a confirmada");
+  }
+
   // ── Cancelar ─────────────────────────────────────────────────────────────────
   function handleCancelar(r: ReservaLocal) {
     updateEstado(r.id, "cancelada");
@@ -501,24 +538,39 @@ export default function MesaViewPage() {
     setSwapReserva(r);
     setSwapError("");
   }
-  function submitSwap(objetivo: ReservaLocal) {
+  async function submitSwap(objetivo: ReservaLocal) {
     if (!swapReserva) return;
     const mesasA = swapReserva.mesaIds;
     const mesasB = objetivo.mesaIds;
     const res = intercambiarReservas(swapReserva.id, objetivo.id);
     if (!res.ok) { setSwapError(res.error); return; }
-    // Sincroniza con Supabase: cada reserva recibe las mesas de la otra
+    // Sincroniza con Supabase ANTES de dar el cambio por bueno: si el servidor
+    // rechaza alguna de las dos (p. ej. la reserva cambió en otro dispositivo),
+    // se revierte el intercambio local para no quedar desincronizados.
     for (const [r, nuevas] of [[swapReserva, mesasB], [objetivo, mesasA]] as const) {
       if (!r.origen) continue;
-      void fetch("/api/reservas/actualizar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cambiar-mesa",
-          id: r.id,
-          mesaIds: nuevas.map((id) => Number(id.replace("T", ""))),
-        }),
-      });
+      let error = "";
+      try {
+        const response = await fetch("/api/reservas/actualizar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cambiar-mesa",
+            id: r.id,
+            mesaIds: nuevas.map((id) => Number(id.replace("T", ""))),
+          }),
+        });
+        const json = await response.json() as { ok?: boolean; error?: string };
+        if (!response.ok || !json.ok) error = json.error ?? "No se pudo sincronizar el intercambio.";
+      } catch {
+        error = "No se pudo sincronizar el intercambio.";
+      }
+      if (error) {
+        intercambiarReservas(swapReserva.id, objetivo.id); // revierte el swap local
+        setSwapError(`${error} (${r.nombre})`);
+        reload();
+        return;
+      }
     }
     setSwapReserva(null); setSel(null); reload();
     showToast(`Mesas intercambiadas: ${mesaLabel(mesasA)} ↔ ${mesaLabel(mesasB)}`);
@@ -825,7 +877,10 @@ export default function MesaViewPage() {
           {mesas.map((m) => {
             const r = m.reserva;
             const agenda = m.agenda ?? [];
-            const proxima = m.status === "available" ? agenda[0] : undefined;
+            // "Próx" = siguiente turno desde la franja mostrada (los pasados,
+            // p. ej. un walk-in ya terminado, no cuentan como próximos).
+            const futuras = m.status === "available" ? agenda.filter((a) => a.hora >= horaPlano) : [];
+            const proxima = futuras[0];
             const shownReserva = r ?? proxima;
             const isBlocked = !!shownReserva && isTableBlockReservation(shownReserva);
             const visualStatus = proxima ? "reserved" : m.status;
@@ -858,7 +913,7 @@ export default function MesaViewPage() {
                     <p className="mesa-card-detail-name truncate text-base font-bold text-white">{r.nombre}</p>
                     <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-100">
                       <Users className="h-4 w-4" />{r.personas}
-                      <Clock className="ml-1.5 h-4 w-4" />{duracion(r.seatedAt)}
+                      <Clock className="ml-1.5 h-4 w-4" />{r.estado === "walkin" ? `${r.hora} · ${duracion(r.seatedAt)}` : duracion(r.seatedAt)}
                     </div>
                   </div>
                 )}
@@ -875,13 +930,13 @@ export default function MesaViewPage() {
                   </div>
                 )}
                 {m.status === "available" && (
-                  agenda.length > 0
+                  proxima
                     ? <div className="mesa-card-detail mt-2 space-y-0.5">
-                        <p className={`mesa-card-detail-name truncate text-base font-bold ${isTableBlockReservation(agenda[0]) ? "text-rose-800" : "text-emerald-900"}`}>
-                          {isTableBlockReservation(agenda[0]) ? "Bloqueo mesa" : agenda[0].nombre}
+                        <p className={`mesa-card-detail-name truncate text-base font-bold ${isTableBlockReservation(proxima) ? "text-rose-800" : "text-emerald-900"}`}>
+                          {isTableBlockReservation(proxima) ? "Bloqueo mesa" : proxima.nombre}
                         </p>
-                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(agenda[0]) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          {isTableBlockReservation(agenda[0]) ? "Bloqueada" : "Reservada"} · {agenda[0].hora}{agenda.length > 1 ? ` +${agenda.length - 1}` : ""}
+                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
                         </p>
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
@@ -1009,7 +1064,7 @@ export default function MesaViewPage() {
                     <span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusBlock ? "Tipo" : "Cliente"}</span>
                     <span className="font-semibold">{focusBlock ? "Bloqueo mesa" : focusR.nombre}</span>
                   </div>
-                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>Hora</span><span className="font-semibold">{focusR.hora}</span></div>
+                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusR.estado === "walkin" ? "Sentado a las" : "Hora"}</span><span className="font-semibold">{focusR.hora}</span></div>
                   {focusBlock ? (
                     <div className="flex justify-between"><span className="text-rose-600">Duración</span><span className="font-semibold">{duracionBloqueoLabel(focusR.duracionMin)}</span></div>
                   ) : (
@@ -1031,10 +1086,18 @@ export default function MesaViewPage() {
                     Desbloquear mesa
                   </button>
                 ) : focusOcc ? (
-                  <button onClick={() => handleLiberar(focusR)}
-                    className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
-                    ✓ Liberar mesa
-                  </button>
+                  <>
+                    <button onClick={() => handleLiberar(focusR)}
+                      className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
+                      ✓ Liberar mesa
+                    </button>
+                    {focusR.estado === "sentada" && (
+                      <button onClick={() => void handleDesSentar(focusR)}
+                        className="w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                        ↩ Volver a confirmada (sin sentar)
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <button onClick={() => { openSeat(focusR); setSel(null); }}
                     className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
@@ -1075,6 +1138,14 @@ export default function MesaViewPage() {
                   </button>
                 )}
               </>
+            )}
+
+            {/* Reservar la mesa para más tarde aunque ahora esté ocupada (walk-in / sentada) */}
+            {!editing && sel.status === "occupied" && (
+              <button onClick={() => { openNuevaParaMesa(sel); setSel(null); }}
+                className="w-full rounded-xl bg-karuma-600 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
+                + Reservar T{sel.numero} para más tarde
+              </button>
             )}
 
             {/* Crear otra reserva en esta mesa (libre en el momento mostrado) */}
