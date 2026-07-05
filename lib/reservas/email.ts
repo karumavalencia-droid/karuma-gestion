@@ -32,7 +32,7 @@ type EmailSendResult =
   | { sent: false; reason: "missing_config" | "request_failed" | "invalid_recipient"; error?: string };
 
 const RESTAURANT_NAME = "Karuma Sushi & Grill";
-const RESTAURANT_ADDRESS = "C/ de Roger de Lloria, 2, Valencia";
+const RESTAURANT_ADDRESS = "C/ de Roger de Llòria, 2, Valencia";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
 
 function escapeHtml(value: string): string {
@@ -63,14 +63,14 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
   const servicio = input.servicio === "comida" ? "Comida" : "Cena";
   const mesa = input.mesaIds.length > 0 ? input.mesaIds.join(", ") : "Asignada";
   const phoneLine = input.telefonoRestaurante
-    ? `Para cambiar o cancelar la reserva, llamanos al ${input.telefonoRestaurante}.`
+    ? `Para cambiar o cancelar la reserva, llámanos al ${input.telefonoRestaurante}.`
     : "Para cambiar o cancelar la reserva, contacta con el restaurante.";
 
-  const subject = `Confirmacion de reserva - ${RESTAURANT_NAME}`;
+  const subject = `Confirmación de reserva - ${RESTAURANT_NAME}`;
   const text = [
     `Hola ${nombre},`,
     "",
-    "Tu reserva esta confirmada:",
+    "Tu reserva está confirmada:",
     `Fecha: ${fecha}`,
     `Hora: ${input.hora}`,
     `Personas: ${input.personas}`,
@@ -90,7 +90,7 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
       <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(RESTAURANT_NAME)}</h1>
       <p style="margin:0 0 20px;color:#4b5563">Reserva confirmada</p>
       <p>Hola ${escapeHtml(nombre)},</p>
-      <p>Tu reserva esta confirmada. Te esperamos en Karuma.</p>
+      <p>Tu reserva está confirmada. Te esperamos en Karuma.</p>
       <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0">
         <tbody>
           <tr><td style="padding:10px 14px;color:#6b7280">Fecha</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(fecha)}</td></tr>
@@ -103,7 +103,7 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
       </table>
       <p style="font-weight:700;margin-bottom:4px">${escapeHtml(RESTAURANT_NAME)}</p>
       <p style="margin:0 0 8px;color:#4b5563">${escapeHtml(RESTAURANT_ADDRESS)}</p>
-      <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicacion en Google Maps</a></p>
+      <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicación en Google Maps</a></p>
       <p style="font-size:13px;color:#6b7280">${escapeHtml(phoneLine)}</p>
     </div>
   `;
@@ -118,10 +118,10 @@ function buildReviewEmail(input: ReservationReviewInput) {
     `Hola ${nombre},`,
     "",
     "Gracias por visitar Karuma Sushi & Grill.",
-    "Si disfrutaste la experiencia, nos ayudaria mucho que dejaras una resena en Google:",
+    "Si disfrutaste la experiencia, nos ayudaría mucho que dejaras una reseña en Google:",
     input.reviewLink,
     "",
-    "Tu opinion ayuda a que mas clientes nos encuentren y tambien nos ayuda a mejorar.",
+    "Tu opinión ayuda a que más clientes nos encuentren y también nos ayuda a mejorar.",
     "",
     RESTAURANT_NAME,
   ].join("\n");
@@ -133,13 +133,13 @@ function buildReviewEmail(input: ReservationReviewInput) {
       <p style="margin:0 0 20px;color:#4b5563">Gracias por visitarnos</p>
       <p>Hola ${escapeHtml(nombre)},</p>
       <p>Gracias por visitar Karuma Sushi & Grill.</p>
-      <p>Si disfrutaste la experiencia, nos ayudaria mucho que dejaras una resena en Google.</p>
+      <p>Si disfrutaste la experiencia, nos ayudaría mucho que dejaras una reseña en Google.</p>
       <p style="margin:24px 0">
         <a href="${safeLink}" style="display:inline-block;background:#b42318;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">
-          Dejar una resena
+          Dejar una reseña
         </a>
       </p>
-      <p style="font-size:13px;color:#6b7280">Tu opinion ayuda a que mas clientes nos encuentren y tambien nos ayuda a mejorar.</p>
+      <p style="font-size:13px;color:#6b7280">Tu opinión ayuda a que más clientes nos encuentren y también nos ayuda a mejorar.</p>
     </div>
   `;
 
@@ -150,19 +150,19 @@ function buildReminderEmail(input: ReservationReminderInput) {
   const nombre = input.nombre.trim() || "cliente";
   const fecha = formatFecha(input.fecha);
   const phoneLine = input.telefonoRestaurante
-    ? `Si no puedes venir, avisanos o cancela llamando al ${input.telefonoRestaurante}.`
-    : "Si no puedes venir, avisanos o cancela contactando con el restaurante.";
+    ? `Si no puedes venir, avísanos o cancela llamando al ${input.telefonoRestaurante}.`
+    : "Si no puedes venir, avísanos o cancela contactando con el restaurante.";
 
-  const subject = `Recordatorio: tu reserva de manana - ${RESTAURANT_NAME}`;
+  const subject = `Recordatorio: tu reserva de mañana - ${RESTAURANT_NAME}`;
   const text = [
     `Hola ${nombre},`,
     "",
-    "Te recordamos tu reserva para manana:",
+    "Te recordamos tu reserva para mañana:",
     `Fecha: ${fecha}`,
     `Hora: ${input.hora}`,
     `Personas: ${input.personas}`,
     "",
-    "Te esperamos!",
+    "¡Te esperamos!",
     "",
     RESTAURANT_NAME,
     RESTAURANT_ADDRESS,
@@ -176,7 +176,7 @@ function buildReminderEmail(input: ReservationReminderInput) {
       <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(RESTAURANT_NAME)}</h1>
       <p style="margin:0 0 20px;color:#4b5563">Recordatorio de tu reserva</p>
       <p>Hola ${escapeHtml(nombre)},</p>
-      <p>Te recordamos que manana tienes una reserva con nosotros. Te esperamos en Karuma.</p>
+      <p>Te recordamos que mañana tienes una reserva con nosotros. Te esperamos en Karuma.</p>
       <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0">
         <tbody>
           <tr><td style="padding:10px 14px;color:#6b7280">Fecha</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(fecha)}</td></tr>
@@ -186,7 +186,7 @@ function buildReminderEmail(input: ReservationReminderInput) {
       </table>
       <p style="font-weight:700;margin-bottom:4px">${escapeHtml(RESTAURANT_NAME)}</p>
       <p style="margin:0 0 8px;color:#4b5563">${escapeHtml(RESTAURANT_ADDRESS)}</p>
-      <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicacion en Google Maps</a></p>
+      <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicación en Google Maps</a></p>
       <p style="font-size:13px;color:#6b7280">${escapeHtml(phoneLine)}</p>
     </div>
   `;
