@@ -41,7 +41,7 @@ import {
 import { MovimientoInventario, ProductoInventario } from "@/lib/types";
 
 type Tab = "inventario" | "historial";
-type ModalKind = "product" | "movimiento" | "confirm" | null;
+type ModalKind = "product" | "movimiento" | "confirm" | "import" | null;
 
 const estadoVariant = {
   correcto: "success" as const,
@@ -125,6 +125,7 @@ export function InventarioPanel() {
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [form, setForm] = useState<ProductoForm>(EMPTY_FORM);
+  const [importJson, setImportJson] = useState("");
 
   useEffect(() => {
     try {
@@ -328,14 +329,82 @@ export function InventarioPanel() {
 
   const currentMovProduct = movId ? products.find((p) => p.id === movId) : null;
 
+  const openImportModal = useCallback(() => {
+    setImportJson("");
+    setModal("import");
+  }, []);
+
+  const performImport = useCallback(() => {
+    if (!importJson.trim()) {
+      showToast("Pegua datos JSON válidos");
+      return;
+    }
+    try {
+      const imported = JSON.parse(importJson);
+      if (!Array.isArray(imported)) {
+        showToast("Formato inválido: debe ser un array JSON");
+        return;
+      }
+      const newProducts = [...products];
+      let added = 0;
+      imported.forEach((item: unknown) => {
+        if (!item || typeof item !== "object") return;
+        const r = item as Record<string, unknown>;
+        const nombre = String(r.nombre ?? "").trim();
+        const proveedor = String(r.proveedor ?? "").trim();
+        if (!nombre) return;
+        if (newProducts.some((p) => p.nombre === nombre && p.proveedor === proveedor)) return;
+        const parsed = parseForm({
+          id: String(r.id ?? genId()),
+          nombre,
+          categoria: String(r.categoria ?? ""),
+          stock: String(r.stock ?? 0),
+          stockMinimo: String(r.stockMinimo ?? 0),
+          precio: String(r.precio ?? 0),
+          unidad: String(r.unidad ?? "kg"),
+          proveedor,
+        });
+        if (parsed) {
+          newProducts.push({
+            id: genId(),
+            ...parsed,
+            createdAt: Date.now(),
+          });
+          added++;
+        }
+      });
+      if (added > 0) {
+        persist(newProducts);
+        showToast(`Importados ${added} productos`);
+        setModal(null);
+        setImportJson("");
+      } else {
+        showToast("No se encontraron productos nuevos para importar");
+      }
+    } catch (e) {
+      showToast("Error al importar: " + String(e));
+    }
+  }, [importJson, products, persist, showToast]);
+
   return (
     <div>
       <PageHeader title="Inventario" description="Control de stock y movimientos">
-        <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nuevo producto</span>
-          <span className="sm:hidden">Nuevo</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nuevo producto</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={openImportModal}
+            title="Importar productos desde JSON"
+          >
+            📥 Importar
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
@@ -837,6 +906,38 @@ export function InventarioPanel() {
           >
             Eliminar
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={modal === "import"}
+        title="Importar productos desde JSON"
+        onClose={() => setModal(null)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg bg-blue-50 p-3">
+            <p className="mb-2 text-xs font-medium text-blue-900">Pasos rápidos:</p>
+            <ol className="space-y-1 text-xs text-blue-800">
+              <li>1. Descarga la plantilla: <a href="/api/stock/import-template" className="underline font-semibold" download>stock-import.json</a></li>
+              <li>2. Abre el archivo y copia todo el contenido</li>
+              <li>3. Pégalo en el campo de abajo</li>
+              <li>4. Haz clic en "Importar"</li>
+            </ol>
+          </div>
+          <textarea
+            value={importJson}
+            onChange={(e) => setImportJson(e.target.value)}
+            placeholder='[{"nombre":"Alga Nori","categoria":"Algas nori","unidad":"hojas","stock":0,"stockMinimo":2,"precio":0,"proveedor":"Cominport"}]'
+            className={`${inputClass} h-40 resize-none font-mono text-xs`}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setModal(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={performImport}>
+              Importar
+            </Button>
+          </div>
         </div>
       </Modal>
 
