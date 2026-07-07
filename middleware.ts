@@ -24,7 +24,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/reservas/") ||
     pathname.startsWith("/api/reservas/") ||
     pathname.startsWith("/api/cron/") ||
-    pathname === "/api/stock/import-template"
+    pathname === "/api/stock/import-template" ||
+    pathname === "/api/stock/from-invoices"
   ) {
     return NextResponse.next();
   }
