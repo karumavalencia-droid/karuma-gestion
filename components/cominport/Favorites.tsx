@@ -1,5 +1,6 @@
 import { Heart, ShoppingCart, Trash2 } from "lucide-react";
 import type { CominportProduct } from "@/src/data/cominportProducts";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface FavoritesProps {
   products: CominportProduct[];
@@ -38,38 +39,47 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
       </div>
 
       <div className="space-y-2">
-        {products.map((product) => (
-          <article
-            key={product.codigo}
-            className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-gray-700 dark:bg-gray-900"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-karuma-600 dark:text-karuma-400">
-                {product.codigo}
-              </p>
-              <h3 className="font-semibold text-gray-900 dark:text-white">{product.nombre}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{product.formato}</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onAdd(product)}
-                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-karuma-600 px-3 py-2 text-sm font-medium text-white hover:bg-karuma-700 sm:flex-none"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                Añadir
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(product.codigo)}
-                className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950/40"
-                aria-label={`Quitar ${product.nombre} de favoritos`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </article>
-        ))}
+        {products.map((product) => {
+          const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+
+          return (
+            <article
+              key={product.codigo}
+              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-gray-700 dark:bg-gray-900"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-karuma-600 dark:text-karuma-400">
+                  {product.codigo}
+                </p>
+                <h3 className="font-semibold text-gray-900 dark:text-white">{product.nombre}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{product.formato}</p>
+                {invoiceMeta && (
+                  <p className="text-xs font-medium text-karuma-700 dark:text-karuma-300">
+                    Unidad pedido: {invoiceMeta.unidadPedido}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onAdd(product)}
+                  className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-karuma-600 px-3 py-2 text-sm font-medium text-white hover:bg-karuma-700 sm:flex-none"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Añadir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(product.codigo)}
+                  className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950/40"
+                  aria-label={`Quitar ${product.nombre} de favoritos`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
