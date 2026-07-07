@@ -237,6 +237,7 @@ export default function ReservasPage() {
   // Mesa-panel inline state (walk-in desde el plano)
   const [mesaSel, setMesaSel] = useState<MesaConEstado | null>(null);
   const [wiInlineMesa, setWiInlineMesa] = useState<MesaConEstado | null>(null);
+  const [wiInlineMesaIds, setWiInlineMesaIds] = useState<string[]>([]); // varias mesas para grupos grandes
   const [wiInlinePersonas, setWiInlinePersonas] = useState(2);
   const [wiInlineNombre, setWiInlineNombre] = useState("");
   const [wiInlineError, setWiInlineError] = useState("");
@@ -681,6 +682,7 @@ export default function ReservasPage() {
 
   async function submitInlineWalkIn() {
     if (!wiInlineMesa) return;
+    if (!wiInlineMesaIds.length) { setWiInlineError("Selecciona al menos una mesa"); return; }
     setWiInlineError("");
     try {
       const response = await fetch("/api/reservas/crear", {
@@ -695,7 +697,7 @@ export default function ReservasPage() {
           telefono: "",
           notas: "",
           origen: "walkin",
-          forceMesaIds: [Number(wiInlineMesa.id.replace("T", ""))],
+          forceMesaIds: wiInlineMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
       const json = await response.json() as { ok?: boolean; error?: string };
@@ -703,11 +705,12 @@ export default function ReservasPage() {
         setWiInlineError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
-      const mesaNumero = wiInlineMesa.numero;
+      const label = mesaLabel(wiInlineMesaIds);
       setWiInlineMesa(null);
+      setWiInlineMesaIds([]);
       setMesaSel(null);
       reload();
-      showToast(`T${mesaNumero} — Walk-In registrado`);
+      showToast(`${label} — Walk-In registrado`);
     } catch {
       setWiInlineError("No se pudo registrar el Walk-In.");
     }
@@ -1213,7 +1216,7 @@ export default function ReservasPage() {
             )}
             {fecha === hoy() && mesaSel.status !== "occupied" &&
               !(mesaSel.status === "reserved" && mesaSel.reserva && isTableBlockReservation(mesaSel.reserva)) && (
-              <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
+              <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlineMesaIds([mesaSel.id]); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
                 className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">
                 + Walk-In directo{(mesaSel.agenda?.length ?? 0) > 0 ? " (mesa con reserva)" : ""}
               </button>
@@ -1308,8 +1311,14 @@ export default function ReservasPage() {
       </Modal>
 
       {/* Walk-in desde plano */}
-      <Modal open={!!wiInlineMesa} title={`Walk-In — T${wiInlineMesa?.numero}`} onClose={() => setWiInlineMesa(null)}>
-        {wiInlineMesa && (
+      <Modal open={!!wiInlineMesa} title={`Walk-In — ${wiInlineMesaIds.length ? mesaLabel(wiInlineMesaIds) : `T${wiInlineMesa?.numero}`}`}
+        onClose={() => { setWiInlineMesa(null); setWiInlineMesaIds([]); }}>
+        {wiInlineMesa && (() => {
+          // Plazas de las mesas elegidas; el selector aparece cuando el grupo no
+          // cabe en la mesa o ya hay varias (para poder quitar una elegida por error)
+          const plazas = wiInlineMesaIds.reduce((t, id) => t + (mesas.find((m) => m.id === id)?.capacidad ?? 0), 0);
+          const showPicker = wiInlinePersonas > plazas || wiInlineMesaIds.length > 1;
+          return (
           <div className="space-y-4">
             {wiInlineError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiInlineError}</p>}
             <Field label="Personas" required>
@@ -1321,14 +1330,42 @@ export default function ReservasPage() {
                   className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-xl font-bold">+</button>
               </div>
             </Field>
+            {showPicker && (
+              <Field label="Mesas (el grupo ocupa todas)">
+                <div className="grid grid-cols-5 gap-1.5">
+                  {mesas.filter((m) =>
+                    wiInlineMesaIds.includes(m.id) ||
+                    (m.status !== "occupied" && !(m.reserva && isTableBlockReservation(m.reserva)))
+                  ).map((m) => {
+                    const selMesa = wiInlineMesaIds.includes(m.id);
+                    return (
+                      <button key={m.id}
+                        onClick={() => setWiInlineMesaIds((p) => p.includes(m.id) ? p.filter((x) => x !== m.id) : [...p, m.id])}
+                        className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
+                          selMesa
+                            ? "border-emerald-700 bg-emerald-100 text-emerald-900 font-bold"
+                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-400"
+                        }`}>
+                        <p className="text-xs font-bold">T{m.numero}</p>
+                        <p className="text-[10px] text-gray-500">{m.capacidad}p</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className={`mt-2 text-xs font-semibold ${plazas >= wiInlinePersonas ? "text-emerald-700" : "text-amber-700"}`}>
+                  Capacidad seleccionada: {plazas} plazas para {wiInlinePersonas} personas{plazas < wiInlinePersonas ? " — añade otra mesa" : ""}
+                </p>
+              </Field>
+            )}
             <Field label="Nombre (opcional)">
               <input className={inp} value={wiInlineNombre} onChange={(e) => setWiInlineNombre(e.target.value)} placeholder="Walk-In" />
             </Field>
             <button onClick={() => void submitInlineWalkIn()} className="w-full rounded-xl bg-emerald-700 py-3.5 font-black text-white hover:bg-emerald-600">
-              Ocupar T{wiInlineMesa.numero} ahora
+              Ocupar {wiInlineMesaIds.length ? mesaLabel(wiInlineMesaIds) : `T${wiInlineMesa.numero}`} ahora
             </button>
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* ── Desplazar modal ───────────────────────────────────────────────────── */}
