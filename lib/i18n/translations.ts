@@ -53,6 +53,7 @@ export const translations = {
       cocina: "Cocina",
       configuracion: "Configuración",
       reservas: "Reservas",
+      stock: "Stock",
     },
     header: {
       openMenu: "Abrir menú",
