@@ -1,5 +1,6 @@
 import { Minus, Phone, Plus, Save, Send, ShoppingCart, Trash2 } from "lucide-react";
 import type { CominportCartItem } from "@/src/data/cominportProducts";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface CartProps {
   idPrefix?: string;
@@ -57,62 +58,71 @@ export function Cart({
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.codigo}
-                className="rounded-lg border border-gray-100 p-3 dark:border-gray-800"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                      {item.nombre}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.codigo} · {item.formato}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(item.codigo)}
-                    className="rounded-md p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                    aria-label={`Eliminar ${item.nombre}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+            {items.map((item) => {
+              const invoiceMeta = getCominportInvoiceMeta(item.codigo);
 
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onQuantityChange(item.codigo, item.cantidad - 1)}
-                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300"
-                    aria-label={`Reducir cantidad de ${item.nombre}`}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    max={999}
-                    inputMode="numeric"
-                    value={item.cantidad}
-                    onChange={(event) =>
-                      onQuantityChange(item.codigo, Number(event.target.value))
-                    }
-                    className="h-10 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white text-center text-sm font-semibold text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-                    aria-label={`Cantidad de ${item.nombre}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onQuantityChange(item.codigo, item.cantidad + 1)}
-                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300"
-                    aria-label={`Aumentar cantidad de ${item.nombre}`}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+              return (
+                <div
+                  key={item.codigo}
+                  className="rounded-lg border border-gray-100 p-3 dark:border-gray-800"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                        {item.nombre}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.codigo} · {item.formato}
+                      </p>
+                      {invoiceMeta && (
+                        <p className="text-xs font-medium text-karuma-700 dark:text-karuma-300">
+                          Unidad pedido: {invoiceMeta.unidadPedido}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item.codigo)}
+                      className="rounded-md p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                      aria-label={`Eliminar ${item.nombre}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onQuantityChange(item.codigo, item.cantidad - 1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300"
+                      aria-label={`Reducir cantidad de ${item.nombre}`}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      inputMode="numeric"
+                      value={item.cantidad}
+                      onChange={(event) =>
+                        onQuantityChange(item.codigo, Number(event.target.value))
+                      }
+                      className="h-10 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white text-center text-sm font-semibold text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+                      aria-label={`Cantidad de ${item.nombre}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onQuantityChange(item.codigo, item.cantidad + 1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300"
+                      aria-label={`Aumentar cantidad de ${item.nombre}`}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
