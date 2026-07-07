@@ -1,5 +1,6 @@
 import { AlertTriangle, Heart, Plus } from "lucide-react";
 import type { CominportProduct } from "@/src/data/cominportProducts";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface ProductCardProps {
   product: CominportProduct;
@@ -16,6 +17,8 @@ export function ProductCard({
   onAdd,
   onToggleFavorite,
 }: ProductCardProps) {
+  const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+
   return (
     <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
       <div className="flex items-start justify-between gap-3">
@@ -46,6 +49,16 @@ export function ProductCard({
 
       <div className="mt-3 flex-1">
         <p className="text-sm text-gray-600 dark:text-gray-300">{product.formato}</p>
+        {invoiceMeta && (
+          <p className="mt-1 text-xs font-medium text-karuma-700 dark:text-karuma-300">
+            Unidad pedido: {invoiceMeta.unidadPedido}
+          </p>
+        )}
+        {invoiceMeta && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Facturas: {invoiceMeta.pedidosFactura} veces · {invoiceMeta.cantidadFactura} uds.
+          </p>
+        )}
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{product.categoria}</p>
         {lowStock && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
