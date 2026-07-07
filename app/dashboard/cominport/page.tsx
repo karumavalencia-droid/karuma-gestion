@@ -5,6 +5,7 @@ import {
   cominportProducts,
   cominportStockAlerts,
 } from "@/src/data/cominportProducts";
+import { rankCominportProducts } from "@/src/data/cominportInvoiceRanking";
 
 export default function CominportPage() {
   return (
@@ -12,7 +13,7 @@ export default function CominportPage() {
       supplierName="Cominport"
       storagePrefix="cominport"
       whatsappStorageKey="COMINPORT_WHATSAPP"
-      products={cominportProducts}
+      products={rankCominportProducts(cominportProducts)}
       stockAlerts={cominportStockAlerts}
     />
   );
