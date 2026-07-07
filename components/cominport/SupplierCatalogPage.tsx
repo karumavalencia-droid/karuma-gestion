@@ -14,6 +14,7 @@ import { Cart } from "@/components/cominport/Cart";
 import { Favorites } from "@/components/cominport/Favorites";
 import { OrderHistory } from "@/components/cominport/OrderHistory";
 import { ProductCard } from "@/components/cominport/ProductCard";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 import type {
   CominportCartItem,
   CominportOrder,
@@ -64,8 +65,13 @@ function buildWhatsappMessage(
 ): string {
   const products = items
     .map(
-      (item) =>
-        `Código: ${item.codigo}\nProducto: ${item.nombre}\nCantidad: ${item.cantidad}`,
+      (item) => {
+        const invoiceMeta = getCominportInvoiceMeta(item.codigo);
+
+        return `Código: ${item.codigo}\nProducto: ${item.nombre}\nUnidad: ${
+          invoiceMeta?.unidadPedido ?? "unidad"
+        }\nCantidad: ${item.cantidad}`;
+      },
     )
     .join("\n\n");
 
