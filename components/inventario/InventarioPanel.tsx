@@ -921,7 +921,7 @@ export function InventarioPanel() {
               <li>1. Descarga la plantilla: <a href="/api/stock/import-template" className="underline font-semibold" download>stock-import.json</a></li>
               <li>2. Abre el archivo y copia todo el contenido</li>
               <li>3. Pégalo en el campo de abajo</li>
-              <li>4. Haz clic en "Importar"</li>
+              <li>4. Haz clic en &quot;Importar&quot;</li>
             </ol>
           </div>
           <textarea

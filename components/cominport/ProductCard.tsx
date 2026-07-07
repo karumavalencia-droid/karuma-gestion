@@ -1,6 +1,7 @@
 import { AlertTriangle, Heart, Plus } from "lucide-react";
 import type { CominportProduct } from "@/src/data/cominportProducts";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
+import { getCominportPrice } from "@/src/data/cominportPrices";
 
 interface ProductCardProps {
   product: CominportProduct;
@@ -18,6 +19,7 @@ export function ProductCard({
   onToggleFavorite,
 }: ProductCardProps) {
   const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+  const precio = getCominportPrice(product.codigo);
 
   return (
     <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
@@ -49,6 +51,11 @@ export function ProductCard({
 
       <div className="mt-3 flex-1">
         <p className="text-sm text-gray-600 dark:text-gray-300">{product.formato}</p>
+        {precio && (
+          <p className="mt-2 text-lg font-bold text-karuma-600 dark:text-karuma-400">
+            €{precio.toFixed(2)}
+          </p>
+        )}
         {invoiceMeta && (
           <p className="mt-1 text-xs font-medium text-karuma-700 dark:text-karuma-300">
             Unidad pedido: {invoiceMeta.unidadPedido}

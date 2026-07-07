@@ -3,6 +3,7 @@ export interface CominportProduct {
   nombre: string;
   categoria: string;
   formato: string;
+  precio?: number;
 }
 
 export interface CominportCartItem extends CominportProduct {
