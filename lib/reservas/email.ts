@@ -113,33 +113,35 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
 
 function buildReviewEmail(input: ReservationReviewInput) {
   const nombre = input.nombre.trim() || "cliente";
-  const subject = `Gracias por visitar ${RESTAURANT_NAME}`;
+  const subject = `¿Qué tal tu visita a ${RESTAURANT_NAME}?`;
   const text = [
     `Hola ${nombre},`,
     "",
-    "Gracias por visitar Karuma Sushi & Grill.",
-    "Si disfrutaste la experiencia, nos ayudaría mucho que dejaras una reseña en Google:",
+    "¡Mil gracias por visitarnos! Esperamos que disfrutaras de la experiencia en Karuma Sushi & Grill.",
+    "",
+    "¿Nos cuentas qué tal fue? Valorar tu visita solo te llevará un minuto y a nosotros nos ayuda muchísimo a seguir mejorando y a que más gente nos descubra:",
     input.reviewLink,
     "",
-    "Tu opinión ayuda a que más clientes nos encuentren y también nos ayuda a mejorar.",
+    "¡Esperamos verte pronto de nuevo!",
     "",
-    RESTAURANT_NAME,
+    `El equipo de ${RESTAURANT_NAME}`,
   ].join("\n");
 
   const safeLink = escapeHtml(input.reviewLink);
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;max-width:560px;margin:0 auto;padding:24px">
       <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(RESTAURANT_NAME)}</h1>
-      <p style="margin:0 0 20px;color:#4b5563">Gracias por visitarnos</p>
+      <p style="margin:0 0 20px;color:#4b5563">¿Qué tal tu visita?</p>
       <p>Hola ${escapeHtml(nombre)},</p>
-      <p>Gracias por visitar Karuma Sushi & Grill.</p>
-      <p>Si disfrutaste la experiencia, nos ayudaría mucho que dejaras una reseña en Google.</p>
+      <p>¡Mil gracias por visitarnos! Esperamos que disfrutaras de la experiencia en Karuma Sushi & Grill.</p>
+      <p>¿Nos cuentas qué tal fue? Valorar tu visita solo te llevará un minuto y a nosotros nos ayuda muchísimo a seguir mejorando y a que más gente nos descubra.</p>
       <p style="margin:24px 0">
         <a href="${safeLink}" style="display:inline-block;background:#b42318;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">
-          Dejar una reseña
+          Valorar mi visita
         </a>
       </p>
-      <p style="font-size:13px;color:#6b7280">Tu opinión ayuda a que más clientes nos encuentren y también nos ayuda a mejorar.</p>
+      <p>¡Esperamos verte pronto de nuevo!</p>
+      <p style="font-size:13px;color:#6b7280">El equipo de ${escapeHtml(RESTAURANT_NAME)}</p>
     </div>
   `;
 
