@@ -84,18 +84,25 @@ const cominportInvoiceUsage: Record<string, CominportInvoiceMeta> = {
   "204703": { unidadPedido: "unidad", pedidosFactura: 1, cantidadFactura: 1 },
 };
 
-const cominportPriority = new Map(
-  Object.keys(cominportInvoiceUsage).map((codigo, index) => [codigo, index]),
-);
-
 export function getCominportInvoiceMeta(codigo: string): CominportInvoiceMeta | undefined {
   return cominportInvoiceUsage[codigo];
 }
 
 export function rankCominportProducts(products: CominportProduct[]): CominportProduct[] {
   return [...products].sort((a, b) => {
-    const aPriority = cominportPriority.get(a.codigo) ?? Number.MAX_SAFE_INTEGER;
-    const bPriority = cominportPriority.get(b.codigo) ?? Number.MAX_SAFE_INTEGER;
-    return aPriority - bPriority;
+    const aMeta = getCominportInvoiceMeta(a.codigo);
+    const bMeta = getCominportInvoiceMeta(b.codigo);
+
+    if (aMeta && bMeta) {
+      return (
+        bMeta.pedidosFactura - aMeta.pedidosFactura ||
+        bMeta.cantidadFactura - aMeta.cantidadFactura ||
+        a.codigo.localeCompare(b.codigo)
+      );
+    }
+
+    if (aMeta) return -1;
+    if (bMeta) return 1;
+    return 0;
   });
 }
