@@ -1,5 +1,6 @@
 import { CalendarDays, History, RotateCcw } from "lucide-react";
 import type { CominportOrder } from "@/src/data/cominportProducts";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface OrderHistoryProps {
   orders: CominportOrder[];
@@ -53,20 +54,27 @@ export function OrderHistory({ orders, onAddAgain }: OrderHistoryProps) {
           </div>
 
           <div className="mt-4 divide-y divide-gray-100 border-y border-gray-100 dark:divide-gray-800 dark:border-gray-800">
-            {order.productos.map((product) => (
-              <div
-                key={`${order.id}-${product.codigo}`}
-                className="flex items-start justify-between gap-4 py-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-900 dark:text-white">{product.nombre}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{product.codigo}</p>
+            {order.productos.map((product) => {
+              const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+
+              return (
+                <div
+                  key={`${order.id}-${product.codigo}`}
+                  className="flex items-start justify-between gap-4 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white">{product.nombre}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {product.codigo}
+                      {invoiceMeta ? ` · ${invoiceMeta.unidadPedido}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-semibold text-gray-700 dark:text-gray-200">
+                    × {product.cantidad}
+                  </span>
                 </div>
-                <span className="shrink-0 font-semibold text-gray-700 dark:text-gray-200">
-                  × {product.cantidad}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {order.observaciones && (
