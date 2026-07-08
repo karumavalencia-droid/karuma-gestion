@@ -61,8 +61,7 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
     try {
       const { data } = await sb
         .from("reservas")
-        .select("*, clientes_reservas(nombre, telefono, email)")
-        .eq("fecha", fecha);
+        .select("*, clientes_reservas(nombre, telefono, email)");
 
       if (data && data.length > 0) {
         const local = loadReservas();
