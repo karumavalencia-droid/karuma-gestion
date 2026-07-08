@@ -1,4 +1,6 @@
 import { SupplierSpendingReport } from "@/app/components/SupplierSpendingReport";
+import { SupplierForecast } from "@/app/components/SupplierForecast";
+import { SupplierBenchmark } from "@/app/components/SupplierBenchmark";
 
 export default function SupplierAnalyticsPage() {
   return (
@@ -11,14 +13,27 @@ export default function SupplierAnalyticsPage() {
           >
             ← Volver a proveedores
           </a>
-          <h1 className="text-4xl font-bold mb-2">Analytics & Reportes</h1>
+          <h1 className="text-4xl font-bold mb-2">Dashboard de Analytics Avanzado</h1>
           <p className="text-gray-600">
-            Análisis de gastos, precios y tendencias por proveedor
+            Análisis de gastos, pronósticos, benchmarking y tendencias
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <SupplierSpendingReport supplierId={7331} />
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold mb-4">📊 Resumen de Gastos</h2>
+            <SupplierSpendingReport supplierId={7331} />
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold mb-4">🔮 Pronóstico de Gastos (3-12 meses)</h2>
+            <SupplierForecast supplierId={7331} />
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold mb-4">📈 Benchmarking de Proveedores</h2>
+            <SupplierBenchmark />
+          </div>
         </div>
       </div>
     </div>
