@@ -66,7 +66,7 @@ const ESTADO_CORTO: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
-function autoServicio(): ServicioLocal { return new Date().getHours() >= 15 ? "cena" : "comida"; }
+function autoServicio(): ServicioLocal { return new Date().getHours() >= 20 ? "cena" : "comida"; }
 function fechaLarga(f: string): string {
   const s = new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   return s.charAt(0).toUpperCase() + s.slice(1);  // "Domingo, 22 de junio"
