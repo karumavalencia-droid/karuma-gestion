@@ -34,6 +34,7 @@ import {
   defaultHoraPlano,
   duracionReserva,
   loadReservas,
+  asignarMesa,
   MESAS_SEED,
   type MesaConEstado,
   type MesaLocal,
@@ -99,6 +100,28 @@ function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
     mesas: countReservedTables(activas),
     pax: activas.reduce((sum, r) => sum + getReservationGuests(r), 0),
   };
+}
+function suggestWalkInMesas(personas: number): string[] {
+  const hora = new Date().toTimeString().slice(0, 5);
+  const servicio = autoServicio();
+  const fecha = hoy();
+  const mesas = MESAS_SEED;
+  const result: string[] = [];
+  let capacidadTotal = 0;
+  let personasRestantes = personas;
+
+  while (personasRestantes > 0) {
+    const sugerida = asignarMesa(personasRestantes, fecha, hora, servicio);
+    if (!sugerida || sugerida.length === 0) break;
+    const mesaId = sugerida[0];
+    if (result.includes(mesaId)) break;
+    result.push(mesaId);
+    const capacidad = mesas.find((m) => m.id === mesaId)?.capacidad ?? 0;
+    capacidadTotal += capacidad;
+    personasRestantes = Math.max(0, personas - capacidadTotal);
+  }
+
+  return result;
 }
 // ─── Modal shell ──────────────────────────────────────────────────────────────
 
@@ -242,6 +265,13 @@ export default function MesaViewPage() {
     return () => clearInterval(id);
   }, [reload]);
 
+  // Auto-suggest tables when person count changes in general walk-in
+  useEffect(() => {
+    if (wiGeneral && wiMesa && Object.keys(wiMesa).length === 0) {
+      setWiMesaIds(suggestWalkInMesas(wiPersonas));
+    }
+  }, [wiPersonas, wiGeneral, wiMesa]);
+
   void tick;
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
@@ -271,7 +301,7 @@ export default function MesaViewPage() {
   }
   function openWalkInGeneral() {
     setWiMesa({} as MesaConEstado); setWiPersonas(2); setWiNombre(""); setWiTelefono("");
-    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiMesaIds([]);
+    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiMesaIds(suggestWalkInMesas(2));
   }
   async function submitWalkIn() {
     if (!wiMesaIds.length) { setWiError("Selecciona al menos una mesa"); return; }
@@ -939,7 +969,7 @@ export default function MesaViewPage() {
                           {isTableBlockReservation(proxima) ? "Bloqueo mesa" : proxima.nombre}
                         </p>
                         <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
+                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{!isTableBlockReservation(proxima) ? ` · ${proxima.personas}p` : ""}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
                         </p>
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
