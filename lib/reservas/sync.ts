@@ -82,6 +82,10 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
             // el aproximado de Supabase (created_at); no lo machacamos.
             localMap.set(mapped.id, { ...existing, ...mapped, seatedAt: existing.seatedAt ?? mapped.seatedAt });
             changed = true;
+          } else if (!existing.personas && mapped.personas) {
+            // Migración: si la reserva local no tiene personas pero Supabase sí, actualizar
+            localMap.set(mapped.id, { ...existing, personas: mapped.personas });
+            changed = true;
           }
           // In all other cases local state wins (non-terminal Supabase never overwrites local)
         }
