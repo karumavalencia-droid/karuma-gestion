@@ -1,7 +1,7 @@
 import { AlertTriangle, Heart, Plus } from "lucide-react";
 import type { CominportProduct } from "@/src/data/cominportProducts";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
-import { getCominportPrice } from "@/src/data/cominportPrices";
+import cominportPrices from "@/src/data/cominportPrices.json";
 
 interface ProductCardProps {
   product: CominportProduct;
@@ -19,7 +19,7 @@ export function ProductCard({
   onToggleFavorite,
 }: ProductCardProps) {
   const invoiceMeta = getCominportInvoiceMeta(product.codigo);
-  const precio = getCominportPrice(product.codigo);
+  const precio = cominportPrices[product.codigo as keyof typeof cominportPrices];
 
   return (
     <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
