@@ -959,10 +959,7 @@ export default function MesaViewPage() {
                 {m.status === "reserved" && r && !isTableBlockReservation(r) && (
                   <div className="mesa-card-detail mt-2 space-y-0.5">
                     <p className="mesa-card-detail-name truncate text-base font-bold text-emerald-700">{r.nombre}</p>
-                    <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
-                      {r.personas && <><Users className="h-4 w-4" />{r.personas}</> }
-                      <Clock className="ml-1.5 h-4 w-4" />{r.hora}
-                    </div>
+                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} {r.personas && `· ${r.personas}p`}</p>
                   </div>
                 )}
                 {m.status === "available" && (
@@ -971,11 +968,9 @@ export default function MesaViewPage() {
                         <p className={`mesa-card-detail-name truncate text-base font-bold ${isTableBlockReservation(proxima) ? "text-rose-800" : "text-emerald-900"}`}>
                           {isTableBlockReservation(proxima) ? "Bloqueo mesa" : proxima.nombre}
                         </p>
-                        <div className={`mesa-card-detail-meta flex items-center gap-1.5 truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
-                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"}
-                          {!isTableBlockReservation(proxima) && proxima.personas && <><Users className="h-4 w-4" />{proxima.personas}</> }
-                          <Clock className="ml-1.5 h-4 w-4" />{proxima.hora}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
-                        </div>
+                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{!isTableBlockReservation(proxima) && proxima.personas ? ` · ${proxima.personas}p` : ""}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
+                        </p>
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
                 )}
