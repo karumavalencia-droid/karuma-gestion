@@ -9,6 +9,21 @@ export default function SuppliersPage() {
           <p className="text-gray-600">
             Administra tus proveedores y sus productos
           </p>
+
+          <div className="flex gap-4 mt-4">
+            <a
+              href="/admin/suppliers/analytics"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              📊 Analytics
+            </a>
+            <a
+              href="/admin/suppliers/notifications"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              🔔 Notificaciones
+            </a>
+          </div>
         </div>
 
         <SuppliersOverview />

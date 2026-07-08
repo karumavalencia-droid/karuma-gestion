@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendNotification } from "@/lib/notifications/send-notification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -110,9 +111,32 @@ export async function POST(request: Request) {
       });
     }
 
-    // Insertar alertas
+    // Insertar alertas y enviar notificaciones
     if (alerts.length > 0) {
       await supabase.from("supplier_product_alerts").insert(alerts);
+
+      // Enviar notificación para cada alerta
+      for (const alert of alerts) {
+        const priorityMap = {
+          low_stock: "high",
+          price_change: "normal",
+          no_purchase_recent: "normal",
+        };
+
+        await sendNotification({
+          user_id: "admin",
+          supplier_id,
+          notification_type: "alert",
+          title: `⚠️ ${alert.alert_type.replace(/_/g, " ").toUpperCase()}`,
+          message: alert.alert_message,
+          priority: priorityMap[alert.alert_type as keyof typeof priorityMap] || "normal",
+          data: {
+            alert_type: alert.alert_type,
+            current_value: alert.current_value,
+            threshold: alert.threshold_value,
+          },
+        });
+      }
     }
 
     return NextResponse.json({
