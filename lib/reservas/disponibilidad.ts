@@ -115,7 +115,7 @@ export function calcularSlotsDisponibles(
   servicio: "comida" | "cena",
   personas: number,
 ): SlotDisponible[] {
-  const duracion = personas <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
+  const duracion = personas <= 2 ? config.duracion_1_2_min : (personas <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
   const inicio = servicio === "comida" ? config.comida_inicio : config.cena_inicio;
   const fin = servicio === "comida" ? config.comida_fin : config.cena_fin;
   const slots = generarSlots(inicio, fin, config.intervalo_min);

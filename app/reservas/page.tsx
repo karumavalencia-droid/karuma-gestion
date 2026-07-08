@@ -536,10 +536,10 @@ export default function ReservasPage() {
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               Reserva tu mesa
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">En menos de un minuto · hasta 4 personas online</p>
+            <p className="mb-6 mt-1 text-sm text-stone-500">En menos de un minuto · hasta 6 personas online</p>
 
-            <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((n) => (
+            <div className="grid grid-cols-3 gap-3">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
                 <button
                   key={n}
                   onClick={() => {
@@ -563,7 +563,7 @@ export default function ReservasPage() {
 
             <div className="mt-5 rounded-xl border border-[#e2dac9] bg-white/40 p-4">
               <p className="text-sm text-stone-600">
-                ¿Sois más de 4? Para grupos grandes, llámanos o escríbenos por WhatsApp.
+                ¿Sois más de 6? Para grupos grandes, llámanos o escríbenos por WhatsApp.
               </p>
               <div className="mt-3 flex gap-2">
                 <a

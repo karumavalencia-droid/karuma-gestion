@@ -14,6 +14,7 @@ const DEFAULT_CONFIG: ReservasConfig = {
   turno_gap_min: 30,
   duracion_1_2_min: 90,
   duracion_3_4_min: 120,
+  duracion_5_6_min: 150,
   dias_max_antelacion: 7,
   capacidad_online_pct: 70,
   comida_inicio: "13:00",
@@ -166,6 +167,10 @@ export default function ConfigReservasPage() {
             <Field label="Duración 3–4 personas (min)">
               <input type="number" min={30} max={240} step={15} value={config.duracion_3_4_min}
                 onChange={(e) => set("duracion_3_4_min", Number(e.target.value))} className={inputCls} />
+            </Field>
+            <Field label="Duración 5–6 personas (min)">
+              <input type="number" min={30} max={240} step={15} value={config.duracion_5_6_min}
+                onChange={(e) => set("duracion_5_6_min", Number(e.target.value))} className={inputCls} />
             </Field>
             <Field label="Días máx. de antelación">
               <input type="number" min={1} max={90} value={config.dias_max_antelacion}

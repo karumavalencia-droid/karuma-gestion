@@ -217,14 +217,15 @@ function isReserved(r: ReservaLocal): boolean {
 
 // ─── Turno / rotación de mesas ────────────────────────────────────────────────
 // Cuánto tiempo ocupa una mesa una reserva, según el tamaño del grupo.
-// Debe coincidir con reservas_config (duracion_1_2_min / duracion_3_4_min).
+// Debe coincidir con reservas_config (duracion_1_2_min / duracion_3_4_min / duracion_5_6_min).
 export const DURACION_1_2_MIN = 90;   // 1-2 personas → 90 min
-export const DURACION_3_4_MIN = 120;  // 3+ personas  → 120 min
+export const DURACION_3_4_MIN = 120;  // 3-4 personas → 120 min
+export const DURACION_5_6_MIN = 150;  // 5-6 personas → 150 min
 const MESA_NO_DISPONIBLE_ERROR =
   "Esta mesa no está disponible: cada reserva bloquea la mesa al menos 1h30.";
 
 export function duracionReserva(personas: number): number {
-  return personas <= 2 ? DURACION_1_2_MIN : DURACION_3_4_MIN;
+  return personas <= 2 ? DURACION_1_2_MIN : (personas <= 4 ? DURACION_3_4_MIN : DURACION_5_6_MIN);
 }
 function duracionReservaLocal(r: ReservaLocal): number {
   return r.duracionMin ?? duracionReserva(r.personas);

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   const duracion = isTableBlock
     ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
-    : personasReserva <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
+    : personasReserva <= 2 ? config.duracion_1_2_min : (personasReserva <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
 
   // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
   let mesaIds: number[];
