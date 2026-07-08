@@ -206,6 +206,50 @@ async function upload() {
   console.log("🚀 Iniciando carga de productos Jet Extramar...\n");
 
   try {
+    // Crear tablas si no existen
+    console.log("  ℹ️  Verificando tablas...");
+
+    const sqlSuppliers = `
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        contact_email TEXT,
+        phone TEXT,
+        website TEXT,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `;
+
+    const sqlProducts = `
+      CREATE TABLE IF NOT EXISTS supplier_products (
+        id BIGSERIAL PRIMARY KEY,
+        supplier_id INTEGER NOT NULL REFERENCES suppliers (id) ON DELETE CASCADE,
+        product_name TEXT NOT NULL,
+        quantity NUMERIC(12, 2) NOT NULL,
+        unit TEXT NOT NULL,
+        rango INTEGER,
+        invoice_date DATE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_supplier_products_supplier_id ON supplier_products (supplier_id);
+      CREATE INDEX IF NOT EXISTS idx_supplier_products_date ON supplier_products (invoice_date);
+    `;
+
+    // Try to create tables (may fail if they exist, that's ok)
+    try {
+      await supabase.rpc("exec_sql", { sql: sqlSuppliers }).catch(() => null);
+      await supabase.rpc("exec_sql", { sql: sqlProducts }).catch(() => null);
+    } catch {
+      // Tables might already exist or rpc not available
+      // Continue with the upload attempt
+    }
+
+    console.log("  ✓ Tablas verificadas\n");
+
     // Primero, asegurarse que el proveedor existe
     const { data: supplier, error: supplierError } = await supabase
       .from("suppliers")

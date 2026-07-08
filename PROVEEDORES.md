@@ -186,12 +186,38 @@ Ambas tablas tienen políticas RLS habilitadas:
 
 ---
 
+## 🎯 Funcionalidades Implementadas
+
+✅ Edición inline de cantidades
+✅ Búsqueda y filtrado de productos
+✅ Exportar a CSV
+✅ Agregar nuevos productos
+✅ Gestión de proveedores (CRUD)
+✅ Dashboard de proveedores
+✅ Página de detalle con todos los productos
+
+## 📋 Página Admin
+
+Accede desde tu app:
+
+```tsx
+// /app/admin/suppliers
+<SuppliersOverview />
+
+// /app/admin/suppliers/[id]
+<SupplierProductsManager supplierId={id} />
+```
+
+**URLs:**
+- `/admin/suppliers` — Lista de proveedores
+- `/admin/suppliers/7331` — Productos Jet Extramar
+
 ## 📝 Próximos Pasos
 
 - [ ] Agregar más proveedores (Komei, Spicy, etc.)
-- [ ] Dashboard de gastos por proveedor
-- [ ] Alertas de precios anomalía
-- [ ] Histórico de pedidos
+- [ ] Reportes de gastos por proveedor
+- [ ] Historial de cambios (auditoría)
+- [ ] Alertas de disponibilidad baja
 - [ ] Integración con facturación
 
 ---
