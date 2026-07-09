@@ -133,10 +133,13 @@ export default function AnnouncementsPage() {
   return (
     <main className="min-h-[100dvh] bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-4 py-5 pb-24 text-white sm:py-8">
       <div className="mx-auto w-full max-w-md">
-        <header className="mb-5 flex items-center justify-between gap-3">
+        <header className="mb-6 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-karuma-300">Karuma ERP</p>
             <h1 className="text-2xl font-bold">Anuncios</h1>
+            <p className="mt-1 text-xs text-gray-400">
+              {data?.myAnnouncements?.length ?? 0} creados • {data?.departmentAnnouncements?.length ?? 0} pendientes
+            </p>
           </div>
           <button
             type="button"
@@ -245,14 +248,25 @@ export default function AnnouncementsPage() {
                   {data.myAnnouncements.map((announcement) => (
                     <div
                       key={announcement.id}
-                      className="overflow-hidden rounded-2xl bg-white/10 border border-white/20 p-4"
+                      className={`overflow-hidden rounded-2xl border p-4 transition ${
+                        announcement.completed
+                          ? "border-gray-700 bg-gray-800/30 opacity-60"
+                          : "border-karuma-500/30 bg-gradient-to-br from-karuma-900/30 to-karuma-950/30"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-white">
-                            {announcement.title}
-                          </h3>
-                          <p className="mt-1 text-sm text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <h3 className={`font-semibold ${announcement.completed ? "line-through text-gray-400" : "text-white"}`}>
+                              {announcement.title}
+                            </h3>
+                            {announcement.completed && (
+                              <span className="inline-flex rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                                Completado
+                              </span>
+                            )}
+                          </div>
+                          <p className={`mt-1 text-sm ${announcement.completed ? "text-gray-500" : "text-gray-300"}`}>
                             {announcement.description}
                           </p>
                           <div className="mt-3 flex items-center gap-2">
@@ -270,24 +284,34 @@ export default function AnnouncementsPage() {
                                 ]?.label
                               }
                             </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(announcement.created_at).toLocaleDateString("es-ES", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleMarkComplete(announcement.id)
-                            }
-                            title="Marcar como completado"
-                            className="rounded-lg bg-emerald-600/20 p-2 hover:bg-emerald-600/30"
-                          >
-                            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                          </button>
+                          {!announcement.completed && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleMarkComplete(announcement.id)
+                              }
+                              title="Marcar como completado"
+                              className="rounded-lg bg-emerald-600/20 p-2 hover:bg-emerald-600/30 transition"
+                            >
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => void handleDelete(announcement.id)}
                             title="Eliminar"
-                            className="rounded-lg bg-red-600/20 p-2 hover:bg-red-600/30"
+                            className="rounded-lg bg-red-600/20 p-2 hover:bg-red-600/30 transition"
                           >
                             <Trash2 className="h-4 w-4 text-red-400" />
                           </button>
@@ -307,7 +331,7 @@ export default function AnnouncementsPage() {
                     {data.departmentAnnouncements.map((announcement) => (
                       <div
                         key={announcement.id}
-                        className="overflow-hidden rounded-2xl bg-white/5 border border-white/10 p-4"
+                        className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 p-4 hover:bg-white/8 transition"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
@@ -315,14 +339,14 @@ export default function AnnouncementsPage() {
                               <h3 className="font-semibold text-white">
                                 {announcement.title}
                               </h3>
-                              <span className="text-xs text-gray-400">
-                                por {announcement.employee_name}
-                              </span>
                             </div>
-                            <p className="mt-1 text-sm text-gray-300">
+                            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-2.5 py-1 text-xs text-blue-300">
+                              <span>👤 {announcement.employee_name}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-300">
                               {announcement.description}
                             </p>
-                            <div className="mt-3 flex items-center gap-2">
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
                                   priorityConfig[
@@ -336,6 +360,14 @@ export default function AnnouncementsPage() {
                                     announcement.priority as keyof typeof priorityConfig
                                   ]?.label
                                 }
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(announcement.created_at).toLocaleDateString("es-ES", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </span>
                             </div>
                           </div>
