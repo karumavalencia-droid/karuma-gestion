@@ -10,7 +10,7 @@ import { findKioskEmployee } from "@/lib/kiosk/employees";
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+): Promise<NextResponse> {
   const user = await verifySessionToken(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   );
@@ -27,9 +27,10 @@ export async function PATCH(
     );
   }
 
-  let body: { completed?: boolean; title?: string; description?: string; priority?: string };
+  type PatchBody = { completed?: boolean; title?: string; description?: string; priority?: string };
+  let body: PatchBody;
   try {
-    body = (await request.json()) as typeof body;
+    body = (await request.json()) as PatchBody;
   } catch {
     return NextResponse.json(
       { error: "Solicitud inválida" },
@@ -56,7 +57,8 @@ export async function PATCH(
       );
     }
 
-    const update: Record<string, unknown> = {};
+    type UpdateRecord = Record<string, boolean | string>;
+    const update: UpdateRecord = {};
     if (typeof body.completed === "boolean") update.completed = body.completed;
     if (body.title) update.title = body.title.trim();
     if (body.description) update.description = body.description.trim();
@@ -71,7 +73,7 @@ export async function PATCH(
       );
     }
 
-    const updated = await updateAnnouncement(params.id, update as any);
+    const updated = await updateAnnouncement(params.id, update as Record<string, boolean | string>);
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json(
@@ -89,7 +91,7 @@ export async function PATCH(
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+): Promise<NextResponse> {
   const user = await verifySessionToken(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   );

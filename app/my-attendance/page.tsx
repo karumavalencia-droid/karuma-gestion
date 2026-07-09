@@ -365,6 +365,49 @@ export default function MyAttendancePage() {
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <Users className="h-4 w-4" />
+                      Compañeros ({colleagues.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {colleagues.length === 0 ? (
+                      <p className="py-3 text-center text-sm text-gray-400">
+                        Sin compañeros en el turno hoy
+                      </p>
+                    ) : (
+                      colleagues.map((colleague) => (
+                        <div
+                          key={colleague.employeeId}
+                          className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5 text-sm"
+                        >
+                          <div>
+                            <div className="font-medium text-gray-700">
+                              {colleague.employeeName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {colleague.lastTime
+                                ? `${colleague.lastType === "in" ? text.entrance : text.exit} · ${timeLabel(colleague.lastTime, locale)}`
+                                : "Sin fichar"}
+                            </div>
+                          </div>
+                          <div
+                            className={`flex h-2.5 w-2.5 rounded-full ${
+                              colleague.lastType === "in"
+                                ? "bg-emerald-500"
+                                : colleague.lastType === "out"
+                                  ? "bg-amber-500"
+                                  : "bg-gray-300"
+                            }`}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                       <Clock3 className="h-4 w-4" />
                       {text.today}
                     </h3>

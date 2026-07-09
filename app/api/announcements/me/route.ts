@@ -3,8 +3,6 @@ import {
   listAnnouncementsByDepartment,
   listMyAnnouncements,
   createAnnouncement,
-  updateAnnouncement,
-  deleteAnnouncement,
 } from "@/lib/announcements/repository";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
@@ -15,7 +13,7 @@ type AnnouncementsPayload = {
   departmentAnnouncements: DbAnnouncement[];
 };
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const user = await verifySessionToken(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   );
@@ -66,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await verifySessionToken(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   );
@@ -83,9 +81,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { title?: string; description?: string; priority?: string };
+  type PostBody = { title?: string; description?: string; priority?: string };
+  let body: PostBody;
   try {
-    body = (await request.json()) as typeof body;
+    body = (await request.json()) as PostBody;
   } catch {
     return NextResponse.json(
       { error: "Solicitud inválida" },
