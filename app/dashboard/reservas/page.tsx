@@ -957,7 +957,9 @@ export default function ReservasPage() {
                       </div>
                       <p className="text-sm text-gray-400">
                         {!isBlock && r.telefono && <span className="mr-3">{r.telefono}</span>}
-                        <span>{isBlock ? duracionBloqueoLabel(r.duracionMin) : `${r.personas} pax`}</span>
+                        <span className={`font-bold ${isBlock ? "text-gray-500" : "text-karuma-600"}`}>
+                          {isBlock ? duracionBloqueoLabel(r.duracionMin) : `👥 ${r.personas} pax`}
+                        </span>
                         {mesa !== "—" && <span className="ml-3 font-semibold text-karuma-600">{mesa}</span>}
                       </p>
                       {(() => {
@@ -1132,8 +1134,14 @@ export default function ReservasPage() {
                     )}
                     <p className="text-xs font-black">T{m.numero}</p>
                     {m.reserva
-                      ? <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.estado === "walkin" ? `${m.reserva.hora} ${m.reserva.nombre.split(" ")[0]}` : m.reserva.nombre.split(" ")[0]}</p>
-                      : futuras.length > 0 && <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : futuras[0].hora}</p>}
+                      ? <>
+                          <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.estado === "walkin" ? `${m.reserva.hora} ${m.reserva.nombre.split(" ")[0]}` : m.reserva.nombre.split(" ")[0]}</p>
+                          {!blocked && <p className="text-[7px] font-bold text-karuma-600">👥 {m.reserva.personas}p</p>}
+                        </>
+                      : futuras.length > 0 && <>
+                          <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : futuras[0].hora}</p>
+                          {!blocked && <p className="text-[7px] font-bold text-emerald-700">👥 {futuras[0].personas}p</p>}
+                        </>}
                   </button>
                 );
               })}
@@ -1199,7 +1207,7 @@ export default function ReservasPage() {
                     <div key={a.id} className={`flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 text-sm ${a.id === mesaSel.reserva?.id ? "ring-2 ring-karuma-400" : "border border-gray-100"}`}>
                       <div className="flex min-w-0 items-center gap-2"><span className="font-black text-gray-900">{a.hora}</span><span className="truncate text-gray-600">{a.nombre}</span></div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-xs text-gray-400">{isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`}</span>
+                        <span className={`text-xs font-bold ${isTableBlockReservation(a) ? "text-gray-400" : "text-karuma-600"}`}>{isTableBlockReservation(a) ? "Bloqueo" : `👥 ${a.personas}p`}</span>
                         {canMoveLocalReservation(a) && (
                           <button
                             onClick={() => { openChange(a); setMesaSel(null); }}
