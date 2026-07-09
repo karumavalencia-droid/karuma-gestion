@@ -11,6 +11,7 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  Users,
   WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
@@ -38,6 +39,20 @@ type PersonalAttendancePayload = {
   locationRequired: boolean;
   geofenceConfigured: boolean;
   radiusMeters: number | null;
+};
+
+type ColleagueAttendance = {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  lastType: "in" | "out" | null;
+  lastTime: string | null;
+};
+
+type ColleaguesPayload = {
+  businessDate: string;
+  myDepartment: string;
+  colleagues: ColleagueAttendance[];
 };
 
 const copy = {
@@ -119,6 +134,7 @@ export default function MyAttendancePage() {
   const { locale } = useLanguage();
   const text = copy[locale];
   const [data, setData] = useState<PersonalAttendancePayload | null>(null);
+  const [colleagues, setColleagues] = useState<ColleagueAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -128,12 +144,22 @@ export default function MyAttendancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/attendance/me", { cache: "no-store" });
-      const payload = (await response.json()) as PersonalAttendancePayload & {
+      const [attendanceRes, colleaguesRes] = await Promise.all([
+        fetch("/api/attendance/me", { cache: "no-store" }),
+        fetch("/api/attendance/colleagues", { cache: "no-store" }),
+      ]);
+
+      const payload = (await attendanceRes.json()) as PersonalAttendancePayload & {
         error?: string;
       };
-      if (!response.ok) throw new Error(payload.error ?? text.unavailable);
+      if (!attendanceRes.ok) throw new Error(payload.error ?? text.unavailable);
       setData(payload);
+
+      if (colleaguesRes.ok) {
+        const colleaguesData = (await colleaguesRes.json()) as ColleaguesPayload;
+        setColleagues(colleaguesData.colleagues);
+      }
+
       setError("");
     } catch (loadError) {
       setError(

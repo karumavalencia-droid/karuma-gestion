@@ -230,6 +230,32 @@ export type DbListaEsperaInsert = {
   created_at?: string;
 };
 
+export type DbAnnouncement = {
+  id: string;
+  employee_key: string;
+  employee_name: string;
+  department: string;
+  title: string;
+  description: string;
+  priority: "low" | "normal" | "high";
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbAnnouncementInsert = {
+  id?: string;
+  employee_key: string;
+  employee_name: string;
+  department: string;
+  title: string;
+  description: string;
+  priority?: "low" | "normal" | "high";
+  completed?: boolean;
+};
+
+export type DbAnnouncementUpdate = Partial<Omit<DbAnnouncementInsert, "id" | "employee_key" | "employee_name" | "department">>;
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 export type Database = {
@@ -319,6 +345,12 @@ export type Database = {
         Row: DbListaEspera;
         Insert: DbListaEsperaInsert;
         Update: Partial<DbListaEsperaInsert>;
+        Relationships: [];
+      };
+      announcements: {
+        Row: DbAnnouncement;
+        Insert: DbAnnouncementInsert;
+        Update: DbAnnouncementUpdate;
         Relationships: [];
       };
     };
