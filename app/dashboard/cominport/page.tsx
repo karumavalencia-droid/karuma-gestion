@@ -13,7 +13,7 @@ export default function CominportPage() {
       supplierName="Cominport"
       storagePrefix="cominport"
       whatsappStorageKey="COMINPORT_WHATSAPP"
-      defaultWhatsappNumber="34669503780"
+      defaultWhatsappNumber="34699503780"
       products={rankCominportProducts(cominportProducts)}
       stockAlerts={cominportStockAlerts}
     />
