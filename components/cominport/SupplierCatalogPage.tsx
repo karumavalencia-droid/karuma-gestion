@@ -34,6 +34,8 @@ interface SupplierCatalogPageProps {
   supplierName: string;
   storagePrefix: string;
   whatsappStorageKey: string;
+  /** Número usado si no hay ninguno guardado en este navegador. */
+  defaultWhatsappNumber?: string;
   products: CominportProduct[];
   stockAlerts: CominportStockAlert[];
 }
@@ -100,6 +102,7 @@ export function SupplierCatalogPage({
   supplierName,
   storagePrefix,
   whatsappStorageKey,
+  defaultWhatsappNumber = "",
   products,
   stockAlerts,
 }: SupplierCatalogPageProps) {
@@ -127,11 +130,19 @@ export function SupplierCatalogPage({
     setOrders(readStoredArray<CominportOrder>(historyStorageKey));
 
     try {
-      setWhatsappNumber(window.localStorage.getItem(whatsappStorageKey) ?? "");
+      setWhatsappNumber(
+        window.localStorage.getItem(whatsappStorageKey) || defaultWhatsappNumber,
+      );
     } catch {
-      setWhatsappNumber("");
+      setWhatsappNumber(defaultWhatsappNumber);
     }
-  }, [favoritesStorageKey, historyStorageKey, products, whatsappStorageKey]);
+  }, [
+    defaultWhatsappNumber,
+    favoritesStorageKey,
+    historyStorageKey,
+    products,
+    whatsappStorageKey,
+  ]);
 
   const showToast = (message: string) => {
     setToast(message);
