@@ -3,14 +3,15 @@ import {
   listAnnouncementsByDepartment,
   listMyAnnouncements,
   createAnnouncement,
+  type AnnouncementWithReadStatus,
 } from "@/lib/announcements/repository";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
-import type { DbAnnouncement, DbAnnouncementInsert } from "@/lib/supabase/types";
+import type { DbAnnouncementInsert } from "@/lib/supabase/types";
 
 type AnnouncementsPayload = {
-  myAnnouncements: DbAnnouncement[];
-  departmentAnnouncements: DbAnnouncement[];
+  myAnnouncements: AnnouncementWithReadStatus[];
+  departmentAnnouncements: AnnouncementWithReadStatus[];
 };
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const [myAnnouncements, departmentAnnouncements] = await Promise.all([
       listMyAnnouncements(employee.id),
-      listAnnouncementsByDepartment(employee.department),
+      listAnnouncementsByDepartment(employee.department, employee.id),
     ]);
 
     return NextResponse.json(

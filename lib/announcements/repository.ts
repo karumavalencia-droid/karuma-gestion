@@ -5,6 +5,10 @@ import type {
   DbAnnouncementUpdate,
 } from "../supabase/types";
 
+export type AnnouncementWithReadStatus = DbAnnouncement & {
+  is_read?: boolean;
+};
+
 function mapAnnouncement(row: DbAnnouncement): DbAnnouncement {
   return {
     id: row.id,
@@ -22,7 +26,8 @@ function mapAnnouncement(row: DbAnnouncement): DbAnnouncement {
 
 export async function listAnnouncementsByDepartment(
   department: string,
-): Promise<DbAnnouncement[]> {
+  employeeKey?: string,
+): Promise<AnnouncementWithReadStatus[]> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Base de datos no configurada");
 
@@ -36,12 +41,30 @@ export async function listAnnouncementsByDepartment(
     .returns<DbAnnouncement[]>();
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapAnnouncement);
+
+  const announcements = (data ?? []).map(mapAnnouncement);
+
+  if (!employeeKey) return announcements;
+
+  const { data: reads, error: readsError } = await supabase
+    .from("announcement_reads")
+    .select("announcement_id")
+    .eq("employee_key", employeeKey)
+    .returns<{ announcement_id: string }[]>();
+
+  if (readsError) throw new Error(readsError.message);
+
+  const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+
+  return announcements.map((a) => ({
+    ...a,
+    is_read: readIds.has(a.id),
+  }));
 }
 
 export async function listMyAnnouncements(
   employeeKey: string,
-): Promise<DbAnnouncement[]> {
+): Promise<AnnouncementWithReadStatus[]> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Base de datos no configurada");
 
@@ -53,7 +76,7 @@ export async function listMyAnnouncements(
     .returns<DbAnnouncement[]>();
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapAnnouncement);
+  return (data ?? []).map(mapAnnouncement).map((a) => ({ ...a, is_read: false }));
 }
 
 export async function createAnnouncement(
@@ -100,6 +123,49 @@ export async function deleteAnnouncement(id: string): Promise<void> {
     .from("announcements")
     .delete()
     .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markAnnouncementAsRead(
+  announcementId: string,
+  employeeKey: string,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+
+  // Delete existing read record if it exists, then insert
+  await supabase
+    .from("announcement_reads")
+    .delete()
+    .eq("announcement_id", announcementId)
+    .eq("employee_key", employeeKey);
+
+  const { error } = await supabase
+    .from("announcement_reads")
+    .insert([
+      {
+        announcement_id: announcementId,
+        employee_key: employeeKey,
+        read_at: new Date().toISOString(),
+      },
+    ]);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markAnnouncementAsUnread(
+  announcementId: string,
+  employeeKey: string,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+
+  const { error } = await supabase
+    .from("announcement_reads")
+    .delete()
+    .eq("announcement_id", announcementId)
+    .eq("employee_key", employeeKey);
 
   if (error) throw new Error(error.message);
 }

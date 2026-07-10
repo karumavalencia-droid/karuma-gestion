@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  updateAnnouncement,
-  deleteAnnouncement,
-  listMyAnnouncements,
+  markAnnouncementAsRead,
+  markAnnouncementAsUnread,
 } from "@/lib/announcements/repository";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
 
-export async function PATCH(
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -28,17 +27,6 @@ export async function PATCH(
     );
   }
 
-  type PatchBody = { completed?: boolean; title?: string; description?: string; priority?: string };
-  let body: PatchBody;
-  try {
-    body = (await request.json()) as PatchBody;
-  } catch {
-    return NextResponse.json(
-      { error: "Solicitud inválida" },
-      { status: 400 },
-    );
-  }
-
   try {
     const employee = findKioskEmployee(user.employeeId);
     if (!employee) {
@@ -48,41 +36,15 @@ export async function PATCH(
       );
     }
 
-    // Verificar que la publicación pertenece al usuario actual
-    const myAnnouncements = await listMyAnnouncements(employee.id);
-    const announcement = myAnnouncements.find((a) => a.id === id);
-    if (!announcement) {
-      return NextResponse.json(
-        { error: "Anuncio no encontrado o no tienes permiso" },
-        { status: 404 },
-      );
-    }
-
-    type UpdateRecord = Record<string, boolean | string>;
-    const update: UpdateRecord = {};
-    if (typeof body.completed === "boolean") update.completed = body.completed;
-    if (body.title) update.title = body.title.trim();
-    if (body.description) update.description = body.description.trim();
-    if (body.priority && ["low", "normal", "high"].includes(body.priority)) {
-      update.priority = body.priority;
-    }
-
-    if (Object.keys(update).length === 0) {
-      return NextResponse.json(
-        { error: "No hay cambios que realizar" },
-        { status: 400 },
-      );
-    }
-
-    const updated = await updateAnnouncement(id, update as Record<string, boolean | string>);
-    return NextResponse.json(updated);
+    await markAnnouncementAsRead(id, employee.id);
+    return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "No se pudo actualizar el anuncio",
+            : "No se pudo marcar como leído",
       },
       { status: 503 },
     );
@@ -119,17 +81,7 @@ export async function DELETE(
       );
     }
 
-    // Verificar que la publicación pertenece al usuario actual
-    const myAnnouncements = await listMyAnnouncements(employee.id);
-    const announcement = myAnnouncements.find((a) => a.id === id);
-    if (!announcement) {
-      return NextResponse.json(
-        { error: "Anuncio no encontrado o no tienes permiso" },
-        { status: 404 },
-      );
-    }
-
-    await deleteAnnouncement(id);
+    await markAnnouncementAsUnread(id, employee.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
@@ -137,7 +89,7 @@ export async function DELETE(
         error:
           error instanceof Error
             ? error.message
-            : "No se pudo eliminar el anuncio",
+            : "No se pudo marcar como no leído",
       },
       { status: 503 },
     );

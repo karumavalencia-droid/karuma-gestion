@@ -3,20 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
+  Eye,
+  EyeOff,
   Flag,
   LoaderCircle,
   Plus,
   RefreshCw,
   Trash2,
-  X,
 } from "lucide-react";
 import { PortalTabs } from "@/components/portal/PortalTabs";
-import { useAuth } from "@/lib/auth/AuthProvider";
-import type { DbAnnouncement } from "@/lib/supabase/types";
+import type { AnnouncementWithReadStatus } from "@/lib/announcements/repository";
 
 type AnnouncementsData = {
-  myAnnouncements: DbAnnouncement[];
-  departmentAnnouncements: DbAnnouncement[];
+  myAnnouncements: AnnouncementWithReadStatus[];
+  departmentAnnouncements: AnnouncementWithReadStatus[];
 };
 
 const priorityConfig = {
@@ -26,17 +26,20 @@ const priorityConfig = {
 };
 
 export default function AnnouncementsPage() {
-  const { user } = useAuth();
   const [data, setData] = useState<AnnouncementsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    priority: "low" | "normal" | "high";
+  }>({
     title: "",
     description: "",
-    priority: "normal" as const,
+    priority: "normal",
   });
 
   const load = useCallback(async () => {
@@ -130,6 +133,19 @@ export default function AnnouncementsPage() {
     }
   };
 
+  const handleToggleRead = async (id: string, isCurrentlyRead: boolean) => {
+    try {
+      const endpoint = `/api/announcements/me/${id}/read`;
+      const method = isCurrentlyRead ? "DELETE" : "POST";
+      const response = await fetch(endpoint, { method });
+
+      if (!response.ok) throw new Error("Error al actualizar");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    }
+  };
+
   return (
     <main className="min-h-[100dvh] bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-4 py-5 pb-24 text-white sm:py-8">
       <div className="mx-auto w-full max-w-md">
@@ -138,7 +154,7 @@ export default function AnnouncementsPage() {
             <p className="text-sm font-medium text-karuma-300">Karuma ERP</p>
             <h1 className="text-2xl font-bold">Anuncios</h1>
             <p className="mt-1 text-xs text-gray-400">
-              {data?.myAnnouncements?.length ?? 0} creados • {data?.departmentAnnouncements?.length ?? 0} pendientes
+              {data?.myAnnouncements?.length ?? 0} creados • {(data?.departmentAnnouncements ?? []).filter((a) => !a.is_read).length} sin leer
             </p>
           </div>
           <button
@@ -331,19 +347,28 @@ export default function AnnouncementsPage() {
                     {data.departmentAnnouncements.map((announcement) => (
                       <div
                         key={announcement.id}
-                        className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 p-4 hover:bg-white/8 transition"
+                        className={`overflow-hidden rounded-2xl border p-4 transition ${
+                          announcement.is_read
+                            ? "border-white/10 bg-white/5 opacity-60"
+                            : "border-white/15 bg-white/8 hover:bg-white/12"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-white">
+                              <h3 className={`font-semibold ${announcement.is_read ? "text-gray-400 line-through" : "text-white"}`}>
                                 {announcement.title}
                               </h3>
+                              {announcement.is_read && (
+                                <span className="inline-flex rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                                  Leído
+                                </span>
+                              )}
                             </div>
                             <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-2.5 py-1 text-xs text-blue-300">
                               <span>👤 {announcement.employee_name}</span>
                             </div>
-                            <p className="mt-2 text-sm text-gray-300">
+                            <p className={`mt-2 text-sm ${announcement.is_read ? "text-gray-500" : "text-gray-300"}`}>
                               {announcement.description}
                             </p>
                             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -371,6 +396,20 @@ export default function AnnouncementsPage() {
                               </span>
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleToggleRead(announcement.id, announcement.is_read ?? false)
+                            }
+                            title={announcement.is_read ? "Marcar como no leído" : "Marcar como leído"}
+                            className="rounded-lg bg-blue-600/20 p-2 hover:bg-blue-600/30 transition"
+                          >
+                            {announcement.is_read ? (
+                              <EyeOff className="h-4 w-4 text-blue-400" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-blue-400" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     ))}
