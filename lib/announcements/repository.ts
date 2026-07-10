@@ -52,7 +52,14 @@ export async function listAnnouncementsByDepartment(
     .eq("employee_key", employeeKey)
     .returns<{ announcement_id: string }[]>();
 
-  if (readsError) throw new Error(readsError.message);
+  // Degradación elegante: si la tabla announcement_reads aún no existe
+  // (migración 025 sin aplicar), tratamos todo como no leído en lugar de fallar.
+  if (readsError) {
+    if (readsError.code === "42P01") {
+      return announcements.map((a) => ({ ...a, is_read: false }));
+    }
+    throw new Error(readsError.message);
+  }
 
   const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
 
