@@ -12,8 +12,17 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 // Portal del empleado: rutas permitidas para cuentas con employeeId.
-const EMPLOYEE_PAGES = new Set(["/my-attendance", "/my-schedule"]);
-const EMPLOYEE_API_PREFIXES = ["/api/attendance/me", "/api/schedule/me"];
+const EMPLOYEE_PAGES = new Set([
+  "/my-attendance",
+  "/my-schedule",
+  "/announcements",
+]);
+const EMPLOYEE_API_PREFIXES = [
+  "/api/attendance/me",
+  "/api/attendance/colleagues",
+  "/api/schedule/me",
+  "/api/announcements/me",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
