@@ -69,6 +69,47 @@ export async function listAnnouncementsByDepartment(
   }));
 }
 
+export async function listAllActiveAnnouncements(
+  employeeKey?: string,
+): Promise<AnnouncementWithReadStatus[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .eq("completed", false)
+    .order("priority", { ascending: false })
+    .order("created_at", { ascending: false })
+    .returns<DbAnnouncement[]>();
+
+  if (error) throw new Error(error.message);
+
+  const announcements = (data ?? []).map(mapAnnouncement);
+
+  if (!employeeKey) return announcements;
+
+  const { data: reads, error: readsError } = await supabase
+    .from("announcement_reads")
+    .select("announcement_id")
+    .eq("employee_key", employeeKey)
+    .returns<{ announcement_id: string }[]>();
+
+  if (readsError) {
+    if (readsError.code === "42P01") {
+      return announcements.map((a) => ({ ...a, is_read: false }));
+    }
+    throw new Error(readsError.message);
+  }
+
+  const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+
+  return announcements.map((a) => ({
+    ...a,
+    is_read: readIds.has(a.id),
+  }));
+}
+
 export async function listMyAnnouncements(
   employeeKey: string,
 ): Promise<AnnouncementWithReadStatus[]> {

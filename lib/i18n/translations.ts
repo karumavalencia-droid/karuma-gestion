@@ -53,6 +53,7 @@ export const translations = {
       cocina: "Cocina",
       configuracion: "Configuración",
       reservas: "Reservas",
+      anuncios: "Anuncios",
       stock: "Stock",
     },
     header: {
@@ -405,6 +406,8 @@ export const translations = {
       cocina: "厨房",
       configuracion: "设置",
       reservas: "预约管理",
+      anuncios: "公告栏",
+      stock: "库存",
     },
     header: {
       openMenu: "打开菜单",
@@ -789,6 +792,8 @@ export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/cocina": "cocina",
   "/configuracion": "configuracion",
   "/dashboard/reservas": "reservas",
+  "/announcements": "anuncios",
+  "/dashboard/stock": "stock",
 };
 
 export function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined {

@@ -63,7 +63,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    if (!user.employeeId && EMPLOYEE_PAGES.has(pathname)) {
+    // Los anuncios (tablero de traspaso) también son visibles para cuentas de gestión.
+    if (
+      !user.employeeId &&
+      EMPLOYEE_PAGES.has(pathname) &&
+      pathname !== "/announcements"
+    ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     if (

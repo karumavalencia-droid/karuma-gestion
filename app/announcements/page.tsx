@@ -17,6 +17,7 @@ import type { AnnouncementWithReadStatus } from "@/lib/announcements/repository"
 type AnnouncementsData = {
   myAnnouncements: AnnouncementWithReadStatus[];
   departmentAnnouncements: AnnouncementWithReadStatus[];
+  isAdmin?: boolean;
 };
 
 const priorityConfig = {
@@ -36,10 +37,12 @@ export default function AnnouncementsPage() {
     title: string;
     description: string;
     priority: "low" | "normal" | "high";
+    department: "Sala" | "Cocina";
   }>({
     title: "",
     description: "",
     priority: "normal",
+    department: "Sala",
   });
 
   const load = useCallback(async () => {
@@ -93,7 +96,7 @@ export default function AnnouncementsPage() {
         throw new Error(result.error ?? "Error al crear anuncio");
       }
 
-      setFormData({ title: "", description: "", priority: "normal" });
+      setFormData({ title: "", description: "", priority: "normal", department: "Sala" });
       setShowForm(false);
       await load();
     } catch (err) {
@@ -217,6 +220,27 @@ export default function AnnouncementsPage() {
                     className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-karuma-500 focus:outline-none"
                   />
                 </div>
+
+                {data?.isAdmin && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Departamento
+                    </label>
+                    <select
+                      value={formData.department}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          department: e.target.value as "Sala" | "Cocina",
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-karuma-500 focus:outline-none"
+                    >
+                      <option value="Sala">Sala</option>
+                      <option value="Cocina">Cocina</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700">
@@ -342,7 +366,9 @@ export default function AnnouncementsPage() {
                 data.departmentAnnouncements.length > 0 && (
                   <div className="space-y-3">
                     <h2 className="text-sm font-semibold text-gray-300">
-                      Anuncios del departamento ({data.departmentAnnouncements.length})
+                      {data.isAdmin
+                        ? `Todos los anuncios (${data.departmentAnnouncements.length})`
+                        : `Anuncios del departamento (${data.departmentAnnouncements.length})`}
                     </h2>
                     {data.departmentAnnouncements.map((announcement) => (
                       <div
@@ -365,8 +391,15 @@ export default function AnnouncementsPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-2.5 py-1 text-xs text-blue-300">
-                              <span>👤 {announcement.employee_name}</span>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-2.5 py-1 text-xs text-blue-300">
+                                👤 {announcement.employee_name}
+                              </span>
+                              {data.isAdmin && (
+                                <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-1 text-xs text-amber-300">
+                                  {announcement.department}
+                                </span>
+                              )}
                             </div>
                             <p className={`mt-2 text-sm ${announcement.is_read ? "text-gray-500" : "text-gray-300"}`}>
                               {announcement.description}
@@ -396,20 +429,42 @@ export default function AnnouncementsPage() {
                               </span>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleToggleRead(announcement.id, announcement.is_read ?? false)
-                            }
-                            title={announcement.is_read ? "Marcar como no leído" : "Marcar como leído"}
-                            className="rounded-lg bg-blue-600/20 p-2 hover:bg-blue-600/30 transition"
-                          >
-                            {announcement.is_read ? (
-                              <EyeOff className="h-4 w-4 text-blue-400" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-blue-400" />
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleToggleRead(announcement.id, announcement.is_read ?? false)
+                              }
+                              title={announcement.is_read ? "Marcar como no leído" : "Marcar como leído"}
+                              className="rounded-lg bg-blue-600/20 p-2 hover:bg-blue-600/30 transition"
+                            >
+                              {announcement.is_read ? (
+                                <EyeOff className="h-4 w-4 text-blue-400" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-blue-400" />
+                              )}
+                            </button>
+                            {data.isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleMarkComplete(announcement.id)}
+                                  title="Marcar como completado"
+                                  className="rounded-lg bg-emerald-600/20 p-2 hover:bg-emerald-600/30 transition"
+                                >
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDelete(announcement.id)}
+                                  title="Eliminar"
+                                  className="rounded-lg bg-red-600/20 p-2 hover:bg-red-600/30 transition"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                </button>
+                              </>
                             )}
-                          </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -429,7 +484,18 @@ export default function AnnouncementsPage() {
         </section>
       </div>
 
-      <PortalTabs />
+      {data?.isAdmin ? (
+        <div className="mx-auto mt-6 w-full max-w-md text-center">
+          <a
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-gray-400 hover:bg-white/10 hover:text-white"
+          >
+            ← Volver al dashboard
+          </a>
+        </div>
+      ) : (
+        <PortalTabs />
+      )}
     </main>
   );
 }

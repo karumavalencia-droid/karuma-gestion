@@ -21,13 +21,6 @@ export async function PATCH(
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
   type PatchBody = { completed?: boolean; title?: string; description?: string; priority?: string };
   let body: PatchBody;
   try {
@@ -40,22 +33,25 @@ export async function PATCH(
   }
 
   try {
-    const employee = findKioskEmployee(user.employeeId);
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Empleado no encontrado" },
-        { status: 404 },
-      );
-    }
+    // Las cuentas de gestión pueden actualizar cualquier anuncio;
+    // los empleados solo los suyos.
+    if (user.employeeId) {
+      const employee = findKioskEmployee(user.employeeId);
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Empleado no encontrado" },
+          { status: 404 },
+        );
+      }
 
-    // Verificar que la publicación pertenece al usuario actual
-    const myAnnouncements = await listMyAnnouncements(employee.id);
-    const announcement = myAnnouncements.find((a) => a.id === id);
-    if (!announcement) {
-      return NextResponse.json(
-        { error: "Anuncio no encontrado o no tienes permiso" },
-        { status: 404 },
-      );
+      const myAnnouncements = await listMyAnnouncements(employee.id);
+      const announcement = myAnnouncements.find((a) => a.id === id);
+      if (!announcement) {
+        return NextResponse.json(
+          { error: "Anuncio no encontrado o no tienes permiso" },
+          { status: 404 },
+        );
+      }
     }
 
     type UpdateRecord = Record<string, boolean | string>;
@@ -103,30 +99,26 @@ export async function DELETE(
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
   try {
-    const employee = findKioskEmployee(user.employeeId);
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Empleado no encontrado" },
-        { status: 404 },
-      );
-    }
+    // Las cuentas de gestión pueden eliminar cualquier anuncio;
+    // los empleados solo los suyos.
+    if (user.employeeId) {
+      const employee = findKioskEmployee(user.employeeId);
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Empleado no encontrado" },
+          { status: 404 },
+        );
+      }
 
-    // Verificar que la publicación pertenece al usuario actual
-    const myAnnouncements = await listMyAnnouncements(employee.id);
-    const announcement = myAnnouncements.find((a) => a.id === id);
-    if (!announcement) {
-      return NextResponse.json(
-        { error: "Anuncio no encontrado o no tienes permiso" },
-        { status: 404 },
-      );
+      const myAnnouncements = await listMyAnnouncements(employee.id);
+      const announcement = myAnnouncements.find((a) => a.id === id);
+      if (!announcement) {
+        return NextResponse.json(
+          { error: "Anuncio no encontrado o no tienes permiso" },
+          { status: 404 },
+        );
+      }
     }
 
     await deleteAnnouncement(id);

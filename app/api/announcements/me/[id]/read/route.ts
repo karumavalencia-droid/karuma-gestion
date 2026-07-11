@@ -5,6 +5,7 @@ import {
 } from "@/lib/announcements/repository";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
+import { ADMIN_ANNOUNCEMENT_KEY } from "@/lib/announcements/constants";
 
 export async function POST(
   request: NextRequest,
@@ -20,23 +21,20 @@ export async function POST(
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
   try {
-    const employee = findKioskEmployee(user.employeeId);
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Empleado no encontrado" },
-        { status: 404 },
-      );
+    let employeeKey = ADMIN_ANNOUNCEMENT_KEY;
+    if (user.employeeId) {
+      const employee = findKioskEmployee(user.employeeId);
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Empleado no encontrado" },
+          { status: 404 },
+        );
+      }
+      employeeKey = employee.id;
     }
 
-    await markAnnouncementAsRead(id, employee.id);
+    await markAnnouncementAsRead(id, employeeKey);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
@@ -65,23 +63,20 @@ export async function DELETE(
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
   try {
-    const employee = findKioskEmployee(user.employeeId);
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Empleado no encontrado" },
-        { status: 404 },
-      );
+    let employeeKey = ADMIN_ANNOUNCEMENT_KEY;
+    if (user.employeeId) {
+      const employee = findKioskEmployee(user.employeeId);
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Empleado no encontrado" },
+          { status: 404 },
+        );
+      }
+      employeeKey = employee.id;
     }
 
-    await markAnnouncementAsUnread(id, employee.id);
+    await markAnnouncementAsUnread(id, employeeKey);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

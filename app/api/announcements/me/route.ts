@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  listAllActiveAnnouncements,
   listAnnouncementsByDepartment,
   listMyAnnouncements,
   createAnnouncement,
   type AnnouncementWithReadStatus,
 } from "@/lib/announcements/repository";
+import { ADMIN_ANNOUNCEMENT_KEY } from "@/lib/announcements/constants";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
 import type { DbAnnouncementInsert } from "@/lib/supabase/types";
@@ -12,6 +14,7 @@ import type { DbAnnouncementInsert } from "@/lib/supabase/types";
 type AnnouncementsPayload = {
   myAnnouncements: AnnouncementWithReadStatus[];
   departmentAnnouncements: AnnouncementWithReadStatus[];
+  isAdmin?: boolean;
 };
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -24,14 +27,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
   try {
+    // Cuenta de gestión (sin empleado vinculado): ve los anuncios de todos los departamentos.
+    if (!user.employeeId) {
+      const [myAnnouncements, departmentAnnouncements] = await Promise.all([
+        listMyAnnouncements(ADMIN_ANNOUNCEMENT_KEY),
+        listAllActiveAnnouncements(ADMIN_ANNOUNCEMENT_KEY),
+      ]);
+
+      return NextResponse.json(
+        {
+          myAnnouncements,
+          departmentAnnouncements,
+          isAdmin: true,
+        } as AnnouncementsPayload,
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     const employee = findKioskEmployee(user.employeeId);
     if (!employee) {
       return NextResponse.json(
@@ -75,14 +88,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 401 },
     );
   }
-  if (!user.employeeId) {
-    return NextResponse.json(
-      { error: "La cuenta no está vinculada a un empleado" },
-      { status: 403 },
-    );
-  }
-
-  type PostBody = { title?: string; description?: string; priority?: string };
+  type PostBody = {
+    title?: string;
+    description?: string;
+    priority?: string;
+    department?: string;
+  };
   let body: PostBody;
   try {
     body = (await request.json()) as PostBody;
@@ -119,18 +130,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const employee = findKioskEmployee(user.employeeId);
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Empleado no encontrado" },
-        { status: 404 },
-      );
+    let employeeKey: string;
+    let employeeName: string;
+    let department: string;
+
+    if (!user.employeeId) {
+      // Cuenta de gestión: debe indicar a qué departamento va dirigido el anuncio.
+      if (!body.department || !["Sala", "Cocina"].includes(body.department)) {
+        return NextResponse.json(
+          { error: "Selecciona el departamento del anuncio (Sala o Cocina)" },
+          { status: 400 },
+        );
+      }
+      employeeKey = ADMIN_ANNOUNCEMENT_KEY;
+      employeeName = user.name;
+      department = body.department;
+    } else {
+      const employee = findKioskEmployee(user.employeeId);
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Empleado no encontrado" },
+          { status: 404 },
+        );
+      }
+      employeeKey = employee.id;
+      employeeName = employee.name;
+      department = employee.department;
     }
 
     const announcement = await createAnnouncement({
-      employee_key: employee.id,
-      employee_name: employee.name,
-      department: employee.department,
+      employee_key: employeeKey,
+      employee_name: employeeName,
+      department,
       title,
       description,
       priority: priority as "low" | "normal" | "high",

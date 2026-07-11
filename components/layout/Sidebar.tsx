@@ -11,6 +11,7 @@ import {
   ChevronDown,
   LayoutDashboard,
   Megaphone,
+  MessageSquare,
   Package,
   PackageSearch,
   ShoppingBasket,
@@ -36,6 +37,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/facturas": ShoppingBasket,
   "/recetas": ChefHat,
   "/dashboard/reservas": CalendarCheck,
+  "/announcements": MessageSquare,
   "/dashboard/stock": Package,
 };
 
