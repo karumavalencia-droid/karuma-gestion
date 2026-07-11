@@ -305,7 +305,7 @@ export default function ReservasPage() {
   }
 
   useEffect(() => {
-    fetch("/api/reservas/config")
+    fetch("/api/reservas/config", { cache: "no-store" })
       .then((r) => r.json())
       .then(setConfig)
       .catch(() => null);
@@ -359,7 +359,7 @@ export default function ReservasPage() {
     setEsperaOk(false);
     setEsperaError("");
     try {
-      const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`);
+      const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
       const data = await res.json();
       setSlots(data.slots ?? []);
     } catch {

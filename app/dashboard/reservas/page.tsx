@@ -31,6 +31,7 @@ import {
   MESAS_SEED,
   MAX_DIAS,
   loadReservas,
+  saveReservas,
   addEspera,
   loadEspera,
   updateEspera,
@@ -335,12 +336,19 @@ export default function ReservasPage() {
   // ── Load ───────────────────────────────────────────────────────────────────
   const servicioPlano: ServicioLocal = vistaServicio === "cena" ? "cena" : "comida";
 
-  const reload = useCallback(() => {
+  const refreshLocal = useCallback(() => {
+    const all = loadReservas().filter((r) => r.fecha === fecha);
+    setReservas(all);
+    setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
+    setLoaded(true);
+  }, [fecha, servicioPlano, horaPanel]);
+
+  const reload = useCallback(async () => {
     // Espera compartida primero (Supabase); localStorage como respaldo.
     void fetchEsperaRemota(fecha).then((remota) => {
       setEspera(remota ?? loadEspera().filter((e) => e.fecha === fecha));
     });
-    syncAndLoadReservas(fecha).then((all) => {
+    return syncAndLoadReservas(fecha).then((all) => {
       setReservas(all);
       setMesas(getMesasConEstado(fecha, servicioPlano, horaPanel));
       setLoaded(true);
@@ -355,7 +363,7 @@ export default function ReservasPage() {
   useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
-    fetch("/api/reservas/config")
+    fetch("/api/reservas/config", { cache: "no-store" })
       .then((r) => r.json())
       .then((c: { google_review_link?: string | null }) => setReviewLink(c.google_review_link?.trim() ?? ""))
       .catch(() => {});
@@ -373,9 +381,11 @@ export default function ReservasPage() {
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
-    const ch = sb.channel("reservas_admin_sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => reload())
-      .subscribe();
+    const ch = sb.channel("reservas_admin_sync");
+    for (const table of ["reservas", "mesas", "table_sessions"] as const) {
+      ch.on("postgres_changes", { event: "*", schema: "public", table }, () => { void reload(); });
+    }
+    ch.subscribe();
     return () => { void ch.unsubscribe(); };
   }, [reload]);
 
@@ -429,27 +439,45 @@ export default function ReservasPage() {
     }
   }
 
-  function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
-    updateEstado(r.id, estado);
-    setCancelId(null);
-    if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, estado }),
-      });
+  async function mutateLocal(
+    mutate: () => { ok: boolean; error?: string } | void,
+    request: (() => Promise<Response>) | null,
+    success: string,
+  ): Promise<boolean> {
+    const snapshot = loadReservas();
+    const result = mutate();
+    if (result && !result.ok) { showToast(result.error ?? "No se pudo actualizar."); return false; }
+    refreshLocal();
+    try {
+      if (request) {
+        const response = await request();
+        const json = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+        if (!response.ok || !json.ok) throw new Error(json.error ?? "No se pudo guardar el cambio.");
+      }
+      await reload();
+      showToast(success);
+      return true;
+    } catch (error) {
+      saveReservas(snapshot);
+      refreshLocal();
+      showToast(error instanceof Error ? error.message : "No se pudo guardar el cambio.");
+      return false;
     }
-    reload(); showToast("Estado actualizado");
   }
 
-  function handleLiberar(r: ReservaLocal) {
-    liberarMesa(r.id);
-    if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
+  async function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
+    setCancelId(null);
+    await mutateLocal(() => updateEstado(r.id, estado), r.origen ? () => fetch("/api/reservas/actualizar-estado", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, estado }),
+      }) : null, "Estado actualizado");
+  }
+
+  async function handleLiberar(r: ReservaLocal) {
+    await mutateLocal(() => liberarMesa(r.id), r.origen ? () => fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, estado: "finished" }),
-      });
-    }
-    reload(); showToast("Mesa liberada");
+      }) : null, "Mesa liberada");
   }
 
   async function handleDesSentar(r: ReservaLocal) {
@@ -469,58 +497,49 @@ export default function ReservasPage() {
   }
 
   function openSeat(r: ReservaLocal) { setSeatR(r); setSeatIds(r.mesaIds.length ? r.mesaIds : []); setSeatErr(""); }
-  function submitSeat() {
+  async function submitSeat() {
     if (!seatR) return;
-    const res = sentarReserva(seatR.id, seatIds.length ? seatIds : undefined);
-    if (!res.ok) { setSeatErr(res.error); return; }
-    if (seatR.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
+    const current = seatR;
+    const ok = await mutateLocal(() => sentarReserva(current.id, seatIds.length ? seatIds : undefined), current.origen ? () => fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: seatR.id, estado: "sentada" }),
-      });
-    }
-    setSeatR(null); reload(); showToast("Cliente sentado");
+        body: JSON.stringify({ id: current.id, estado: "sentada" }),
+      }) : null, "Cliente sentado");
+    if (ok) setSeatR(null);
   }
 
   function openDesplazar(r: ReservaLocal) {
     setDesplazarR(r); setDespHora(r.hora); setDespFecha(r.fecha); setDespErr("");
   }
-  function submitDesplazar() {
+  async function submitDesplazar() {
     if (!desplazarR || !despHora) return;
-    const res = desplazarReserva(desplazarR.id, despHora, despFecha !== desplazarR.fecha ? despFecha : undefined);
-    if (!res.ok) { setDespErr(res.error); return; }
-    if (desplazarR.origen) {
-      void fetch("/api/reservas/actualizar", {
+    const current = desplazarR;
+    const ok = await mutateLocal(() => desplazarReserva(current.id, despHora, despFecha !== current.fecha ? despFecha : undefined), current.origen ? () => fetch("/api/reservas/actualizar", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "editar",
-          id: desplazarR.id,
+          id: current.id,
           fecha: despFecha,
           hora: despHora,
         }),
-      });
-    }
-    setDesplazarR(null); reload(); showToast("Reserva desplazada");
+      }) : null, "Reserva desplazada");
+    if (ok) setDesplazarR(null);
   }
 
   function openChange(r: ReservaLocal) { setChangeR(r); setChangeIds([]); setChangeErr(""); }
-  function submitChange() {
+  async function submitChange() {
     if (!changeR) return;
     if (!changeIds.length) { setChangeErr("Selecciona al menos una mesa."); return; }
-    const res = cambiarMesas(changeR.id, changeIds);
-    if (!res.ok) { setChangeErr(res.error); return; }
-    if (changeR.origen) {
-      void fetch("/api/reservas/actualizar", {
+    const current = changeR;
+    const ok = await mutateLocal(() => cambiarMesas(current.id, changeIds), current.origen ? () => fetch("/api/reservas/actualizar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "cambiar-mesa",
-          id: changeR.id,
+          id: current.id,
           mesaIds: changeIds.map((id) => Number(id.replace("T", ""))),
         }),
-      });
-    }
-    setChangeR(null); reload(); showToast("Mesa actualizada");
+      }) : null, "Mesa actualizada");
+    if (ok) setChangeR(null);
   }
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────

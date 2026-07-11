@@ -3,6 +3,9 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { calcularSlotsDisponibles } from "@/lib/reservas/disponibilidad";
 import type { Mesa, Reserva, ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const fecha = searchParams.get("fecha");

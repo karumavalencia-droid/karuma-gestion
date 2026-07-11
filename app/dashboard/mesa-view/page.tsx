@@ -253,9 +253,11 @@ export default function MesaViewPage() {
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
-    const ch = sb.channel("mesa_view_sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => reload())
-      .subscribe();
+    const ch = sb.channel("mesa_view_sync");
+    for (const table of ["reservas", "mesas", "table_sessions"] as const) {
+      ch.on("postgres_changes", { event: "*", schema: "public", table }, () => reload());
+    }
+    ch.subscribe();
     return () => { void ch.unsubscribe(); };
   }, [reload]);
 

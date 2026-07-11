@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Reservas · Karuma Sushi & Grill",
   description: "Reserva tu mesa online en Karuma Sushi & Grill Valencia. Buffet libre de sushi.",
