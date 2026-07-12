@@ -16,12 +16,14 @@ const EMPLOYEE_PAGES = new Set([
   "/my-attendance",
   "/my-schedule",
   "/announcements",
+  "/coach",
 ]);
 const EMPLOYEE_API_PREFIXES = [
   "/api/attendance/me",
   "/api/attendance/colleagues",
   "/api/schedule/me",
   "/api/announcements/me",
+  "/api/coach/",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -63,11 +65,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // Los anuncios (tablero de traspaso) también son visibles para cuentas de gestión.
+    // Los anuncios (tablero de traspaso) y Karuma Coach también son visibles
+    // para cuentas de gestión.
     if (
       !user.employeeId &&
       EMPLOYEE_PAGES.has(pathname) &&
-      pathname !== "/announcements"
+      pathname !== "/announcements" &&
+      pathname !== "/coach"
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, MapPinCheck, MessageSquare, type LucideIcon } from "lucide-react";
+import { Bot, CalendarDays, MapPinCheck, MessageSquare, type LucideIcon } from "lucide-react";
 
 type PortalTab = {
   href: string;
@@ -16,6 +16,7 @@ const TABS: PortalTab[] = [
   { href: "/my-attendance", label: "Fichar", icon: MapPinCheck, enabled: true },
   { href: "/my-schedule", label: "Horario", icon: CalendarDays, enabled: true },
   { href: "/announcements", label: "Anuncios", icon: MessageSquare, enabled: true },
+  { href: "/coach", label: "Coach", icon: Bot, enabled: true },
 ];
 
 export function PortalTabs() {

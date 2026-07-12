@@ -407,7 +407,9 @@ export function scanModules(): ModuleInfo[] {
   });
 }
 
-export function computeResumen(): DatosResumen {
+export function computeResumen(
+  salesOverride?: { ventasMes: number; clientesMes: number } | null,
+): DatosResumen {
   const fuentes: string[] = [];
 
   const profitRaw = findRaw([MODULE_KEYS.profit]);
@@ -417,7 +419,10 @@ export function computeResumen(): DatosResumen {
   const personalRaw = findRaw([MODULE_KEYS.personal]);
 
   const profit = profitRaw ? analyzeProfit(profitRaw.data) : null;
-  const resto = restoRaw ? analyzeRestosuite(restoRaw.data) : null;
+  // Fuente de ventas: si el servidor provee datos (salesOverride), tienen
+  // prioridad sobre el antiguo localStorage de Restosuite.
+  const resto: { ventasMes: number; clientesMes: number } | null =
+    salesOverride ?? (restoRaw ? analyzeRestosuite(restoRaw.data) : null);
   const reviews = reviewsRaw ? analyzeReviews(reviewsRaw.data) : null;
   const compras = comprasRaw ? analyzeCompras(comprasRaw.data) : null;
   const personal = personalRaw ? analyzePersonal(personalRaw.data) : null;

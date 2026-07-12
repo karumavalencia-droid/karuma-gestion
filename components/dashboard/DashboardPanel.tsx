@@ -40,15 +40,19 @@ function madridDate(daysFromToday = 0): string {
 export function DashboardPanel() {
   const { t } = useLanguage();
   const [salesSummary, setSalesSummary] = useState<DailySalesSummary | null>(null);
+  const [salesError, setSalesError] = useState(false);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/sales/daily?limit=62", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    fetch("/api/sales/daily", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data: DailySalesSummary | null) => {
         if (active && data) setSalesSummary(data);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // La API falló: el panel sigue funcionando con los KPIs de referencia.
+        if (active) setSalesError(true);
+      });
     return () => {
       active = false;
     };
@@ -100,6 +104,13 @@ export function DashboardPanel() {
   return (
     <PageContent>
       <PageHeader description={t("dashboard.description")} hideTitle />
+
+      {salesError && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 sm:text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>No se pudieron cargar las ventas del servidor; mostrando datos de referencia.</span>
+        </div>
+      )}
 
       {salesSummary && (
         <div
