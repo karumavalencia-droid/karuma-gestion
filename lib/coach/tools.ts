@@ -103,6 +103,83 @@ export const COACH_TOOLS = [
       required: ["category", "location", "description", "priority"],
     },
   },
+  {
+    type: "function" as const,
+    name: "get_today_reservations",
+    description:
+      "Devuelve las reservas de HOY con datos reales de la base de datos: total de reservas activas y personas, desglose por servicio (comida/cena), sentados ahora, walk-ins, no-shows, cancelaciones y las próximas llegadas. Úsala para preguntas como '¿hay muchas reservas hoy?' o '¿cuánta gente viene?'. No admite parámetros. No expone teléfonos ni emails.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+      required: [],
+    },
+  },
+  {
+    type: "function" as const,
+    name: "get_table_status",
+    description:
+      "Estado real de las mesas de HOY para un servicio: libre, reservada u ocupada, con capacidad y zona, más el recuento de libres/reservadas/ocupadas. Úsala para '¿qué mesas están libres?' o '¿hay mesa para 4?'.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        servicio: {
+          type: ["string", "null"],
+          enum: ["comida", "cena", null],
+          description:
+            "Servicio a consultar. Si es null, se usa el servicio en curso según la hora.",
+        },
+      },
+      additionalProperties: false,
+      required: ["servicio"],
+    },
+  },
+  {
+    type: "function" as const,
+    name: "get_today_sales",
+    description:
+      "Ventas reales de HOY (netas, brutas, clientes, pedidos, ticket medio, bebida, delivery, efectivo, tarjeta) y acumulado del mes. SOLO gerencia: si la cuenta no es owner/manager, devuelve 'no_access'. Úsala para '¿cuánto hemos vendido hoy?'. Nunca inventes cifras: si no hay datos, dilo.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+      required: [],
+    },
+  },
+  {
+    type: "function" as const,
+    name: "get_team_today",
+    description:
+      "Quién trabaja HOY: lista de empleados con turno hoy (nombre, departamento y horas de cada turno) y quién libra. Úsala para '¿quién trabaja hoy?' o '¿quién está en cocina esta noche?'. Solo nombres y turnos: ninguna cifra ni dato personal.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+      required: [],
+    },
+  },
+  {
+    type: "function" as const,
+    name: "get_inventory",
+    description:
+      "Productos recibidos de proveedores (inventario de entradas por factura): nombre, cantidad, unidad, proveedor y fecha. Úsala para '¿tenemos salmón?' o '¿qué ha llegado esta semana?'. Puede filtrar por nombre de producto. No muestra precios. Si no hay datos, dilo con claridad.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: ["string", "null"],
+          description: "Texto para filtrar por nombre de producto (opcional). null = sin filtro.",
+        },
+      },
+      additionalProperties: false,
+      required: ["query"],
+    },
+  },
 ];
 
 const WEEKDAY_LABELS = [

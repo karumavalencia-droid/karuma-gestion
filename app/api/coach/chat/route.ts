@@ -10,6 +10,13 @@ import {
   runGetMySchedule,
   runSearchKnowledge,
 } from "@/lib/coach/tools";
+import {
+  runGetInventory,
+  runGetTableStatus,
+  runGetTeamToday,
+  runGetTodayReservations,
+  runGetTodaySales,
+} from "@/lib/coach/restaurant-tools";
 import type {
   DbCoachConversation,
   DbCoachMessage,
@@ -301,6 +308,16 @@ async function executeCoachTool(
       return runSearchKnowledge(args);
     case "create_incident_report":
       return runCreateIncidentReport(args, user, conversationId);
+    case "get_today_reservations":
+      return runGetTodayReservations();
+    case "get_table_status":
+      return runGetTableStatus(args);
+    case "get_today_sales":
+      return runGetTodaySales(user);
+    case "get_team_today":
+      return runGetTeamToday();
+    case "get_inventory":
+      return runGetInventory(args);
     default:
       return JSON.stringify({ error: "unknown_tool" });
   }
