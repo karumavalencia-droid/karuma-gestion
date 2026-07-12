@@ -256,7 +256,88 @@ export type DbAnnouncementInsert = {
 
 export type DbAnnouncementUpdate = Partial<Omit<DbAnnouncementInsert, "id" | "employee_key" | "employee_name" | "department">>;
 
+// ── Ventas diarias (026_sales.sql) ───────────────────────────────────────────
+
+export type DbSalesDaily = {
+  id: string;
+  location_id: string;
+  business_date: string;
+  gross_sales: number | null;
+  net_sales: number;
+  customers: number | null;
+  orders: number | null;
+  average_ticket: number | null;
+  drink_sales: number | null;
+  delivery_sales: number | null;
+  cash_sales: number | null;
+  card_sales: number | null;
+  source: string;
+  external_id: string | null;
+  notes: string | null;
+  synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbSalesDailyInsert = {
+  id?: string;
+  location_id: string;
+  business_date: string;
+  gross_sales?: number | null;
+  net_sales?: number;
+  customers?: number | null;
+  orders?: number | null;
+  average_ticket?: number | null;
+  drink_sales?: number | null;
+  delivery_sales?: number | null;
+  cash_sales?: number | null;
+  card_sales?: number | null;
+  source?: string;
+  external_id?: string | null;
+  notes?: string | null;
+  synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbSalesImportLog = {
+  id: string;
+  source: string;
+  file_name: string | null;
+  total_rows: number;
+  inserted_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type DbSalesImportLogInsert = {
+  id?: string;
+  source: string;
+  file_name?: string | null;
+  total_rows?: number;
+  inserted_rows?: number;
+  updated_rows?: number;
+  skipped_rows?: number;
+  status: string;
+  error_message?: string | null;
+  created_at?: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
+
+import type {
+  DbCoachConversation,
+  DbCoachConversationInsert,
+  DbCoachIncidentReport,
+  DbCoachIncidentReportInsert,
+  DbCoachKnowledgeEntry,
+  DbCoachKnowledgeEntryInsert,
+  DbCoachMessage,
+  DbCoachMessageInsert,
+} from "../coach/types";
 
 export type Database = {
   public: {
@@ -351,6 +432,42 @@ export type Database = {
         Row: DbAnnouncement;
         Insert: DbAnnouncementInsert;
         Update: DbAnnouncementUpdate;
+        Relationships: [];
+      };
+      sales_daily: {
+        Row: DbSalesDaily;
+        Insert: DbSalesDailyInsert;
+        Update: Partial<DbSalesDailyInsert>;
+        Relationships: [];
+      };
+      sales_import_log: {
+        Row: DbSalesImportLog;
+        Insert: DbSalesImportLogInsert;
+        Update: Partial<DbSalesImportLogInsert>;
+        Relationships: [];
+      };
+      coach_conversations: {
+        Row: DbCoachConversation;
+        Insert: DbCoachConversationInsert;
+        Update: Partial<DbCoachConversationInsert>;
+        Relationships: [];
+      };
+      coach_messages: {
+        Row: DbCoachMessage;
+        Insert: DbCoachMessageInsert;
+        Update: Partial<DbCoachMessageInsert>;
+        Relationships: [];
+      };
+      coach_incident_reports: {
+        Row: DbCoachIncidentReport;
+        Insert: DbCoachIncidentReportInsert;
+        Update: Partial<DbCoachIncidentReportInsert>;
+        Relationships: [];
+      };
+      coach_knowledge_entries: {
+        Row: DbCoachKnowledgeEntry;
+        Insert: DbCoachKnowledgeEntryInsert;
+        Update: Partial<DbCoachKnowledgeEntryInsert>;
         Relationships: [];
       };
     };

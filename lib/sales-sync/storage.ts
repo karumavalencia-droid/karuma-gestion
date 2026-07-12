@@ -1,3 +1,13 @@
+/**
+ * @deprecated Almacenamiento antiguo de ventas en blob JSON
+ * (Vercel Blob / Supabase Storage: karuma-private/sales/daily-sales.json).
+ *
+ * La fuente de verdad ahora es la tabla Supabase `sales_daily`
+ * (ver lib/sales-sync/supabaseRepo.ts). Este módulo se conserva SOLO para:
+ *   - Permitir rollback.
+ *   - La migración puntual del blob a la tabla (app/api/sales/migrate-blob).
+ * No usar para nuevas escrituras.
+ */
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DailySalesRecord, DailySalesStore } from "./types";
 

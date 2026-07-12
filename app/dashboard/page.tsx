@@ -43,9 +43,13 @@ export default function DashboardPage() {
       .then(() => setStats(getDashboardStats(todayStr)))
       .catch(() => setStats(getDashboardStats(todayStr)));
 
-    fetch("/api/sales/daily?limit=31")
-      .then((r) => r.json())
-      .then((d: SalesResponse) => setSales(d))
+    fetch("/api/sales/daily", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: SalesResponse | null) => {
+        // Solo aceptar respuestas con forma válida; si la API falla, dejar
+        // sales en null para que el panel muestre "—" sin romperse.
+        if (d && Array.isArray(d.records)) setSales(d);
+      })
       .catch(() => null);
 
     fetch("/api/facturas", { cache: "no-store" })
@@ -69,11 +73,12 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [todayStr]);
 
-  const todayRec = sales?.records.find((r) => r.date === todayStr);
-  const yesterdayRec = sales?.records.find((r) => r.date === yesterdayStr);
-  const monthTotal = sales?.records
+  const salesRecords = sales?.records ?? [];
+  const todayRec = salesRecords.find((r) => r.date === todayStr);
+  const yesterdayRec = salesRecords.find((r) => r.date === yesterdayStr);
+  const monthTotal = salesRecords
     .filter((r) => r.date.startsWith(thisMonth))
-    .reduce((s, r) => s + r.grossSales, 0) ?? 0;
+    .reduce((s, r) => s + r.grossSales, 0);
 
   const salesConfigured = sales?.configured === true;
 

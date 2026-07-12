@@ -1,6 +1,36 @@
+import type { RegistroRestosuite } from "@/lib/types";
 import type { DailySalesRecord } from "./types";
 
 type UnknownRecord = Record<string, unknown>;
+
+/**
+ * Mapea un RegistroRestosuite (forma del parser CSV y del localStorage antiguo)
+ * a DailySalesRecord (forma unificada de sales_daily). El CSV solo trae el
+ * resumen diario; los campos no presentes (gross/cash/card/delivery) quedan a 0.
+ */
+export function registroToDailySales(
+  registro: RegistroRestosuite,
+  options: { locationId: string; source: string; syncedAt: string },
+): DailySalesRecord {
+  const netSales = Math.round(registro.ventas * 100) / 100;
+  return {
+    date: registro.fecha,
+    grossSales: netSales,
+    netSales,
+    customers: Math.max(0, Math.round(registro.clientes || 0)),
+    orders: Math.max(0, Math.round(registro.facturas || 0)),
+    averageTicket: Math.round((registro.ticketMedio || 0) * 100) / 100,
+    drinkSales: Math.round((registro.ventasBebida || 0) * 100) / 100,
+    deliverySales: 0,
+    cashSales: 0,
+    cardSales: 0,
+    source: options.source,
+    locationId: options.locationId,
+    externalId: null,
+    notes: registro.observaciones || "",
+    syncedAt: options.syncedAt,
+  };
+}
 
 const DATE_KEYS = ["date", "fecha", "businessDate", "business_date", "day", "dia"];
 const NET_SALES_KEYS = [

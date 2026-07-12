@@ -32,6 +32,10 @@ import {
 } from "@/lib/datos/helpers";
 import { formatCurrency } from "@/lib/utils";
 import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
+import { SalesDataStatus } from "@/components/datos/SalesDataStatus";
+import { LegacySalesMigrator } from "@/components/sales/LegacySalesMigrator";
+import { useDailySales } from "@/lib/sales-sync/useDailySales";
+import { getRegistrosMes } from "@/lib/objetivo/helpers";
 
 const sugerenciaStyles = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-900",
@@ -52,6 +56,7 @@ export function DatosPanel() {
   });
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState("");
+  const [statusVersion, setStatusVersion] = useState(0);
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [apiDraft, setApiDraft] = useState({ apiKey: "", apiUrl: "" });
 
@@ -65,7 +70,18 @@ export function DatosPanel() {
     setLoaded(true);
   }, [refresh]);
 
-  const resumen = computeResumen();
+  // Ventas: fuente única de verdad = servidor (/api/sales/daily).
+  const sales = useDailySales();
+  const now = new Date();
+  const registrosMes = getRegistrosMes(sales.registros, now.getFullYear(), now.getMonth());
+  const salesOverride =
+    sales.registros.length > 0
+      ? {
+          ventasMes: registrosMes.reduce((sum, r) => sum + r.ventas, 0),
+          clientesMes: registrosMes.reduce((sum, r) => sum + r.clientes, 0),
+        }
+      : null;
+  const resumen = computeResumen(salesOverride);
   const sugerencias = generarAISummary(modules, resumen);
 
   const showToast = useCallback((msg: string) => {
@@ -220,14 +236,33 @@ export function DatosPanel() {
         </Button>
       </div>
 
+      <LegacySalesMigrator onMigrated={() => sales.refetch()} />
+
+      <div className="mb-4 sm:mb-6">
+        <SalesDataStatus refreshToken={statusVersion} />
+      </div>
+
       <div className="mb-4 sm:mb-6">
         <RestosuiteCsvImporter
           onImported={() => {
+            sales.refetch();
             refresh();
-            showToast("Restosuite importado — métricas actualizadas");
+            setStatusVersion((version) => version + 1);
+            showToast("Ventas importadas — métricas actualizadas");
           }}
         />
       </div>
+
+      {sales.error ? (
+        <div className="mb-4 flex items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 sm:mb-6">
+          <span>No se pudieron cargar las ventas del servidor: {sales.error}</span>
+          <Button size="sm" variant="outline" onClick={() => sales.refetch()}>
+            Reintentar
+          </Button>
+        </div>
+      ) : sales.loading ? (
+        <p className="mb-4 text-xs text-gray-500 sm:mb-6">Cargando ventas del servidor…</p>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Estado módulos */}
@@ -268,9 +303,12 @@ export function DatosPanel() {
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Restosuite API Ready</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                API TPV (Restosuite / Palmier Pro)
+              </h2>
               <p className="mt-1 text-xs text-gray-500">
-                Preparado para integración futura (sin conexión real).
+                Preparado para integración futura (sin conexión real). Modo
+                actual: importación manual de CSV.
               </p>
             </div>
             <StatusBadge variant={apiConectada ? "info" : "warning"}>

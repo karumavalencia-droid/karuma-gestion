@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  Bot,
   CalendarCheck,
   CalendarDays,
   ChefHat,
@@ -38,6 +39,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/recetas": ChefHat,
   "/dashboard/reservas": CalendarCheck,
   "/announcements": MessageSquare,
+  "/coach": Bot,
   "/dashboard/stock": Package,
 };
 

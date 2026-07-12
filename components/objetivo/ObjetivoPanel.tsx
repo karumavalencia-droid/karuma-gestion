@@ -30,12 +30,11 @@ import {
   loadRestosuite,
   parseRegistroForm,
   registroToForm,
-  saveRestosuite,
   type RegistroForm,
 } from "@/lib/objetivo/helpers";
-import { RegistroRestosuite } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
+import { useDailySales } from "@/lib/sales-sync/useDailySales";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type Tab = "registro" | "tendencias" | "ai";
@@ -140,28 +139,28 @@ function BarChart({
 
 export function ObjetivoPanel() {
   const { t } = useLanguage();
+  const sales = useDailySales();
+  const registros = sales.registros;
   const [objetivoMensual, setObjetivoMensual] = useState(100_000);
-  const [registros, setRegistros] = useState<RegistroRestosuite[]>([]);
-  const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("registro");
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<ModalKind>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<RegistroForm>(EMPTY_REGISTRO_FORM);
   const [confirmMessage, setConfirmMessage] = useState("");
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmAction, setConfirmAction] = useState<(() => void | Promise<void>) | null>(null);
 
   const now = useMemo(() => new Date(), []);
   const year = now.getFullYear();
   const month = now.getMonth();
 
   useEffect(() => {
+    // El objetivo mensual (meta 100K) es configuración, no dato de ventas:
+    // se mantiene en localStorage. Las ventas vienen del servidor (useDailySales).
     try {
-      const store = loadRestosuite();
-      setObjetivoMensual(store.objetivoMensual);
-      setRegistros(store.registros);
-    } finally {
-      setLoaded(true);
+      setObjetivoMensual(loadRestosuite().objetivoMensual);
+    } catch {
+      // Ignorar: valor por defecto 100.000.
     }
   }, []);
 
@@ -169,20 +168,6 @@ export function ObjetivoPanel() {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
   }, []);
-
-  const reloadFromStorage = useCallback(() => {
-    const store = loadRestosuite();
-    setObjetivoMensual(store.objetivoMensual);
-    setRegistros(store.registros);
-  }, []);
-
-  const persist = useCallback(
-    (nextRegistros: RegistroRestosuite[]) => {
-      setRegistros(nextRegistros);
-      saveRestosuite({ objetivoMensual, registros: nextRegistros });
-    },
-    [objetivoMensual],
-  );
 
   const store = useMemo(
     () => ({ objetivoMensual, registros }),
@@ -221,42 +206,67 @@ export function ObjetivoPanel() {
     setModal("registro");
   };
 
-  const saveRegistro = () => {
+  const saveRegistro = async () => {
     const parsed = parseRegistroForm(form);
     if (!parsed) {
       showToast("Completa fecha y ventas");
       return;
     }
 
-    const duplicado = registros.find(
-      (r) => r.fecha === parsed.fecha && r.id !== editId,
-    );
-    if (duplicado) {
-      showToast("Ya existe un registro para esa fecha");
-      return;
-    }
+    try {
+      // El registro manual se guarda en el servidor vía upsert (por fecha).
+      const registro = { id: genId(), ...parsed };
+      const response = await fetch("/api/sales/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ registros: [registro], source: "manual" }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        showToast(data?.error ?? "No se pudo guardar el registro");
+        return;
+      }
 
-    if (editId) {
-      persist(registros.map((r) => (r.id === editId ? { ...r, ...parsed } : r)));
-      showToast("Registro actualizado");
-    } else {
-      persist([...registros, { id: genId(), ...parsed }]);
-      showToast("Registro añadido");
-    }
+      // Si se editó cambiando la fecha, borrar el día anterior.
+      if (editId && editId !== parsed.fecha) {
+        await fetch(
+          `/api/sales/daily?date=${encodeURIComponent(editId)}`,
+          { method: "DELETE", cache: "no-store" },
+        ).catch(() => undefined);
+      }
 
-    setModal(null);
-    setForm(EMPTY_REGISTRO_FORM);
-    setEditId(null);
+      sales.refetch();
+      showToast(editId ? "Registro actualizado" : "Registro añadido");
+      setModal(null);
+      setForm(EMPTY_REGISTRO_FORM);
+      setEditId(null);
+    } catch {
+      showToast("Error de red al guardar");
+    }
   };
 
   const confirmDelete = (id: string) => {
     const reg = registros.find((r) => r.id === id);
     if (!reg) return;
     setConfirmMessage(`¿Eliminar registro del ${formatDate(reg.fecha)}?`);
-    setConfirmAction(() => () => {
-      persist(registros.filter((r) => r.id !== id));
-      setModal(null);
-      showToast("Registro eliminado");
+    setConfirmAction(() => async () => {
+      try {
+        const response = await fetch(
+          `/api/sales/daily?date=${encodeURIComponent(reg.fecha)}`,
+          { method: "DELETE", cache: "no-store" },
+        );
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          showToast(data?.error ?? "No se pudo eliminar");
+          return;
+        }
+        sales.refetch();
+        setModal(null);
+        showToast("Registro eliminado");
+      } catch {
+        showToast("Error de red al eliminar");
+      }
     });
     setModal("confirm");
   };
@@ -329,7 +339,7 @@ export function ObjetivoPanel() {
         <RestosuiteCsvImporter
           compact
           onImported={() => {
-            reloadFromStorage();
+            sales.refetch();
             showToast("CSV importado — Objetivo 100K actualizado");
           }}
         />
@@ -468,13 +478,22 @@ export function ObjetivoPanel() {
             </p>
           </div>
 
-          {!loaded ? (
+          {sales.error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-800 shadow-sm">
+              No se pudieron cargar las ventas: {sales.error}
+              <div className="mt-3">
+                <Button size="sm" variant="outline" onClick={() => sales.refetch()}>
+                  Reintentar
+                </Button>
+              </div>
+            </div>
+          ) : sales.loading ? (
             <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
               Cargando datos…
             </div>
           ) : registrosVisibles.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
-              Sin registros. Pulsa Nuevo registro.
+              Sin registros. Importa un CSV o pulsa Nuevo registro.
             </div>
           ) : (
             <div className="space-y-3">
