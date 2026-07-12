@@ -103,10 +103,19 @@ export async function POST(request: NextRequest) {
 
   // La clave de OpenAI SOLO existe en el servidor. Nunca NEXT_PUBLIC_*.
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return configError();
-  if (!isSupabaseConfigured()) return configError();
+  if (!apiKey) {
+    console.error("[coach] configError: falta OPENAI_API_KEY en el runtime");
+    return configError();
+  }
+  if (!isSupabaseConfigured()) {
+    console.error("[coach] configError: Supabase no configurado");
+    return configError();
+  }
   const supabase = getSupabaseAdmin();
-  if (!supabase) return configError();
+  if (!supabase) {
+    console.error("[coach] configError: cliente admin de Supabase nulo");
+    return configError();
+  }
 
   // Conversación: cargar la propia o crear una nueva ligada a la sesión.
   let conversation: ConversationRow;
@@ -130,7 +139,13 @@ export async function POST(request: NextRequest) {
       })
       .select("id, user_email, employee_id, title")
       .single<ConversationRow>();
-    if (error || !data) return configError();
+    if (error || !data) {
+      console.error(
+        "[coach] configError: fallo al crear la conversación",
+        error?.message,
+      );
+      return configError();
+    }
     conversation = data;
   }
 
