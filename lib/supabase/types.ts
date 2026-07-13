@@ -326,6 +326,133 @@ export type DbSalesImportLogInsert = {
   created_at?: string;
 };
 
+// ── Identity System v1.0 ───────────────────────────────────────────────────
+
+export type DbAuthAccount = {
+  id: string;
+  auth_user_id: string;
+  phone: string | null;
+  display_name: string;
+  role_id: string;
+  status: 'active' | 'disabled' | 'suspended';
+  password_changed_at: string | null;
+  last_login_at: string | null;
+  last_login_ip: string | null;
+  mfa_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbAuthAccountInsert = {
+  auth_user_id: string;
+  phone?: string | null;
+  display_name: string;
+  role_id?: string;
+  status?: 'active' | 'disabled' | 'suspended';
+  mfa_enabled?: boolean;
+};
+
+export type DbAuthAccountUpdate = Partial<Omit<DbAuthAccountInsert, 'auth_user_id'>>;
+
+export type DbAuthOtpSession = {
+  id: string;
+  phone: string;
+  code: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  verified_at: string | null;
+  account_id: string | null;
+  created_at: string;
+};
+
+export type DbAuthOtpSessionInsert = {
+  phone: string;
+  code: string;
+  expires_at: string;
+  account_id?: string | null;
+};
+
+export type DbAuthLoginLog = {
+  id: string;
+  account_id: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address: string | null;
+  user_agent: string | null;
+  device_info: Record<string, unknown> | null;
+  failure_reason: string | null;
+  created_at: string;
+};
+
+export type DbAuthLoginLogInsert = {
+  account_id?: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address?: string | null;
+  user_agent?: string | null;
+  device_info?: Record<string, unknown> | null;
+  failure_reason?: string | null;
+};
+
+export type DbAuthSession = {
+  id: string;
+  account_id: string;
+  device_id: string;
+  device_name: string | null;
+  device_type: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name: string | null;
+  browser_version: string | null;
+  os: string | null;
+  ip_address: string | null;
+  last_active_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type DbAuthSessionInsert = {
+  account_id: string;
+  device_id: string;
+  device_name?: string | null;
+  device_type?: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name?: string | null;
+  browser_version?: string | null;
+  os?: string | null;
+  ip_address?: string | null;
+  expires_at: string;
+};
+
+export type DbAppConfig = {
+  id: number;
+  permissions_enabled: boolean;
+  otp_max_attempts: number;
+  otp_validity_minutes: number;
+  session_duration_days: number;
+  owner_phone: string | null;
+  updated_at: string;
+};
+
+export type DbAppConfigInsert = Partial<Omit<DbAppConfig, 'id' | 'updated_at'>>;
+
+// ── CEO Morning Brief ────────────────────────────────────────────────────────
+
+export type DbCeoMorningBrief = {
+  id: string;
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
+  created_at: string;
+};
+
+export type DbCeoMorningBriefInsert = {
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 import type {
@@ -468,6 +595,42 @@ export type Database = {
         Row: DbCoachKnowledgeEntry;
         Insert: DbCoachKnowledgeEntryInsert;
         Update: Partial<DbCoachKnowledgeEntryInsert>;
+        Relationships: [];
+      };
+      ceo_morning_briefs: {
+        Row: DbCeoMorningBrief;
+        Insert: DbCeoMorningBriefInsert;
+        Update: Partial<DbCeoMorningBriefInsert>;
+        Relationships: [];
+      };
+      auth_accounts: {
+        Row: DbAuthAccount;
+        Insert: DbAuthAccountInsert;
+        Update: DbAuthAccountUpdate;
+        Relationships: [];
+      };
+      auth_otp_sessions: {
+        Row: DbAuthOtpSession;
+        Insert: DbAuthOtpSessionInsert;
+        Update: Partial<DbAuthOtpSessionInsert>;
+        Relationships: [];
+      };
+      auth_login_logs: {
+        Row: DbAuthLoginLog;
+        Insert: DbAuthLoginLogInsert;
+        Update: Partial<DbAuthLoginLogInsert>;
+        Relationships: [];
+      };
+      auth_sessions: {
+        Row: DbAuthSession;
+        Insert: DbAuthSessionInsert;
+        Update: Partial<DbAuthSessionInsert>;
+        Relationships: [];
+      };
+      app_config: {
+        Row: DbAppConfig;
+        Insert: DbAppConfigInsert;
+        Update: DbAppConfigInsert;
         Relationships: [];
       };
     };
