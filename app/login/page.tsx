@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDefaultRoute } from "@/lib/auth/permissions";
 
@@ -150,6 +152,16 @@ export default function LoginPage() {
             {submitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+          <Link
+            href="/security/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Acceso seguro del propietario
+          </Link>
+        </div>
       </div>
     </div>
   );

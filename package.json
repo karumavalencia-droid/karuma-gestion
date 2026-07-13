@@ -13,6 +13,7 @@
     "seed:turnos": "node --import tsx scripts/seed-turnos.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.107.0",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^0.469.0",

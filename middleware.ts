@@ -4,6 +4,7 @@ import {
   SESSION_COOKIE_NAME,
   verifySessionToken,
 } from "@/lib/auth/session";
+import { handleOwnerRoutes, isOwnerScopedPath } from "@/lib/owner/middleware-gate";
 
 const PUBLIC_PATHS = new Set([
   "/api/auth/login",
@@ -39,6 +40,13 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/stock/from-invoices"
   ) {
     return NextResponse.next();
+  }
+
+  // Zona del propietario (/owner, /security, /api/owner, /api/security): se
+  // gestiona con Supabase Auth + MFA, no con el cookie karuma_session. Debe ir
+  // ANTES de la lógica de empleados/gestión de abajo.
+  if (isOwnerScopedPath(pathname)) {
+    return handleOwnerRoutes(request, NextResponse.next({ request }));
   }
 
   const user = await verifySessionToken(
