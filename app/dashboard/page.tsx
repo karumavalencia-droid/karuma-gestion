@@ -33,8 +33,20 @@ export default function DashboardPage() {
   const [facturas, setFacturas] = useState<FacturasResponse | null>(null);
   const [attendance, setAttendance] = useState<AttendanceResponse | null>(null);
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  // Fechas en horario de Madrid, coherentes con business_date en sales_daily
+  // (la API guarda el día de calendario en Europe/Madrid, no en UTC).
+  const madridDate = (offsetDays = 0) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + offsetDays);
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+  };
+  const todayStr = madridDate(0);
+  const yesterdayStr = madridDate(-1);
   const thisMonth = todayStr.slice(0, 7);
 
   useEffect(() => {
@@ -76,33 +88,40 @@ export default function DashboardPage() {
   const salesRecords = sales?.records ?? [];
   const todayRec = salesRecords.find((r) => r.date === todayStr);
   const yesterdayRec = salesRecords.find((r) => r.date === yesterdayStr);
-  const monthTotal = salesRecords
-    .filter((r) => r.date.startsWith(thisMonth))
-    .reduce((s, r) => s + r.grossSales, 0);
+  const monthRecords = salesRecords.filter((r) => r.date.startsWith(thisMonth));
+  const monthTotal = monthRecords.reduce((s, r) => s + r.grossSales, 0);
 
+  // "configurado" = la BD de ventas existe. NO implica que haya datos reales.
   const salesConfigured = sales?.configured === true;
 
+  // Estado por tarjeta:
+  //  live   → hay un registro real para ese periodo (única condición para "live")
+  //  nodata → la BD existe pero no hay registro para ese periodo → "Sin datos"
+  //  off    → la BD de ventas no está configurada → "—"
+  type SalesCardState = "live" | "nodata" | "off";
+  const mkCard = (
+    label: string,
+    hasRecord: boolean,
+    value: string,
+  ): { label: string; value: string; state: SalesCardState } => {
+    if (!salesConfigured) return { label, value: "—", state: "off" };
+    if (!hasRecord) return { label, value: "Sin datos", state: "nodata" };
+    return { label, value, state: "live" };
+  };
+
   const salesCards = [
-    {
-      label: t("dashboard.todaySales"),
-      value: salesConfigured ? (todayRec ? fmt(todayRec.grossSales) : "€0") : "—",
-      live: salesConfigured,
-    },
-    {
-      label: t("dashboard.yesterdaySales"),
-      value: salesConfigured ? (yesterdayRec ? fmt(yesterdayRec.grossSales) : "€0") : "—",
-      live: salesConfigured,
-    },
-    {
-      label: t("dashboard.monthSales"),
-      value: salesConfigured ? fmt(monthTotal) : "—",
-      live: salesConfigured,
-    },
-    {
-      label: t("dashboard.todayFootfall"),
-      value: salesConfigured ? String(todayRec?.customers ?? 0) : "—",
-      live: salesConfigured,
-    },
+    mkCard(t("dashboard.todaySales"), Boolean(todayRec), fmt(todayRec?.grossSales ?? 0)),
+    mkCard(
+      t("dashboard.yesterdaySales"),
+      Boolean(yesterdayRec),
+      fmt(yesterdayRec?.grossSales ?? 0),
+    ),
+    mkCard(t("dashboard.monthSales"), monthRecords.length > 0, fmt(monthTotal)),
+    mkCard(
+      t("dashboard.todayFootfall"),
+      Boolean(todayRec),
+      String(todayRec?.customers ?? 0),
+    ),
   ];
 
   const facturasPendientes = facturas?.configured
@@ -122,13 +141,17 @@ export default function DashboardPage() {
           <div key={item.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">{item.label}</p>
-              {item.live ? (
+              {item.state === "live" ? (
                 <span className="flex items-center gap-1 text-[10px] text-emerald-500">
                   <TrendingUp className="h-3 w-3" /> live
                 </span>
+              ) : item.state === "nodata" ? (
+                <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                  sin datos
+                </span>
               ) : (
                 <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                  <WifiOff className="h-3 w-3" /> mock
+                  <WifiOff className="h-3 w-3" /> sin conexión
                 </span>
               )}
             </div>
@@ -231,11 +254,16 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-medium text-gray-900">{t("dashboard.systemStatus")}</h2>
         <p className="mt-2 text-sm text-gray-600">{t("dashboard.systemNote")}</p>
-        {!salesConfigured && (
+        {!salesConfigured ? (
           <p className="mt-2 text-xs text-gray-400">
-            Ventas en modo mock - configura RestaurantSuite para datos reales.
+            Base de datos de ventas no configurada.
           </p>
-        )}
+        ) : salesRecords.length === 0 ? (
+          <p className="mt-2 text-xs text-amber-600">
+            Todavía no hay ventas importadas. Sube el CSV del TPV (Restosuite / Palmier
+            Pro) en el módulo Datos. No hay sincronización automática con el TPV.
+          </p>
+        ) : null}
       </div>
     </div>
   );
