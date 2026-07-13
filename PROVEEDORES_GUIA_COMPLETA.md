@@ -205,8 +205,7 @@ supabase/migrations/
 └── 017_jet_extramar_q2_2026.sql    # Insertar 30 productos
 
 scripts/
-├── upload-jet-extramar.js      # Node.js carga datos
-└── setup-db.py                 # Python carga (fallback)
+└── upload-jet-extramar.js      # Node.js carga datos
 ```
 
 ---

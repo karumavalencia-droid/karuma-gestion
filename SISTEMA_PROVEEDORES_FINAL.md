@@ -238,8 +238,7 @@ supabase/migrations/
 └── 019_supplier_alerts.sql               # Alertas
 
 scripts/
-├── upload-jet-extramar.js                # Node.js carga
-└── setup-db.py                           # Python carga
+└── upload-jet-extramar.js                # Node.js carga
 ```
 
 ---
