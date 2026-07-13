@@ -18,13 +18,49 @@ type SessionPayload = SessionUser & {
 
 const encoder = new TextEncoder();
 
-function getSessionSecret(): string | null {
-  const configured =
-    process.env.KARUMA_AUTH_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+const DEV_FALLBACK_SECRET = "karuma-local-development-secret";
 
-  if (configured) return configured;
-  if (process.env.NODE_ENV !== "production") return "karuma-local-development-secret";
+/**
+ * Secret used to SIGN new session tokens.
+ *
+ * Prefers the dedicated `KARUMA_AUTH_SECRET`. Falls back to
+ * `SUPABASE_SERVICE_ROLE_KEY` so authentication keeps working before
+ * `KARUMA_AUTH_SECRET` is provisioned in every environment (and so this change
+ * can ship without an env-var flag day). Once `KARUMA_AUTH_SECRET` is set,
+ * session signing is decoupled from the Supabase key — rotating that key no
+ * longer invalidates active sessions.
+ */
+function getSigningSecret(): string | null {
+  if (process.env.KARUMA_AUTH_SECRET) return process.env.KARUMA_AUTH_SECRET;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+  if (process.env.NODE_ENV !== "production") return DEV_FALLBACK_SECRET;
   return null;
+}
+
+/**
+ * Secrets accepted when VERIFYING a session token, newest first.
+ *
+ * Returns every candidate so that tokens signed with the legacy
+ * `SUPABASE_SERVICE_ROLE_KEY` remain valid after we switch signing over to
+ * `KARUMA_AUTH_SECRET`. This is what makes the migration seamless: existing
+ * sessions keep working until they expire, no forced re-login. Remove the
+ * `SUPABASE_SERVICE_ROLE_KEY` entry once all legacy sessions have aged out
+ * (>= SESSION_MAX_AGE_SECONDS after deploy).
+ */
+function getVerificationSecrets(): string[] {
+  const secrets = [
+    process.env.KARUMA_AUTH_SECRET,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ].filter((value): value is string => Boolean(value));
+
+  if (secrets.length === 0 && process.env.NODE_ENV !== "production") {
+    secrets.push(DEV_FALLBACK_SECRET);
+  }
+
+  // De-duplicate in case both env vars hold the same value.
+  return [...new Set(secrets)];
 }
 
 function encodeBase64Url(value: Uint8Array): string {
@@ -57,7 +93,7 @@ async function getSigningKey(secret: string): Promise<CryptoKey> {
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
-  const secret = getSessionSecret();
+  const secret = getSigningSecret();
   if (!secret) throw new Error("KARUMA_AUTH_SECRET is not configured");
 
   const payload: SessionPayload = {
@@ -84,20 +120,28 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
 export async function verifySessionToken(
   token: string | null | undefined,
 ): Promise<SessionUser | null> {
-  const secret = getSessionSecret();
-  if (!secret || !token) return null;
+  const secrets = getVerificationSecrets();
+  if (secrets.length === 0 || !token) return null;
 
   const [encodedPayload, encodedSignature, extra] = token.split(".");
   if (!encodedPayload || !encodedSignature || extra) return null;
 
   try {
-    const key = await getSigningKey(secret);
-    const validSignature = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      toArrayBuffer(decodeBase64Url(encodedSignature)),
-      encoder.encode(encodedPayload),
-    );
+    const signatureBuffer = toArrayBuffer(decodeBase64Url(encodedSignature));
+    const payloadBytes = encoder.encode(encodedPayload);
+
+    // Accept the token if it verifies against any known secret. This keeps
+    // sessions signed with the legacy Supabase key valid during migration.
+    let validSignature = false;
+    for (const secret of secrets) {
+      const key = await getSigningKey(secret);
+      if (
+        await crypto.subtle.verify("HMAC", key, signatureBuffer, payloadBytes)
+      ) {
+        validSignature = true;
+        break;
+      }
+    }
     if (!validSignature) return null;
 
     const payload = JSON.parse(
