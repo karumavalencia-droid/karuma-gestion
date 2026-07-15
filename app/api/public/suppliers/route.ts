@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
 
 /**
  * GET /api/public/suppliers
@@ -16,6 +17,10 @@ const supabase = createClient(
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
+    }
     const apiKey = request.headers.get("x-api-key") ||
       request.nextUrl.searchParams.get("api_key");
 
@@ -75,6 +80,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
+    }
     const apiKey = request.headers.get("x-api-key");
     if (!apiKey || apiKey !== process.env.PUBLIC_API_KEY) {
       return NextResponse.json(
