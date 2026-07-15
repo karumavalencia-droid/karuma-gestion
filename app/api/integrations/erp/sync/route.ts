@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+type SyncLog = {
+  erp_type: string;
+  suppliers_synced: number;
+  products_synced: number;
+  errors: string[];
+  timestamp: string;
+};
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 /**
  * POST /api/integrations/erp/sync
@@ -13,6 +23,13 @@ const supabase = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Supabase no está configurado para la sincronización ERP" },
+        { status: 503 },
+      );
+    }
     const body = await request.json();
     const { erp_type, supplier_data, product_data } = body;
 
@@ -23,7 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const syncLog: any = {
+    const syncLog: SyncLog = {
       erp_type,
       suppliers_synced: 0,
       products_synced: 0,
@@ -99,8 +116,15 @@ export async function POST(request: NextRequest) {
  * GET /api/integrations/erp/status
  * @description Obtener estado de sincronizaciones ERP
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Supabase no está configurado para la sincronización ERP" },
+        { status: 503 },
+      );
+    }
     const { data, error } = await supabase
       .from("integration_logs")
       .select("*")

@@ -86,7 +86,7 @@ export default function ShiftLogPage() {
     const pendingCount = records.filter((r) => r.status === "Pendiente").length;
     const equipmentCount = records.filter((r) => r.equipmentIssues.trim()).length;
     return { todayCount, weekCount, pendingCount, equipmentCount };
-  }, [records]);
+  }, [records, today]);
 
   const filtered = useMemo(() => {
     return records.filter((r) => {
