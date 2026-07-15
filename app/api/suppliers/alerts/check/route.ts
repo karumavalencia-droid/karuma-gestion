@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification } from "@/lib/notifications/send-notification";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { supplier_id, check_type } = body;
 
@@ -19,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const alerts: any[] = [];
+    const alerts: Record<string, unknown>[] = [];
 
     // Obtener productos
     const { data: products, error: productsError } = await supabase
