@@ -1,9 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
+import { isSupabaseConfigured } from "@/lib/supabase/admin";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+const supabase = getLegacySupabaseAdmin()!;
 
 interface NotificationPayload {
   user_id: string;
@@ -17,6 +15,7 @@ interface NotificationPayload {
 
 export async function sendNotification(payload: NotificationPayload) {
   try {
+    if (!isSupabaseConfigured()) throw new Error("Supabase no está configurado");
     // Guardar en BD
     const { data: notification, error: saveError } = await supabase
       .from("user_notifications")
@@ -167,6 +166,7 @@ export async function generateRecommendation(
   insights: Record<string, any>,
 ) {
   try {
+    if (!isSupabaseConfigured()) throw new Error("Supabase no está configurado");
     // Calcular score de confianza basado en datos
     const confidence =
       insights.data_points && insights.data_points > 6 ? 0.9 : 0.75;

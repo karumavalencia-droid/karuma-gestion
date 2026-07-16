@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+const supabase = getLegacySupabaseAdmin()!;
 
 export async function GET(request: NextRequest) {
   try {
+    if (!getLegacySupabaseAdmin()) {
+      return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
+    }
     const searchParams = request.nextUrl.searchParams;
     const reportType = searchParams.get("type") || "summary"; // summary, analytics, recommendations
     const supplierId = searchParams.get("supplier_id");

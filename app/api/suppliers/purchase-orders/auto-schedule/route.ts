@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 interface ScheduledOrder {
   supplier_id: number;
@@ -18,6 +13,8 @@ interface ScheduledOrder {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const searchParams = request.nextUrl.searchParams;
     const supplierId = searchParams.get("supplier_id");
 
@@ -50,6 +47,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const {
       supplier_id,
@@ -109,6 +108,8 @@ export async function POST(request: NextRequest) {
 // Función para ejecutar cada hora (llamada por cron job)
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     // Obtener todas las órdenes programadas
     const { data: scheduledOrders, error: fetchError } = await supabase
       .from("supplier_auto_orders")
