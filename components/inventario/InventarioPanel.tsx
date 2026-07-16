@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   Boxes,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -140,6 +141,13 @@ export function InventarioPanel() {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
   }, []);
+
+  const refreshLocalInventory = useCallback(() => {
+    setProducts(loadProductos());
+    setHistorial(loadHistorial());
+    setLoaded(true);
+    showToast("Inventario actualizado desde este dispositivo");
+  }, [showToast]);
 
   const persist = useCallback(
     (nextProducts: ProductoInventario[], nextHistorial?: MovimientoInventario[]) => {
@@ -389,6 +397,16 @@ export function InventarioPanel() {
     <div>
       <PageHeader title="Inventario" description="Control de stock y movimientos">
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={refreshLocalInventory}
+            title="Volver a leer los datos guardados en este dispositivo"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Actualizar</span>
+          </Button>
           <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nuevo producto</span>
@@ -405,6 +423,13 @@ export function InventarioPanel() {
           </Button>
         </div>
       </PageHeader>
+
+      <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:text-sm">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          Este inventario está guardado localmente en este dispositivo. Exporta un CSV antes de cambiar de equipo; la sincronización multiusuario queda pendiente de conectar a la base de datos.
+        </p>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
         <StatCard
