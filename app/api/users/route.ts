@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 // GET: listar usuarios
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const { data, error } = await supabase
       .from("app_users")
       .select("id, email, full_name, role, department, is_active, last_login")
@@ -34,6 +31,8 @@ export async function GET(request: NextRequest) {
 // POST: crear usuario
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { email, full_name, role, department } = body;
 
