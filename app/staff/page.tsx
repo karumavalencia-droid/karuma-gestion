@@ -73,6 +73,13 @@ export default function StaffPage() {
   const handleSave = async (input: StaffInput) => {
     setSaving(true);
     setError("");
+    const previous = staff;
+    const isEdit = modalMode === "edit" && Boolean(editing);
+    if (isEdit && editing) {
+      setStaff((current) =>
+        current.map((member) => (member.id === editing.id ? { ...member, ...input } : member)),
+      );
+    }
     try {
       const url = modalMode === "create" ? "/api/staff" : `/api/staff/${editing?.id}`;
       const method = modalMode === "create" ? "POST" : "PUT";
@@ -90,6 +97,7 @@ export default function StaffPage() {
       setModalOpen(false);
       await loadStaff();
     } catch (err) {
+      if (isEdit) setStaff(previous);
       setError(err instanceof Error ? err.message : t("staff.saveError"));
     } finally {
       setSaving(false);
@@ -100,6 +108,8 @@ export default function StaffPage() {
     if (!window.confirm(interpolate(t("staff.deleteConfirm"), { name: row.name }))) return;
 
     setError("");
+    const previous = staff;
+    setStaff((current) => current.filter((member) => member.id !== row.id));
     try {
       const res = await fetch(`/api/staff/${row.id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -108,6 +118,7 @@ export default function StaffPage() {
       }
       await loadStaff();
     } catch (err) {
+      setStaff(previous);
       setError(err instanceof Error ? err.message : t("staff.deleteError"));
     }
   };
