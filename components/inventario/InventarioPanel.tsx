@@ -110,6 +110,7 @@ export function InventarioPanel() {
   const [products, setProducts] = useState<ProductoInventario[]>([]);
   const [historial, setHistorial] = useState<MovimientoInventario[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<"checking" | "available" | "local">("checking");
   const [tab, setTab] = useState<Tab>("inventario");
   const [search, setSearch] = useState("");
   const [histSearch, setHistSearch] = useState("");
@@ -135,6 +136,21 @@ export function InventarioPanel() {
     } finally {
       setLoaded(true);
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/inventory", { cache: "no-store" })
+      .then((response) => {
+        if (!active) return;
+        setRemoteStatus(response.ok ? "available" : "local");
+      })
+      .catch(() => {
+        if (active) setRemoteStatus("local");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -434,10 +450,18 @@ export function InventarioPanel() {
         </div>
       </PageHeader>
 
-      <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:text-sm">
+      <div className={`mb-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs sm:text-sm ${
+        remoteStatus === "available"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}>
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Este inventario está guardado localmente en este dispositivo. Exporta un CSV antes de cambiar de equipo; la sincronización multiusuario queda pendiente de conectar a la base de datos.
+          {remoteStatus === "available"
+            ? "La base de datos de inventario está disponible. Los cambios locales existentes se conservan hasta completar la sincronización explícita."
+            : remoteStatus === "checking"
+              ? "Comprobando disponibilidad de la base de datos de inventario…"
+              : "Este inventario está guardado localmente en este dispositivo. Exporta un CSV antes de cambiar de equipo; la sincronización multiusuario queda pendiente de conectar a la base de datos."}
         </p>
       </div>
 
