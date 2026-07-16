@@ -521,7 +521,17 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      apply_inventory_movement: {
+        Args: {
+          p_item_id: string;
+          p_movement_type: "entrada" | "salida" | "ajuste";
+          p_quantity: number;
+          p_note?: string;
+        };
+        Returns: DbInventoryItem;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
