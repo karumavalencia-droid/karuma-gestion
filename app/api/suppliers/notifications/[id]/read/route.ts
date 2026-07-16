@@ -9,10 +9,10 @@ const supabase = createClient(
 // PATCH: marcar notificación como leída
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { is_read } = await request.json();
 
     const { data, error } = await supabase

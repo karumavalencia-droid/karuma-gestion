@@ -355,7 +355,6 @@ export function InventarioPanel() {
         if (!nombre) return;
         if (newProducts.some((p) => p.nombre === nombre && p.proveedor === proveedor)) return;
         const parsed = parseForm({
-          id: String(r.id ?? genId()),
           nombre,
           categoria: String(r.categoria ?? ""),
           stock: String(r.stock ?? 0),

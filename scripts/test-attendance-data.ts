@@ -7,6 +7,7 @@
 import { attendanceBusinessDate } from "@/lib/attendance/time";
 import { KIOSK_EMPLOYEES } from "@/lib/kiosk/employees";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
+import type { DbAttendanceEventInsert } from "@/lib/supabase/types";
 
 async function main() {
   if (!isSupabaseConfigured()) {
@@ -15,6 +16,7 @@ async function main() {
   }
 
   const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase no está configurado");
   const businessDate = attendanceBusinessDate();
 
   console.log(`📅 Añadiendo datos de prueba para: ${businessDate}`);
@@ -24,7 +26,7 @@ async function main() {
   const salaEmployees = KIOSK_EMPLOYEES.filter(e => e.department === "Sala").slice(0, 2);
   const cocinaEmployees = KIOSK_EMPLOYEES.filter(e => e.department === "Cocina").slice(0, 2);
 
-  const events = [];
+  const events: DbAttendanceEventInsert[] = [];
   const now = new Date();
 
   // Sala: entrada a las 11:00
@@ -36,7 +38,7 @@ async function main() {
       event_type: "in",
       occurred_at: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // hace 2 horas
       business_date: businessDate,
-      source: "test-script",
+      source: "admin",
       offline: false,
     });
   }
@@ -50,7 +52,7 @@ async function main() {
       event_type: "in",
       occurred_at: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(), // hace 3 horas
       business_date: businessDate,
-      source: "test-script",
+      source: "admin",
       offline: false,
     });
   }
@@ -64,7 +66,7 @@ async function main() {
       event_type: "out",
       occurred_at: new Date(now.getTime() - 60 * 60 * 1000).toISOString(), // hace 1 hora
       business_date: businessDate,
-      source: "test-script",
+      source: "admin",
       offline: false,
     });
   }

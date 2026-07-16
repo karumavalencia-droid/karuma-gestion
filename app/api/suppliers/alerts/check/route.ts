@@ -8,6 +8,16 @@ function getSupabase() {
   return url && key ? createClient(url, key) : null;
 }
 
+type GeneratedAlert = {
+  supplier_product_id: number;
+  supplier_id: number;
+  alert_type: "low_stock" | "price_change" | "no_purchase_recent";
+  threshold_value: number;
+  current_value: number;
+  alert_message: string;
+  is_active: boolean;
+};
+
 export async function POST(request: Request) {
   try {
     const supabase = getSupabase();
@@ -22,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const alerts: Record<string, unknown>[] = [];
+    const alerts: GeneratedAlert[] = [];
 
     // Obtener productos
     const { data: products, error: productsError } = await supabase
@@ -124,7 +134,7 @@ export async function POST(request: Request) {
           low_stock: "high",
           price_change: "normal",
           no_purchase_recent: "normal",
-        };
+        } as const;
 
         await sendNotification({
           user_id: "admin",

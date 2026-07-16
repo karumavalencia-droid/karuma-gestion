@@ -185,6 +185,7 @@ export type DbReservasConfig = {
   turno_gap_min: number;
   duracion_1_2_min: number;
   duracion_3_4_min: number;
+  duracion_5_6_min: number;
   dias_max_antelacion: number;
   capacidad_online_pct: number;
   comida_inicio: string;
@@ -255,6 +256,12 @@ export type DbAnnouncementInsert = {
 };
 
 export type DbAnnouncementUpdate = Partial<Omit<DbAnnouncementInsert, "id" | "employee_key" | "employee_name" | "department">>;
+
+export type DbAnnouncementRead = {
+  announcement_id: string;
+  employee_key: string;
+  read_at: string;
+};
 
 // ── Ventas diarias (026_sales.sql) ───────────────────────────────────────────
 
@@ -432,6 +439,12 @@ export type Database = {
         Row: DbAnnouncement;
         Insert: DbAnnouncementInsert;
         Update: DbAnnouncementUpdate;
+        Relationships: [];
+      };
+      announcement_reads: {
+        Row: DbAnnouncementRead;
+        Insert: DbAnnouncementRead;
+        Update: Partial<DbAnnouncementRead>;
         Relationships: [];
       };
       sales_daily: {

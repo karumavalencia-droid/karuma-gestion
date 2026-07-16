@@ -106,7 +106,7 @@ export function SupplierAuditLog({ supplierId }: { supplierId?: number }) {
                   <div key={field} className="bg-gray-50 p-2 rounded">
                     <p className="text-gray-600">{field}</p>
                     <p className="font-medium text-gray-900">
-                      {log.old_values?.[field] && (
+                      {Boolean(log.old_values?.[field]) && (
                         <>
                           <span className="text-red-600">
                             {String(log.old_values[field])}

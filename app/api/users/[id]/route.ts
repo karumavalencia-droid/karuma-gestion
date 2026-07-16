@@ -9,10 +9,10 @@ const supabase = createClient(
 // PATCH: actualizar usuario
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { full_name, role, department, is_active } = body;
 
@@ -47,10 +47,10 @@ export async function PATCH(
 // DELETE: desactivar usuario
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const { error } = await supabase
       .from("app_users")
