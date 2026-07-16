@@ -111,6 +111,7 @@ export function InventarioPanel() {
   const [historial, setHistorial] = useState<MovimientoInventario[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [remoteStatus, setRemoteStatus] = useState<"checking" | "available" | "local">("checking");
+  const [syncingRemote, setSyncingRemote] = useState(false);
   const [tab, setTab] = useState<Tab>("inventario");
   const [search, setSearch] = useState("");
   const [histSearch, setHistSearch] = useState("");
@@ -174,6 +175,28 @@ export function InventarioPanel() {
     setLoaded(true);
     showToast("Inventario actualizado desde este dispositivo");
   }, [showToast]);
+
+  const syncRemoteInventory = useCallback(async () => {
+    if (remoteStatus !== "available" || products.length === 0) {
+      showToast("La base de datos no está disponible o no hay productos");
+      return;
+    }
+    setSyncingRemote(true);
+    try {
+      const response = await fetch("/api/inventory/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products }),
+      });
+      const result = (await response.json()) as { created?: number; updated?: number; errors?: string[]; error?: string };
+      if (!response.ok && response.status !== 207) throw new Error(result.error ?? "No se pudo sincronizar");
+      showToast(`${result.created ?? 0} nuevos · ${result.updated ?? 0} actualizados${result.errors?.length ? " · revisa los errores" : ""}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "No se pudo sincronizar");
+    } finally {
+      setSyncingRemote(false);
+    }
+  }, [products, remoteStatus, showToast]);
 
   const persist = useCallback(
     (nextProducts: ProductoInventario[], nextHistorial?: MovimientoInventario[]) => {
@@ -432,6 +455,17 @@ export function InventarioPanel() {
           >
             <RefreshCw className="h-4 w-4" />
             <span className="hidden sm:inline">Actualizar</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void syncRemoteInventory()}
+            disabled={syncingRemote || remoteStatus !== "available"}
+            title="Enviar una copia del inventario local a la base de datos"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncingRemote ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{syncingRemote ? "Sincronizando…" : "Sincronizar"}</span>
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
             <Plus className="h-4 w-4" />
