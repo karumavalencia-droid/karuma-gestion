@@ -75,10 +75,13 @@ export default function StaffPage() {
     setError("");
     const previous = staff;
     const isEdit = modalMode === "edit" && Boolean(editing);
+    const isCreate = modalMode === "create";
     if (isEdit && editing) {
       setStaff((current) =>
         current.map((member) => (member.id === editing.id ? { ...member, ...input } : member)),
       );
+    } else if (isCreate) {
+      setStaff((current) => [...current, { ...input, id: `optimistic-${Date.now()}` }]);
     }
     try {
       const url = modalMode === "create" ? "/api/staff" : `/api/staff/${editing?.id}`;
@@ -97,7 +100,7 @@ export default function StaffPage() {
       setModalOpen(false);
       await loadStaff();
     } catch (err) {
-      if (isEdit) setStaff(previous);
+      if (isEdit || isCreate) setStaff(previous);
       setError(err instanceof Error ? err.message : t("staff.saveError"));
     } finally {
       setSaving(false);
