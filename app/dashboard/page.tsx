@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
+import { CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
 import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [sales, setSales] = useState<SalesResponse | null>(null);
   const [facturas, setFacturas] = useState<FacturasResponse | null>(null);
   const [attendance, setAttendance] = useState<AttendanceResponse | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -112,9 +113,25 @@ export default function DashboardPage() {
     ? attendance.rows.reduce((s, r) => s + (r.workedMinutes || 0), 0) / 60
     : null;
 
+  function refreshDashboard() {
+    setRefreshing(true);
+    window.location.reload();
+  }
+
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">{t("dashboard.overview")}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">{t("dashboard.overview")}</p>
+        <button
+          type="button"
+          onClick={refreshDashboard}
+          disabled={refreshing}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-karuma-300 hover:text-karuma-700 disabled:cursor-wait disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Actualizando…" : "Actualizar datos"}
+        </button>
+      </div>
 
       {/* Ventas */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
