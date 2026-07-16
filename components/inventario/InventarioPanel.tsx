@@ -137,6 +137,16 @@ export function InventarioPanel() {
     }
   }, []);
 
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === "karuma_inventario_v2") setProducts(loadProductos());
+      if (event.key === "karuma_historial_v2") setHistorial(loadHistorial());
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
