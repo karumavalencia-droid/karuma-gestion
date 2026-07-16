@@ -263,6 +263,30 @@ export type DbAnnouncementRead = {
   read_at: string;
 };
 
+export type DbInventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  current_quantity: number;
+  minimum_quantity: number;
+  unit_cost: number;
+  supplier_name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbInventoryMovement = {
+  id: string;
+  item_id: string;
+  movement_type: "entrada" | "salida" | "ajuste";
+  quantity: number;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+};
+
 // ── Ventas diarias (026_sales.sql) ───────────────────────────────────────────
 
 export type DbSalesDaily = {
@@ -445,6 +469,18 @@ export type Database = {
         Row: DbAnnouncementRead;
         Insert: DbAnnouncementRead;
         Update: Partial<DbAnnouncementRead>;
+        Relationships: [];
+      };
+      inventory_items: {
+        Row: DbInventoryItem;
+        Insert: Omit<DbInventoryItem, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<DbInventoryItem, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      inventory_movements: {
+        Row: DbInventoryMovement;
+        Insert: Omit<DbInventoryMovement, "id" | "created_at">;
+        Update: never;
         Relationships: [];
       };
       sales_daily: {
