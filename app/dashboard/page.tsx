@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
 import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [facturas, setFacturas] = useState<FacturasResponse | null>(null);
   const [attendance, setAttendance] = useState<AttendanceResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [dataWarnings, setDataWarnings] = useState<string[]>([]);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -42,7 +43,10 @@ export default function DashboardPage() {
     // Sync online bookings then compute stats
     syncAndLoadReservas(todayStr)
       .then(() => setStats(getDashboardStats(todayStr)))
-      .catch(() => setStats(getDashboardStats(todayStr)));
+      .catch(() => {
+        setStats(getDashboardStats(todayStr));
+        setDataWarnings((current) => [...current, "reservas"]);
+      });
 
     fetch("/api/sales/daily", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -51,17 +55,17 @@ export default function DashboardPage() {
         // sales en null para que el panel muestre "—" sin romperse.
         if (d && Array.isArray(d.records)) setSales(d);
       })
-      .catch(() => null);
+      .catch(() => setDataWarnings((current) => [...current, "ventas"]));
 
     fetch("/api/facturas", { cache: "no-store" })
       .then((r) => r.json())
       .then((d: FacturasResponse) => setFacturas(d))
-      .catch(() => null);
+      .catch(() => setDataWarnings((current) => [...current, "facturas"]));
 
     fetch("/api/attendance/admin", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: AttendanceResponse | null) => setAttendance(d))
-      .catch(() => null);
+      .catch(() => setDataWarnings((current) => [...current, "personal"]));
   }, [todayStr]);
 
   // Refresh every 30s
@@ -132,6 +136,15 @@ export default function DashboardPage() {
           {refreshing ? "Actualizando…" : "Actualizar datos"}
         </button>
       </div>
+
+      {dataWarnings.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Algunas fuentes no respondieron. Los datos disponibles siguen visibles; pulsa Actualizar datos para reintentar.
+          </p>
+        </div>
+      )}
 
       {/* Ventas */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
