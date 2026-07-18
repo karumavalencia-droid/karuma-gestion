@@ -29,9 +29,16 @@ export async function POST(req: NextRequest) {
     .eq("id", id)
     .single();
 
+  const seatedAtUpdate =
+    nuevoEstado === "Sentado" || nuevoEstado === "WalkIn"
+      ? { seated_at: new Date().toISOString() }
+      : nuevoEstado === "Confirmada"
+        ? { seated_at: null }
+        : {};
+
   const { error } = await sb
     .from("reservas")
-    .update({ estado: nuevoEstado })
+    .update({ estado: nuevoEstado, ...seatedAtUpdate })
     .eq("id", id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message });

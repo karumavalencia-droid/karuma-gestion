@@ -165,6 +165,7 @@ export async function POST(req: NextRequest) {
       personas: isTableBlock ? 0 : personasReserva,
       mesa_ids: mesaIds,
       estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
+      seated_at: isWalkIn ? new Date().toISOString() : null,
       notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
       origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
     })
