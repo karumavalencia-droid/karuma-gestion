@@ -5,6 +5,7 @@ import {
   createReserva,
   editReserva,
   loadReservas,
+  servicioParaHora,
   type ServicioLocal,
 } from "../lib/reservas/local-store";
 
@@ -73,6 +74,13 @@ function reservaInput(
 
 beforeEach(() => {
   setupBrowserStorage();
+});
+
+test("service switches from comida to cena after 16:30", () => {
+  assert.equal(servicioParaHora("16:29"), "comida");
+  assert.equal(servicioParaHora("16:30"), "comida");
+  assert.equal(servicioParaHora("16:31"), "cena");
+  assert.equal(servicioParaHora("20:00"), "cena");
 });
 
 test("manual table assignment blocks another reservation inside the 90-minute table window", () => {

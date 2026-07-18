@@ -264,6 +264,18 @@ export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: stri
   comida: { inicio: "13:00", fin: "16:00" },
   cena:   { inicio: "19:30", fin: "23:00" },
 };
+
+// La operativa cambia automáticamente de comida a cena después de las 16:30.
+// Las 16:30 todavía pertenecen a comida; desde las 16:31 se usa cena.
+export function servicioParaHora(hora: string): ServicioLocal {
+  return toMin(hora) > 16 * 60 + 30 ? "cena" : "comida";
+}
+
+export function servicioActual(fecha = new Date()): ServicioLocal {
+  const hora = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+  return servicioParaHora(hora);
+}
+
 // Horas del selector del plano, en pasos de 15 min.
 export function slotsPlano(servicio: ServicioLocal): string[] {
   const { inicio, fin } = SERVICIO_VENTANA[servicio];

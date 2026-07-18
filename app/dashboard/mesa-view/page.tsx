@@ -15,7 +15,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
-import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
+import { setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
@@ -32,6 +32,7 @@ import {
   intercambiarReservas,
   slotsPlano,
   defaultHoraPlano,
+  servicioActual,
   duracionReserva,
   loadReservas,
   asignarMesa,
@@ -66,7 +67,7 @@ const ESTADO_CORTO: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
-function autoServicio(): ServicioLocal { return new Date().getHours() >= 20 ? "cena" : "comida"; }
+function autoServicio(): ServicioLocal { return servicioActual(); }
 function fechaLarga(f: string): string {
   const s = new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   return s.charAt(0).toUpperCase() + s.slice(1);  // "Domingo, 22 de junio"
@@ -165,7 +166,7 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 
 export default function MesaViewPage() {
   const [fecha, setFecha]       = useState(getSharedFecha);
-  const [servicio, setServicio] = useState<ServicioLocal>(() => getSharedServicio() ?? autoServicio());
+  const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
   const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [reservas, setReservas]   = useState<ReservaLocal[]>([]);
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);

@@ -14,7 +14,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
-import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
+import { setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   updateEstado,
@@ -27,6 +27,7 @@ import {
   getMesasConEstado,
   slotsPlano,
   defaultHoraPlano,
+  servicioActual,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
@@ -84,8 +85,7 @@ function maxFecha() {
   return d.toISOString().split("T")[0];
 }
 function autoServicio(): ServicioLocal {
-  const h = new Date().getHours();
-  return h >= 17 ? "cena" : "comida";
+  return servicioActual();
 }
 function toMin(hora: string) { const [h, m] = hora.split(":").map(Number); return h * 60 + m; }
 
@@ -246,15 +246,7 @@ export default function ReservasPage() {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [fecha, setFecha] = useState(getSharedFecha);
   type VistaServicio = "" | ServicioLocal | "dia";
-  const [vistaServicio, setVistaServicio] = useState<VistaServicio>(() => {
-    const shared = getSharedServicio();
-    if (shared) return shared;
-
-    const h = new Date().getHours();
-    if (h >= 12 && h < 17) return "comida";
-    if (h >= 19) return "cena";
-    return "dia";
-  });
+  const [vistaServicio, setVistaServicio] = useState<VistaServicio>(autoServicio);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoLocal | "">("");
   const [busqueda, setBusqueda] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
