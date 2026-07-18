@@ -180,6 +180,10 @@ export function CoachKnowledgePanel() {
   async function toggleActive(entry: Entry) {
     if (busyId) return;
     setBusyId(entry.id);
+    const previous = entries;
+    setEntries((current) =>
+      current.map((item) => item.id === entry.id ? { ...item, active: !entry.active } : item),
+    );
     try {
       const response = await fetch(`/api/coach/knowledge/${entry.id}`, {
         method: "PATCH",
@@ -202,6 +206,7 @@ export function CoachKnowledgePanel() {
       );
       setError("");
     } catch (toggleError) {
+      setEntries(previous);
       setError(toggleError instanceof Error ? toggleError.message : GENERIC_ERROR);
     } finally {
       setBusyId(null);
@@ -218,6 +223,8 @@ export function CoachKnowledgePanel() {
       return;
     }
     setBusyId(entry.id);
+    const previous = entries;
+    setEntries((current) => current.filter((item) => item.id !== entry.id));
     try {
       const response = await fetch(`/api/coach/knowledge/${entry.id}`, {
         method: "DELETE",
@@ -226,9 +233,9 @@ export function CoachKnowledgePanel() {
       if (!response.ok || !result.deleted) {
         throw new Error(result.message ?? GENERIC_ERROR);
       }
-      setEntries((current) => current.filter((item) => item.id !== entry.id));
       setError("");
     } catch (removeError) {
+      setEntries(previous);
       setError(removeError instanceof Error ? removeError.message : GENERIC_ERROR);
     } finally {
       setBusyId(null);
