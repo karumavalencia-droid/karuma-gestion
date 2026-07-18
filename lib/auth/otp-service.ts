@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { DbAuthOtpSessionInsert } from "../supabase/types";
+import { sendOtpSms } from "./sms";
 
 /**
  * OTP 服务：生成、存储、验证一次性密码。
@@ -79,9 +80,18 @@ export async function requestOtp(phone: string): Promise<OtpRequestResult> {
       };
     }
 
-    // 发送 SMS（暂时只记录日志，稍后集成 Twilio）
-    console.log(`[OTP] 发送给 ${normalizedPhone}: ${code}`);
-    // TODO: 调用 SMS 提供商（Twilio/Aliyun）
+    // 发送 SMS（提供商由 SMS_PROVIDER 决定；未配置时为 mock，只打印日志）
+    const smsResult = await sendOtpSms(normalizedPhone, code);
+    if (!smsResult.success) {
+      // 短信没发出去：删掉刚存的 OTP，避免留下发不出去的码
+      if (data?.id) {
+        await supabase.from("auth_otp_sessions").delete().eq("id", data.id);
+      }
+      return {
+        success: false,
+        error: smsResult.error || "无法发送验证码，请稍后重试",
+      };
+    }
 
     return {
       success: true,

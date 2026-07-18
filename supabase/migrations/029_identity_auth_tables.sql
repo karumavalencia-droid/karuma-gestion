@@ -189,10 +189,10 @@ CREATE POLICY "owner_can_view_all_login_logs" ON auth_login_logs
 CREATE POLICY "service_role_can_create_login_logs" ON auth_login_logs
   FOR INSERT
   WITH CHECK (
-    current_user_id IS NULL OR auth.uid() IS NULL
-    -- Este check es débil en Supabase (siempre INSERT si el campo no es NULL).
-    -- La verdadera restricción es que el cliente ANON no puede insertar en esta tabla.
-    -- Solo usamos esta tabla desde edge functions/APIs con service role.
+    -- Denegar a cualquier cliente sujeto a RLS (anon/authenticated).
+    -- El service role usado por las APIs/edge functions omite RLS, así que
+    -- sigue pudiendo insertar. Solo esas rutas escriben en esta tabla.
+    false
   );
 
 -- ─────────────────────────────────────────────────────────────────────────────
