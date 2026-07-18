@@ -4,9 +4,17 @@ import crypto from "crypto";
  * SMS 发送服务
  *
  * 支持提供商（通过 SMS_PROVIDER 环境变量选择）：
- *   - "aliyun_intl": 阿里云【国际站】国际短信（SendMessageWithTemplate, 2018-05-01）
- *                    适用于西班牙(+34)等海外号码。
+ *   - "twilio": Twilio Programmable Messaging（适用于 +34 等国际号码，信用卡即可）。
+ *   - "aliyun_intl": 阿里云【国际站】国际短信（SendMessageWithTemplate, 2018-05-01）。
  *   - 未设置 / "mock": 开发模式，只打印到日志（不真正发送）。
+ *
+ * Twilio 所需环境变量：
+ *   SMS_PROVIDER=twilio
+ *   TWILIO_ACCOUNT_SID=ACxxxxxxxx
+ *   TWILIO_AUTH_TOKEN=...
+ *   // 二选一：发送方号码/字母发送人 或 Messaging Service
+ *   TWILIO_FROM=+1XXXXXXXXXX            // Twilio 号码，或字母发送人如 "Karuma"（西班牙支持）
+ *   TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxx
  *
  * 阿里云国际短信所需环境变量：
  *   SMS_PROVIDER=aliyun_intl
@@ -34,6 +42,10 @@ export async function sendOtpSms(
 ): Promise<SendSmsResult> {
   const provider = (process.env.SMS_PROVIDER || "mock").toLowerCase();
 
+  if (provider === "twilio") {
+    return sendViaTwilio(phone, code);
+  }
+
   if (provider === "aliyun_intl") {
     return sendViaAliyunIntl(phone, code);
   }
@@ -41,6 +53,81 @@ export async function sendOtpSms(
   // 开发/默认：只记录日志，不真正发送。
   console.log(`[SMS:mock] 发送给 ${phone}: ${code}`);
   return { success: true, provider: "mock" };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Twilio Programmable Messaging
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function sendViaTwilio(
+  phone: string,
+  code: string
+): Promise<SendSmsResult> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM;
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+
+  if (!accountSid || !authToken || (!from && !messagingServiceSid)) {
+    console.error(
+      "[SMS:twilio] 缺少配置：需要 TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / (TWILIO_FROM 或 TWILIO_MESSAGING_SERVICE_SID)"
+    );
+    return {
+      success: false,
+      provider: "twilio",
+      error: "SMS no configurado en el servidor",
+    };
+  }
+
+  const validityMinutes = process.env.OTP_VALIDITY_MINUTES || "5";
+  const body = `Tu código de verificación Karuma es ${code}. Válido ${validityMinutes} minutos.`;
+
+  const form = new URLSearchParams();
+  form.set("To", phone); // Twilio 接受 E.164 格式（+34...）
+  form.set("Body", body);
+  if (messagingServiceSid) {
+    form.set("MessagingServiceSid", messagingServiceSid);
+  } else if (from) {
+    form.set("From", from);
+  }
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form.toString(),
+    });
+    const data = (await resp.json()) as {
+      sid?: string;
+      status?: string;
+      error_code?: number;
+      message?: string;
+    };
+
+    if (!resp.ok || data.error_code) {
+      console.error("[SMS:twilio] 发送失败:", data);
+      return {
+        success: false,
+        provider: "twilio",
+        error: data.message || `Twilio error ${data.error_code ?? resp.status}`,
+      };
+    }
+
+    return { success: true, provider: "twilio" };
+  } catch (err) {
+    console.error("[SMS:twilio] 请求异常:", err);
+    return {
+      success: false,
+      provider: "twilio",
+      error: "Error de red al enviar SMS",
+    };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
