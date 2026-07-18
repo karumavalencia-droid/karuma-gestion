@@ -65,8 +65,8 @@ export function SuppliersOverview() {
       });
 
       if (!response.ok) throw new Error("Error al agregar");
-
-      await fetchSuppliers();
+      const data = await response.json() as { supplier?: Supplier };
+      if (data.supplier) setSuppliers((current) => [data.supplier!, ...current]);
       setNewSupplier({
         id: "",
         name: "",
