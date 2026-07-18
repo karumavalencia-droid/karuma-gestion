@@ -384,7 +384,7 @@ export type DbAuthAccountInsert = {
   mfa_enabled?: boolean;
 };
 
-export type DbAuthAccountUpdate = Partial<Omit<DbAuthAccountInsert, 'auth_user_id'>>;
+export type DbAuthAccountUpdate = Partial<Omit<DbAuthAccount, "id" | "auth_user_id" | "created_at" | "updated_at">>;
 
 export type DbAuthOtpSession = {
   id: string;
@@ -401,7 +401,10 @@ export type DbAuthOtpSession = {
 export type DbAuthOtpSessionInsert = {
   phone: string;
   code: string;
+  attempts?: number;
+  max_attempts?: number;
   expires_at: string;
+  verified_at?: string | null;
   account_id?: string | null;
 };
 
@@ -452,7 +455,9 @@ export type DbAuthSessionInsert = {
   browser_version?: string | null;
   os?: string | null;
   ip_address?: string | null;
+  last_active_at?: string;
   expires_at: string;
+  revoked_at?: string | null;
 };
 
 export type DbAppConfig = {

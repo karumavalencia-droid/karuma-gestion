@@ -155,8 +155,7 @@ export async function POST(request: NextRequest) {
       accountId: account.id,
       deviceId,
       ip,
-      userAgent,
-      deviceName: request.headers.get("user-agent"),
+      deviceName: request.headers.get("user-agent") ?? undefined,
     });
 
     // Paso 5: Actualizar auditoría (último login)

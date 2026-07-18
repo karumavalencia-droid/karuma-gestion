@@ -16,12 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/guards";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,14 +25,15 @@ export async function POST(request: NextRequest) {
 
     // Incluso si no hay sesión, respondemos OK (idempotente)
     if (user) {
+      const supabase = getSupabaseAdmin();
       // Obtener device-id para revocar sesión específica
       const deviceId = request.cookies.get("device-id")?.value || "unknown";
 
       // Revocar sesión en la BD
-      const { error: revokeError } = await supabase
+      const { error: revokeError } = supabase ? await supabase
         .from("auth_sessions")
         .update({ revoked_at: new Date().toISOString() })
-        .eq("device_id", deviceId);
+        .eq("device_id", deviceId) : { error: null };
 
       if (revokeError) {
         console.error("[Logout] Error revocando sesión:", revokeError);

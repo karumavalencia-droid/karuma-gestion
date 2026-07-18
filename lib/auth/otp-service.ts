@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "../supabase/admin";
 import type { DbAuthOtpSessionInsert } from "../supabase/types";
 import { sendOtpSms } from "./sms";
 
@@ -7,10 +7,11 @@ import { sendOtpSms } from "./sms";
  * 支持 6 位数字代码，5 分钟有效期，3 次尝试上限。
  */
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getOtpSupabase() {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase no está configurado");
+  return supabase;
+}
 
 export interface OtpRequestResult {
   success: boolean;
@@ -40,6 +41,7 @@ function generateOtpCode(): string {
  */
 export async function requestOtp(phone: string): Promise<OtpRequestResult> {
   try {
+    const supabase = getOtpSupabase();
     // 规范化电话号码
     const normalizedPhone = phone.trim();
     if (!normalizedPhone.match(/^\+\d{10,15}$/)) {
@@ -118,6 +120,7 @@ export async function verifyOtp(
   code: string
 ): Promise<OtpVerifyResult> {
   try {
+    const supabase = getOtpSupabase();
     const normalizedPhone = phone.trim();
 
     // 查找最新的、未验证的 OTP 记录
@@ -196,7 +199,7 @@ export async function verifyOtp(
 
     return {
       success: true,
-      accountId,
+      accountId: accountId ?? undefined,
       isNewUser,
     };
   } catch (err) {
@@ -213,6 +216,7 @@ export async function verifyOtp(
  */
 export async function cleanupExpiredOtps(): Promise<void> {
   try {
+    const supabase = getOtpSupabase();
     const { error } = await supabase
       .from("auth_otp_sessions")
       .delete()

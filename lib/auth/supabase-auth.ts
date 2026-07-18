@@ -3,13 +3,14 @@
  * 所有操作使用 service role key（只在服务端）。
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "../supabase/admin";
 import type { DbAuthAccount, DbAuthAccountInsert } from "../supabase/types";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAuthSupabase() {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase no está configurado");
+  return supabase;
+}
 
 export interface CreateAuthUserParams {
   phone: string;
@@ -43,6 +44,7 @@ export async function createAuthUser(
   params: CreateAuthUserParams
 ): Promise<CreateAuthUserResult> {
   try {
+    const supabase = getAuthSupabase();
     const { phone, displayName, roleId = "staff" } = params;
 
     // Paso 1: Crear usuario en Supabase Auth (sin contraseña, solo con teléfono)
@@ -117,6 +119,7 @@ export async function getAccountByPhone(
   phone: string
 ): Promise<(DbAuthAccount & { auth_user_id: string }) | null> {
   try {
+    const supabase = getAuthSupabase();
     const { data, error } = await supabase
       .from("auth_accounts")
       .select("*")
@@ -150,6 +153,7 @@ export async function updateLastLogin(
   ip: string | null
 ): Promise<void> {
   try {
+    const supabase = getAuthSupabase();
     await supabase
       .from("auth_accounts")
       .update({
@@ -182,6 +186,7 @@ export async function logLoginEvent(params: {
   failureReason?: string | null;
 }): Promise<void> {
   try {
+    const supabase = getAuthSupabase();
     const {
       accountId,
       status,
@@ -226,6 +231,7 @@ export async function getOrCreateSession(params: {
   ip?: string;
 }): Promise<string | null> {
   try {
+    const supabase = getAuthSupabase();
     const {
       accountId,
       deviceId,
@@ -296,6 +302,7 @@ export async function getOrCreateSession(params: {
  */
 export async function disableAccount(accountId: string): Promise<boolean> {
   try {
+    const supabase = getAuthSupabase();
     const { error } = await supabase
       .from("auth_accounts")
       .update({ status: "disabled" })
@@ -320,6 +327,7 @@ export async function disableAccount(accountId: string): Promise<boolean> {
  */
 export async function enableAccount(accountId: string): Promise<boolean> {
   try {
+    const supabase = getAuthSupabase();
     const { error } = await supabase
       .from("auth_accounts")
       .update({ status: "active" })
@@ -348,6 +356,7 @@ export async function updateAccountRole(
   roleId: string
 ): Promise<boolean> {
   try {
+    const supabase = getAuthSupabase();
     const { error } = await supabase
       .from("auth_accounts")
       .update({ role_id: roleId })
