@@ -96,9 +96,14 @@ export default function AnnouncementsPage() {
         throw new Error(result.error ?? "Error al crear anuncio");
       }
 
+      const announcement = await response.json() as AnnouncementWithReadStatus;
+      setData((current) => current ? {
+        ...current,
+        myAnnouncements: [announcement, ...current.myAnnouncements],
+        departmentAnnouncements: [announcement, ...current.departmentAnnouncements],
+      } : current);
       setFormData({ title: "", description: "", priority: "normal", department: "Sala" });
       setShowForm(false);
-      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -107,6 +112,12 @@ export default function AnnouncementsPage() {
   };
 
   const handleMarkComplete = async (id: string) => {
+    const previous = data;
+    setData((current) => current ? {
+      ...current,
+      myAnnouncements: current.myAnnouncements.map((a) => a.id === id ? { ...a, completed: true } : a),
+      departmentAnnouncements: current.departmentAnnouncements.map((a) => a.id === id ? { ...a, completed: true } : a),
+    } : current);
     try {
       const response = await fetch(`/api/announcements/me/${id}`, {
         method: "PATCH",
@@ -115,8 +126,8 @@ export default function AnnouncementsPage() {
       });
 
       if (!response.ok) throw new Error("Error al actualizar");
-      await load();
     } catch (err) {
+      setData(previous);
       setError(err instanceof Error ? err.message : "Error desconocido");
     }
   };
@@ -124,27 +135,40 @@ export default function AnnouncementsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de que quieres eliminar este anuncio?")) return;
 
+    const previous = data;
+    setData((current) => current ? {
+      ...current,
+      myAnnouncements: current.myAnnouncements.filter((a) => a.id !== id),
+      departmentAnnouncements: current.departmentAnnouncements.filter((a) => a.id !== id),
+    } : current);
     try {
       const response = await fetch(`/api/announcements/me/${id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) throw new Error("Error al eliminar");
-      await load();
     } catch (err) {
+      setData(previous);
       setError(err instanceof Error ? err.message : "Error desconocido");
     }
   };
 
   const handleToggleRead = async (id: string, isCurrentlyRead: boolean) => {
+    const previous = data;
+    const nextRead = !isCurrentlyRead;
+    setData((current) => current ? {
+      ...current,
+      myAnnouncements: current.myAnnouncements.map((a) => a.id === id ? { ...a, is_read: nextRead } : a),
+      departmentAnnouncements: current.departmentAnnouncements.map((a) => a.id === id ? { ...a, is_read: nextRead } : a),
+    } : current);
     try {
       const endpoint = `/api/announcements/me/${id}/read`;
       const method = isCurrentlyRead ? "DELETE" : "POST";
       const response = await fetch(endpoint, { method });
 
       if (!response.ok) throw new Error("Error al actualizar");
-      await load();
     } catch (err) {
+      setData(previous);
       setError(err instanceof Error ? err.message : "Error desconocido");
     }
   };
