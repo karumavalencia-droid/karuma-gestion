@@ -6,6 +6,7 @@ import {
   editReserva,
   loadReservas,
   servicioParaHora,
+  storeCreatedReservation,
   type ServicioLocal,
 } from "../lib/reservas/local-store";
 
@@ -81,6 +82,24 @@ test("service switches from comida to cena after 16:30", () => {
   assert.equal(servicioParaHora("16:30"), "comida");
   assert.equal(servicioParaHora("16:31"), "cena");
   assert.equal(servicioParaHora("20:00"), "cena");
+});
+
+test("a server-created walk-in is stored immediately for an optimistic table update", () => {
+  storeCreatedReservation({
+    id: "walkin-1",
+    fecha: futureDate(),
+    hora: "20:15",
+    servicio: "cena",
+    personas: 2,
+    mesaIds: ["T12"],
+    nombre: "Walk-In",
+    origen: "walkin",
+  });
+
+  const stored = loadReservas().find((r) => r.id === "walkin-1");
+  assert.equal(stored?.estado, "walkin");
+  assert.equal(stored?.mesaIds[0], "T12");
+  assert.ok(stored?.seatedAt);
 });
 
 test("manual table assignment blocks another reservation inside the 90-minute table window", () => {

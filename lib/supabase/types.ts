@@ -170,6 +170,7 @@ export type DbReserva = {
   personas: number;
   mesa_ids: number[];
   estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
+  seated_at: string | null;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
   review_email_sent_at: string | null;

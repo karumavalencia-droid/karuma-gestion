@@ -33,6 +33,7 @@ import {
   MAX_DIAS,
   loadReservas,
   saveReservas,
+  storeCreatedReservation,
   addEspera,
   loadEspera,
   updateEspera,
@@ -558,14 +559,22 @@ export default function ReservasPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
       }
       const mesaIds = (json.mesaIds ?? []).map((id) => `T${id}`);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: nFecha, hora: nHora, servicio: nServicio, personas: nPersonas,
+          mesaIds, nombre: nNombre || "Sin nombre", telefono: nTelefono.trim(),
+          email: nEmail.trim() || null, notas: nNotas, origen: "manual",
+        });
+        refreshLocal();
+      }
       setNExito({ mesaIds, nombre: nNombre || "Sin nombre", fecha: nFecha, hora: nHora, personas: nPersonas });
-      reload();
+      void reload();
     } catch {
       setNError("No se pudo crear la reserva.");
     }
@@ -598,13 +607,22 @@ export default function ReservasPage() {
           forceMesaIds: wMesaIds.length ? wMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setWError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
-      setWExito({ mesaIds: (json.mesaIds ?? []).map((id) => `T${id}`), personas: wPersonas });
-      reload();
+      const mesaIds = (json.mesaIds ?? []).map((id) => `T${id}`);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wPersonas, mesaIds,
+          nombre: wNombre || "Walk-In", telefono: wTelefono.trim(), notas: wNotas, origen: "walkin",
+        });
+        refreshLocal();
+      }
+      setWExito({ mesaIds, personas: wPersonas });
+      void reload();
     } catch {
       setWError("No se pudo registrar el Walk-In.");
     }
@@ -643,15 +661,23 @@ export default function ReservasPage() {
           forceMesaIds: [mesaSel.numero],
         }),
       });
-      const json = (await response.json()) as { ok?: boolean; error?: string };
+      const json = (await response.json()) as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setBlockError(json.error ?? "No se pudo bloquear la mesa.");
         return;
       }
       const numero = mesaSel.numero;
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha, hora: blockHora || horaPanel, servicio: servicioPlano,
+          personas: 0, mesaIds: (json.mesaIds ?? [numero]).map((id) => `T${id}`),
+          nombre: "Bloqueo mesa", origen: "manual", duracionMin: blockDuracion, bloqueo: true,
+        });
+        refreshLocal();
+      }
       setMesaSel(null);
       setBlockInline(false);
-      reload();
+      void reload();
       showToast(`T${numero} bloqueada`);
     } catch {
       setBlockError("No se pudo bloquear la mesa.");
@@ -711,16 +737,25 @@ export default function ReservasPage() {
           forceMesaIds: wiInlineMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setWiInlineError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
       const label = mesaLabel(wiInlineMesaIds);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wiInlinePersonas,
+          mesaIds: (json.mesaIds ?? wiInlineMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: wiInlineNombre || "Walk-In", origen: "walkin",
+        });
+        refreshLocal();
+      }
       setWiInlineMesa(null);
       setWiInlineMesaIds([]);
       setMesaSel(null);
-      reload();
+      void reload();
       showToast(`${label} — Walk-In registrado`);
     } catch {
       setWiInlineError("No se pudo registrar el Walk-In.");

@@ -35,6 +35,7 @@ import {
   servicioActual,
   duracionReserva,
   loadReservas,
+  storeCreatedReservation,
   asignarMesa,
   MESAS_SEED,
   type MesaConEstado,
@@ -245,6 +246,12 @@ export default function MesaViewPage() {
     });
   }, [fecha, servicio, horaPlano]);
 
+  const refreshLocal = useCallback(() => {
+    const all = loadReservas().filter((r) => r.fecha === fecha);
+    setReservas(all);
+    setMesas(getMesasConEstado(fecha, servicio, horaPlano));
+  }, [fecha, servicio, horaPlano]);
+
   useEffect(() => { reload(); }, [reload]);
 
   // Al cambiar fecha o servicio, recolocar el visor del plano en su hora por defecto
@@ -325,12 +332,21 @@ export default function MesaViewPage() {
           forceMesaIds: wiMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setWiError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
-      setWiOk(true); reload(); showToast(`${mesaLabel(wiMesaIds)} — Walk-In registrado`);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wiPersonas,
+          mesaIds: (json.mesaIds ?? wiMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: wiNombre || "Walk-In", telefono: wiTelefono.trim(), notas: wiNotas, origen: "walkin",
+        });
+        refreshLocal();
+      }
+      setWiOk(true); void reload(); showToast(`${mesaLabel(wiMesaIds)} — Walk-In registrado`);
     } catch {
       setWiError("No se pudo registrar el Walk-In.");
     }
@@ -388,12 +404,20 @@ export default function MesaViewPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
       }
-      setShowNueva(false); reload(); showToast("Reserva creada");
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha, hora: nHora, servicio: nServicio, personas: nPersonas,
+          mesaIds: (json.mesaIds ?? []).map((id) => `T${id}`), nombre: nNombre.trim(),
+          telefono: nTelefono.trim(), email: nEmail.trim() || null, notas: nNotas.trim(), origen: "manual",
+        });
+        refreshLocal();
+      }
+      setShowNueva(false); void reload(); showToast("Reserva creada");
     } catch {
       setNError("No se pudo crear la reserva.");
     }
@@ -437,14 +461,23 @@ export default function MesaViewPage() {
           forceMesaIds: bMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setBError(json.error ?? "No se pudo bloquear la mesa.");
         return;
       }
       const destino = mesaLabel(bMesaIds);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: bFecha, hora: bHora, servicio: bServicio, personas: 0,
+          mesaIds: (json.mesaIds ?? bMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: "Bloqueo mesa", notas: bNotas.trim(), origen: "manual",
+          duracionMin: bDuracion, bloqueo: true,
+        });
+        refreshLocal();
+      }
       setShowBlock(false);
-      reload();
+      void reload();
       showToast(`${destino} bloqueada`);
     } catch {
       setBError("No se pudo bloquear la mesa.");
@@ -454,13 +487,14 @@ export default function MesaViewPage() {
   // ── Liberar ──────────────────────────────────────────────────────────────────
   function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
+    refreshLocal();
     if (r.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, estado: "finished" }),
-      });
+      }).then(() => reload());
     }
-    setSel(null); reload(); showToast("Mesa liberada");
+    setSel(null); showToast("Mesa liberada");
   }
 
   // ── Des-sentar (volver a confirmada) ─────────────────────────────────────────
@@ -477,19 +511,20 @@ export default function MesaViewPage() {
         });
       } catch { /* sin red: el local ya está actualizado */ }
     }
-    setSel(null); reload(); showToast("Reserva devuelta a confirmada");
+    setSel(null); refreshLocal(); void reload(); showToast("Reserva devuelta a confirmada");
   }
 
   // ── Cancelar ─────────────────────────────────────────────────────────────────
   function handleCancelar(r: ReservaLocal) {
     updateEstado(r.id, "cancelada");
+    refreshLocal();
     if (r.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, estado: "cancelada" }),
-      });
+      }).then(() => reload());
     }
-    setCancelReservaId(null); setSel(null); reload(); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
+    setCancelReservaId(null); setSel(null); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
   }
 
   // ── Editar (personas + hora + mesa) ───────────────────────────────────────────
@@ -510,6 +545,7 @@ export default function MesaViewPage() {
       ...(mesaCambiada ? { mesaIds: editMesaIds } : {}),
     });
     if (!res.ok) { setEditError(res.error); return; }
+    refreshLocal();
     if (r.origen) {
       void fetch("/api/reservas/actualizar", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -517,9 +553,9 @@ export default function MesaViewPage() {
           action: "editar", id: r.id, personas: editPersonas, hora: editHora,
           ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
         }),
-      });
+      }).then(() => reload());
     }
-    setEditing(false); setSel(null); reload(); showToast("Reserva actualizada");
+    setEditing(false); setSel(null); showToast("Reserva actualizada");
   }
 
   // ── Sentar ───────────────────────────────────────────────────────────────────
@@ -530,13 +566,14 @@ export default function MesaViewPage() {
     if (!seatReserva) return;
     const res = sentarReserva(seatReserva.id, seatMesaIds.length ? seatMesaIds : undefined);
     if (!res.ok) { setSeatError(res.error); return; }
+    refreshLocal();
     if (seatReserva.origen) {
       void fetch("/api/reservas/actualizar-estado", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: seatReserva.id, estado: "sentada" }),
-      });
+      }).then(() => reload());
     }
-    setSeatReserva(null); setSel(null); reload(); showToast("Mesa ocupada");
+    setSeatReserva(null); setSel(null); showToast("Mesa ocupada");
   }
 
   // ── Cambiar mesa ─────────────────────────────────────────────────────────────
@@ -549,6 +586,7 @@ export default function MesaViewPage() {
     if (!moveReserva) return;
     const res = cambiarMesas(moveReserva.id, moveMesaIds);
     if (!res.ok) { setMoveError(res.error); return; }
+    refreshLocal();
     if (moveReserva.origen) {
       void fetch("/api/reservas/actualizar", {
         method: "POST",
@@ -558,10 +596,10 @@ export default function MesaViewPage() {
           id: moveReserva.id,
           mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
-      });
+      }).then(() => reload());
     }
     const destino = mesaLabel(moveMesaIds);
-    setMoveReserva(null); setSel(null); reload(); showToast(`Cliente trasladado a ${destino}`);
+    setMoveReserva(null); setSel(null); showToast(`Cliente trasladado a ${destino}`);
   }
 
   // ── Intercambiar mesa entre dos reservas ─────────────────────────────────────
