@@ -9,16 +9,22 @@ const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
 
 type Mode = "empleado" | "oficina";
+type OtpStep = "phone" | "code";
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, ready, login } = useAuth();
   const [mode, setMode] = useState<Mode>("empleado");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // OTP login state
+  const [otpStep, setOtpStep] = useState<OtpStep>("phone");
+  const [phone, setPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
     if (ready && user) {
@@ -26,26 +32,99 @@ export default function LoginPage() {
     }
   }, [ready, user, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Employee PIN login (unchanged)
+  const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
 
-    // Los empleados usan el PIN como usuario y contraseña.
-    const loggedIn =
-      mode === "empleado" ? await login(pin, pin) : await login(username, password);
+    const loggedIn = await login(pin, pin);
     setSubmitting(false);
 
     if (!loggedIn) {
-      setError(
-        mode === "empleado"
-          ? "PIN incorrecto. Pide tu PIN al encargado."
-          : "Usuario o contraseña incorrectos",
-      );
+      setError("PIN incorrecto. Pide tu PIN al encargado.");
       return;
     }
 
     router.push(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
+  };
+
+  // OTP login: request OTP
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setOtpLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login/otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error || "Error solicitando OTP");
+        setOtpLoading(false);
+        return;
+      }
+
+      // OTP enviado correctamente
+      setOtpExpiresIn(data.expiresIn);
+      setOtpStep("code");
+
+      // Countdown timer
+      if (data.expiresIn) {
+        let remaining = data.expiresIn;
+        const timer = setInterval(() => {
+          remaining--;
+          setOtpExpiresIn(remaining);
+          if (remaining <= 0) clearInterval(timer);
+        }, 1000);
+      }
+    } catch (err) {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // OTP login: verify OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setOtpLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code: otpCode }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error || "OTP inválido");
+        setOtpLoading(false);
+        return;
+      }
+
+      // Si es nuevo usuario, redirigir a registro
+      if (data.isNewUser) {
+        // TODO: implementar página de registro
+        router.push(`/auth/complete-profile?phone=${encodeURIComponent(phone)}`);
+        return;
+      }
+
+      // Login exitoso - la cookie se estableció automáticamente
+      router.push(getDefaultRoute(data.user.role, null));
+    } catch (err) {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   return (
@@ -84,7 +163,10 @@ export default function LoginPage() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={mode === "empleado" ? handleEmployeeSubmit : otpStep === "phone" ? handleRequestOtp : handleVerifyOtp}
+          className="space-y-4"
+        >
           {mode === "empleado" ? (
             <>
               <label className="block space-y-1.5">
@@ -106,35 +188,54 @@ export default function LoginPage() {
                 Entra con tu PIN para fichar y ver tu horario.
               </p>
             </>
-          ) : (
+          ) : otpStep === "phone" ? (
             <>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Usuario</span>
+                <span className="text-sm font-medium text-gray-700">Número de teléfono</span>
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className={inputClass}
-                  placeholder="Nombre de usuario"
-                  autoComplete="username"
-                  required
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Contraseña</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={inputClass}
-                  placeholder="Introduce la contraseña"
-                  autoComplete="current-password"
+                  placeholder="+34 600 123 456"
                   required
                 />
               </label>
               <p className="text-center text-xs text-gray-500">
-                Acceso completo: dashboard, reservas y facturas.
+                Recibirás un código de 6 dígitos por SMS.
               </p>
+            </>
+          ) : (
+            <>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-gray-700">Código de verificación</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                  className={`${inputClass} text-center text-3xl tracking-[0.3em] font-mono`}
+                  placeholder="000000"
+                  autoComplete="one-time-code"
+                  required
+                />
+              </label>
+              <p className="text-center text-xs text-gray-500">
+                {otpExpiresIn ? `Válido por ${otpExpiresIn}s` : "Código expirado, solicita uno nuevo"}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpStep("phone");
+                  setOtpCode("");
+                  setOtpExpiresIn(null);
+                }}
+                className="w-full text-center text-xs text-karuma-600 hover:text-karuma-700 underline"
+              >
+                ← Cambiar número
+              </button>
             </>
           )}
 
@@ -144,10 +245,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || otpLoading}
             className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-karuma-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-karuma-700 disabled:opacity-60"
           >
-            {submitting ? "Entrando..." : "Entrar"}
+            {otpLoading ? "Verificando..." : mode === "empleado" ? "Entrar" : otpStep === "phone" ? "Enviar código" : "Verificar"}
           </button>
         </form>
       </div>
