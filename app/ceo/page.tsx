@@ -17,63 +17,31 @@ export default async function CeoPage() {
   const canManageActions = isCeoAdmin(user);
 
   return (
-    <div className="min-w-0 space-y-4 overflow-x-hidden px-2 py-3 sm:space-y-6 sm:px-6 sm:py-4 lg:px-8">
-      <section className="overflow-hidden rounded-3xl border border-gray-200 bg-[linear-gradient(135deg,#0f172a_0%,#111827_42%,#1f2937_100%)] p-5 text-white shadow-xl sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">AI CEO</p>
-            <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Karuma Executive Desk</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Todos pueden hacer preguntas básicas. Solo tú ves y apruebas cambios del sistema. La idea es simple:
-              preguntas rápidas para todos, ajustes controlados solo por owner/admin.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium">
-              <span className="rounded-full bg-white/10 px-3 py-1 text-amber-100">Preguntas básicas</span>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-amber-100">Resumen ejecutivo</span>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-amber-100">Cambios solo para ti</span>
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:w-[340px]">
-            <a
-              href="#ceo-chat"
-              className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition hover:bg-amber-50"
-            >
-              Ir a preguntas
-            </a>
-            <a
-              href={canManageActions ? "#ceo-change-center" : "#ceo-chat"}
-              className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
-            >
-              {canManageActions ? "Ver cambios" : "Solo consultar"}
-            </a>
-          </div>
+    <div className="min-w-0 space-y-4 overflow-x-hidden px-2 py-3 sm:px-6 sm:py-5 lg:px-8">
+      <header className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-1">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Karuma ERP</p>
+          <h1 className="mt-1 text-2xl font-semibold text-gray-950">AI CEO</h1>
         </div>
-      </section>
+        <div className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
+          {canManageActions ? "管理模式" : "问答模式"}
+        </div>
+      </header>
 
-      <section id="ceo-chat" className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 shadow-sm sm:rounded-3xl sm:p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">Panel</p>
-            <h2 className="mt-1 text-xl font-semibold text-gray-900">
-              {canManageActions ? "Preguntar y aprobar" : "Preguntar al AI CEO"}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-              {canManageActions
-                ? "Aquí puedes consultar datos y revisar acciones sugeridas antes de tocar el sistema."
-                : "Aquí puedes hacer preguntas sobre ventas, turnos y reservas sin tocar permisos de edición."}
-            </p>
-          </div>
-          <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
-            {canManageActions ? "Modo gestión activo" : "Modo preguntas"}
-          </div>
-        </div>
+      <section id="ceo-chat" className="min-w-0">
         <CeoChatPanel canManageActions={canManageActions} />
       </section>
 
       {canManageActions && (
-        <section id="ceo-change-center" className="rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
-          <ChangeCenterPanel />
-        </section>
+        <details id="ceo-change-center" className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-800">
+            系统修改中心
+            <span className="ml-2 text-xs font-normal text-gray-500">只有 Owner/Admin 可以操作</span>
+          </summary>
+          <div className="border-t border-gray-100 p-2">
+            <ChangeCenterPanel />
+          </div>
+        </details>
       )}
     </div>
   );

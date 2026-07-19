@@ -741,8 +741,13 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
   }
 
   return (
-    <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-4 overflow-x-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="order-2 min-w-0 space-y-4 lg:order-1">
+    <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-4 overflow-x-hidden">
+      <details className="order-2 min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-gray-800">
+          <span>更多信息与管理工具</span>
+          <span className="text-xs font-normal text-gray-500">历史、摘要、提醒和草稿</span>
+        </summary>
+        <aside className="grid min-w-0 gap-4 border-t border-gray-100 bg-gray-50 p-3 sm:grid-cols-2 sm:p-4">
         <div className="rounded-3xl bg-gradient-to-br from-gray-900 via-gray-950 to-gray-800 p-5 text-white shadow-lg">
           <div className="flex items-center gap-2 text-amber-300">
             <Bot className="h-5 w-5" />
@@ -986,9 +991,10 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
             Generar hoy
           </Button>
         </Card>
-      </aside>
+        </aside>
+      </details>
 
-      <main className="order-1 flex min-h-[70vh] min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg sm:rounded-3xl lg:order-2">
+      <main className="order-1 flex min-h-[78vh] min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm sm:rounded-3xl">
         <div className="border-b border-gray-100 bg-gradient-to-r from-white via-white to-amber-50 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
