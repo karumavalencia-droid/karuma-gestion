@@ -158,6 +158,21 @@ function splitLines(value: string) {
     .filter(Boolean);
 }
 
+function formatLogLine(kind: "system" | "manual", message: string) {
+  return `[${kind.toUpperCase()}] ${message}`;
+}
+
+function parseLogLine(value: string) {
+  const match = value.match(/^\[(SYSTEM|MANUAL)\]\s*(.*)$/i);
+  if (!match) {
+    return { kind: "system" as const, message: value };
+  }
+  return {
+    kind: match[1].toLowerCase() === "manual" ? ("manual" as const) : ("system" as const),
+    message: match[2] ?? "",
+  };
+}
+
 type StepDraft = {
   title: string;
   owner: "ai" | "owner" | "engineer" | "reviewer";
@@ -187,10 +202,11 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const nextStatus = useMemo(() => (request ? NEXT_STATUS[request.status] : null), [request]);
-  const appendLogLine = (line: string) => {
+  const appendLogLine = (line: string, kind: "system" | "manual" = "system") => {
     setLogDraft((current) => {
       const trimmed = current.trim();
-      return trimmed ? `${trimmed}\n${line}` : line;
+      const entry = formatLogLine(kind, line);
+      return trimmed ? `${trimmed}\n${entry}` : entry;
     });
   };
 
@@ -242,7 +258,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       if (!res.ok) throw new Error(data?.error ?? "No se pudo actualizar la solicitud");
       setRequest(data.request ?? null);
       if (payload.status && typeof payload.status === "string") {
-        appendLogLine(`[${fmtDate(data.request?.updated_at ?? new Date().toISOString())}] Status moved to ${payload.status}`);
+        appendLogLine(`Status moved to ${payload.status}`, "system");
       }
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar la solicitud");
@@ -341,7 +357,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       );
       setNotesDraft(data.request?.execution_notes ?? "");
       setLogDraft((data.request?.execution_log ?? []).join("\n"));
-      appendLogLine(`[${fmtDate(data.request?.updated_at ?? nowIso())}] Execution placeholder started`);
+      appendLogLine("Execution placeholder started", "system");
     } catch (execError) {
       setError(execError instanceof Error ? execError.message : "No se pudo iniciar la ejecución");
     } finally {
@@ -379,7 +395,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       next.splice(target, 0, item);
       return next;
     });
-    appendLogLine(`[${fmtDate(new Date().toISOString())}] Moved step ${index + 1} ${direction < 0 ? "up" : "down"}`);
+    appendLogLine(`Moved step ${index + 1} ${direction < 0 ? "up" : "down"}`, "manual");
   }
 
   function copyStep(index: number) {
@@ -390,7 +406,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       next.splice(index + 1, 0, { ...source });
       return next;
     });
-    appendLogLine(`[${fmtDate(new Date().toISOString())}] Copied step ${index + 1}`);
+    appendLogLine(`Copied step ${index + 1}`, "manual");
   }
 
   if (loading) {
@@ -695,8 +711,18 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
             <div className="space-y-2">
               {executionLog.length ? (
                 executionLog.map((line) => (
-                  <div key={line} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                    {line}
+                  <div
+                    key={line}
+                    className={`rounded-xl border px-3 py-2 text-sm ${
+                      parseLogLine(line).kind === "manual"
+                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                        : "border-gray-200 bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <span className="mr-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      {parseLogLine(line).kind}
+                    </span>
+                    {parseLogLine(line).message}
                   </div>
                 ))
               ) : (
