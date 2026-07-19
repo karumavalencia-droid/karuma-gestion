@@ -21,6 +21,7 @@ import {
   Truck,
   Users,
   UserCheck,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
@@ -40,6 +41,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard/reservas": CalendarCheck,
   "/announcements": MessageSquare,
   "/coach": Bot,
+  "/ceo": ShieldCheck,
   "/dashboard/stock": Package,
 };
 

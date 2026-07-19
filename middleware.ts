@@ -17,6 +17,7 @@ const EMPLOYEE_PAGES = new Set([
   "/my-schedule",
   "/announcements",
   "/coach",
+  "/ceo",
 ]);
 const EMPLOYEE_API_PREFIXES = [
   "/api/attendance/me",
@@ -71,7 +72,8 @@ export async function middleware(request: NextRequest) {
       !user.employeeId &&
       EMPLOYEE_PAGES.has(pathname) &&
       pathname !== "/announcements" &&
-      pathname !== "/coach"
+      pathname !== "/coach" &&
+      pathname !== "/ceo"
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

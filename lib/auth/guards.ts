@@ -51,3 +51,7 @@ const CEO_ADMIN_ROLES = new Set<SessionUser["role"]>(["owner", "manager"]);
 export function isCeoAdmin(user: SessionUser | null): boolean {
   return Boolean(user && !user.employeeId && CEO_ADMIN_ROLES.has(user.role));
 }
+
+export function canViewCeo(user: SessionUser | null): boolean {
+  return Boolean(user);
+}
