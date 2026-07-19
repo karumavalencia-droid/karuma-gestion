@@ -39,6 +39,7 @@ export type DbCeoChangeRequest = {
   github_pr_url: string | null;
   vercel_preview_url: string | null;
   execution_notes: string | null;
+  execution_log: string[];
   approved_at: string | null;
   preview_ready_at: string | null;
   completed_at: string | null;
@@ -62,6 +63,7 @@ export type DbCeoChangeRequestInsert = {
   github_pr_url?: string | null;
   vercel_preview_url?: string | null;
   execution_notes?: string | null;
+  execution_log?: string[];
   approved_at?: string | null;
   preview_ready_at?: string | null;
   completed_at?: string | null;

@@ -101,6 +101,7 @@ export async function PATCH(
     github_pr_url?: string | null;
     vercel_preview_url?: string | null;
     execution_notes?: string | null;
+    execution_log?: string[];
   };
   try {
     body = (await request.json()) as typeof body;
@@ -141,6 +142,7 @@ export async function PATCH(
   if (typeof body.github_pr_url === "string" || body.github_pr_url === null) updates.github_pr_url = body.github_pr_url;
   if (typeof body.vercel_preview_url === "string" || body.vercel_preview_url === null) updates.vercel_preview_url = body.vercel_preview_url;
   if (typeof body.execution_notes === "string" || body.execution_notes === null) updates.execution_notes = body.execution_notes;
+  if (Array.isArray(body.execution_log)) updates.execution_log = body.execution_log;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "no_changes" }, { status: 400 });

@@ -36,6 +36,7 @@ export async function POST(
     github_pr_url?: string | null;
     vercel_preview_url?: string | null;
     execution_notes?: string | null;
+    execution_log?: string[];
   };
   try {
     body = (await request.json()) as typeof body;
@@ -55,6 +56,13 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
+  const logEntries = [
+    ...(Array.isArray(current.execution_log) ? current.execution_log : []),
+    `[${now}] Execution placeholder started`,
+    body.github_branch ? `[${now}] GitHub branch reserved: ${body.github_branch}` : null,
+    body.github_pr_url ? `[${now}] Draft PR reserved: ${body.github_pr_url}` : null,
+    body.vercel_preview_url ? `[${now}] Vercel preview reserved: ${body.vercel_preview_url}` : null,
+  ].filter((entry): entry is string => Boolean(entry));
   const { data, error } = await supabase
     .from("ceo_change_requests")
     .update({
@@ -66,6 +74,7 @@ export async function POST(
         body.execution_notes ??
         current.execution_notes ??
         `Executor reserved at ${now}. Manual automation will connect later.`,
+      execution_log: body.execution_log ?? logEntries,
     })
     .eq("id", id)
     .select("*")

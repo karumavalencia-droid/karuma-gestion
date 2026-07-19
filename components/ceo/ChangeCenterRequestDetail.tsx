@@ -67,12 +67,93 @@ function StepLine({ title, value }: { title: string; value: string | null }) {
   );
 }
 
+function StepEditor({
+  step,
+  index,
+  onChange,
+  onRemove,
+}: {
+  step: StepDraft;
+  index: number;
+  onChange: (next: StepDraft) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-gray-900">Step {index + 1}</p>
+        <button type="button" onClick={onRemove} className="text-xs font-medium text-red-600 hover:text-red-700">
+          Remove
+        </button>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Title</p>
+          <input
+            value={step.title}
+            onChange={(event) => onChange({ ...step, title: event.target.value })}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Owner</p>
+          <select
+            value={step.owner}
+            onChange={(event) => onChange({ ...step, owner: event.target.value as StepDraft["owner"] })}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+          >
+            <option value="ai">ai</option>
+            <option value="owner">owner</option>
+            <option value="engineer">engineer</option>
+            <option value="reviewer">reviewer</option>
+          </select>
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Risk</p>
+          <select
+            value={step.risk}
+            onChange={(event) => onChange({ ...step, risk: event.target.value as StepDraft["risk"] })}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+          >
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="critical">critical</option>
+          </select>
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Detail</p>
+          <textarea
+            value={step.detail}
+            onChange={(event) => onChange({ ...step, detail: event.target.value })}
+            className="min-h-20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function splitLines(value: string) {
   return value
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 }
+
+type StepDraft = {
+  title: string;
+  owner: "ai" | "owner" | "engineer" | "reviewer";
+  risk: "low" | "medium" | "high" | "critical";
+  detail: string;
+};
+
+const EMPTY_STEP: StepDraft = {
+  title: "",
+  owner: "ai",
+  risk: "medium",
+  detail: "",
+};
 
 export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [request, setRequest] = useState<DbCeoChangeRequest | null>(null);
@@ -83,8 +164,9 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [requestTextDraft, setRequestTextDraft] = useState("");
   const [riskDraft, setRiskDraft] = useState<DbCeoChangeRequest["risk_level"]>("medium");
   const [assumptionsDraft, setAssumptionsDraft] = useState("");
-  const [stepsDraft, setStepsDraft] = useState("");
+  const [stepDrafts, setStepDrafts] = useState<StepDraft[]>([]);
   const [notesDraft, setNotesDraft] = useState("");
+  const [logDraft, setLogDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const nextStatus = useMemo(() => (request ? NEXT_STATUS[request.status] : null), [request]);
@@ -103,14 +185,16 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       setRequestTextDraft(nextRequest?.request_text ?? "");
       setRiskDraft(nextRequest?.risk_level ?? "medium");
       setAssumptionsDraft((nextRequest?.plan.assumptions ?? []).join("\n"));
-      setStepsDraft(
-        (nextRequest?.plan.steps ?? [])
-          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
-            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
-          )
-          .join("\n"),
+      setStepDrafts(
+        (nextRequest?.plan.steps ?? []).map((step: { title: string; owner: string; risk: string; detail: string }) => ({
+          title: step.title,
+          owner: step.owner === "owner" || step.owner === "engineer" || step.owner === "reviewer" ? step.owner : "ai",
+          risk: step.risk === "low" || step.risk === "medium" || step.risk === "high" || step.risk === "critical" ? step.risk : "medium",
+          detail: step.detail,
+        })),
       );
       setNotesDraft(nextRequest?.execution_notes ?? "");
+      setLogDraft((nextRequest?.execution_log ?? []).join("\n"));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la solicitud");
     } finally {
@@ -150,19 +234,17 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
         title: titleDraft.trim() || request.title,
         summary: summaryDraft.trim() || request.summary,
         assumptions: splitLines(assumptionsDraft),
-        steps: splitLines(stepsDraft).map((line) => {
-          const [rawTitle, rawOwner, rawRisk, ...rest] = line.split("|");
-          const owner = (rawOwner ?? "").trim();
-          const risk = (rawRisk ?? "").trim();
-          return {
-            title: (rawTitle ?? "").trim() || "Untitled step",
-            owner: owner === "owner" || owner === "engineer" || owner === "reviewer" ? owner : "ai",
-            risk: risk === "low" || risk === "medium" || risk === "high" || risk === "critical" ? risk : "medium",
-            detail: rest.join("|").trim() || "Add detail for this step.",
-          };
-        }),
+        steps: stepDrafts
+          .map((step) => ({
+            title: step.title.trim(),
+            owner: step.owner,
+            risk: step.risk,
+            detail: step.detail.trim(),
+          }))
+          .filter((step) => Boolean(step.title || step.detail)),
         riskLevel: riskDraft,
       };
+      const executionLog = splitLines(logDraft);
       const res = await fetch(`/api/ceo/change-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -173,6 +255,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
           risk_level: riskDraft,
           plan,
           execution_notes: notesDraft,
+          execution_log: executionLog,
         }),
       });
       const data = await res.json();
@@ -183,14 +266,16 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       setRequestTextDraft(data.request?.request_text ?? "");
       setRiskDraft(data.request?.risk_level ?? "medium");
       setAssumptionsDraft((data.request?.plan.assumptions ?? []).join("\n"));
-      setStepsDraft(
-        (data.request?.plan.steps ?? [])
-          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
-            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
-          )
-          .join("\n"),
+      setStepDrafts(
+        (data.request?.plan.steps ?? []).map((step: { title: string; owner: string; risk: string; detail: string }) => ({
+          title: step.title,
+          owner: step.owner === "owner" || step.owner === "engineer" || step.owner === "reviewer" ? step.owner : "ai",
+          risk: step.risk === "low" || step.risk === "medium" || step.risk === "high" || step.risk === "critical" ? step.risk : "medium",
+          detail: step.detail,
+        })),
       );
       setNotesDraft(data.request?.execution_notes ?? "");
+      setLogDraft((data.request?.execution_log ?? []).join("\n"));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el plan");
     } finally {
@@ -220,14 +305,16 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       setRequestTextDraft(data.request?.request_text ?? "");
       setRiskDraft(data.request?.risk_level ?? "medium");
       setAssumptionsDraft((data.request?.plan.assumptions ?? []).join("\n"));
-      setStepsDraft(
-        (data.request?.plan.steps ?? [])
-          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
-            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
-          )
-          .join("\n"),
+      setStepDrafts(
+        (data.request?.plan.steps ?? []).map((step: { title: string; owner: string; risk: string; detail: string }) => ({
+          title: step.title,
+          owner: step.owner === "owner" || step.owner === "engineer" || step.owner === "reviewer" ? step.owner : "ai",
+          risk: step.risk === "low" || step.risk === "medium" || step.risk === "high" || step.risk === "critical" ? step.risk : "medium",
+          detail: step.detail,
+        })),
       );
       setNotesDraft(data.request?.execution_notes ?? "");
+      setLogDraft((data.request?.execution_log ?? []).join("\n"));
     } catch (execError) {
       setError(execError instanceof Error ? execError.message : "No se pudo iniciar la ejecución");
     } finally {
@@ -236,6 +323,9 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
   }
 
   const executionLog = useMemo(() => {
+    if (logDraft.trim()) {
+      return splitLines(logDraft);
+    }
     if (!request) return [];
     return [
       `[${fmtDate(request.created_at)}] Request created by ${request.created_by_name}`,
@@ -247,7 +337,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       request.completed_at ? `[${fmtDate(request.completed_at)}] Marked as completed` : null,
       request.failed_at ? `[${fmtDate(request.failed_at)}] Marked as failed` : null,
     ].filter((line): line is string => Boolean(line));
-  }, [request]);
+  }, [logDraft, request]);
 
   if (loading) {
     return (
@@ -488,14 +578,37 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Steps in `title | owner | risk | detail` format
-                  </p>
-                  <textarea
-                    value={stepsDraft}
-                    onChange={(event) => setStepsDraft(event.target.value)}
-                    className="min-h-48 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
-                  />
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Steps</p>
+                    <button
+                      type="button"
+                      onClick={() => setStepDrafts((current) => [...current, { ...EMPTY_STEP }])}
+                      className="text-xs font-medium text-karuma-600 hover:text-karuma-700"
+                    >
+                      Add step
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {stepDrafts.length ? (
+                      stepDrafts.map((step, index) => (
+                        <StepEditor
+                          key={`${index}-${step.title}`}
+                          step={step}
+                          index={index}
+                          onChange={(next) =>
+                            setStepDrafts((current) => current.map((item, itemIndex) => (itemIndex === index ? next : item)))
+                          }
+                          onRemove={() =>
+                            setStepDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                          }
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-500">
+                        No steps yet. Add one to describe the implementation plan.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div>
@@ -507,11 +620,11 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                 />
               </div>
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Plan JSON</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Execution log, one line per event</p>
                 <textarea
-                  value={planDraft}
-                  onChange={(event) => setPlanDraft(event.target.value)}
-                  className="min-h-72 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                  value={logDraft}
+                  onChange={(event) => setLogDraft(event.target.value)}
+                  className="min-h-40 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
                 />
               </div>
               <Button variant="primary" size="sm" type="button" disabled={actionLoading} onClick={savePlan}>

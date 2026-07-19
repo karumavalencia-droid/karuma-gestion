@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS ceo_change_requests (
   github_pr_url text,
   vercel_preview_url text,
   execution_notes text,
+  execution_log jsonb NOT NULL DEFAULT '[]'::jsonb,
   approved_at timestamptz,
   preview_ready_at timestamptz,
   completed_at timestamptz,
