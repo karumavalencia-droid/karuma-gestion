@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Layers3,
   Loader2,
   RefreshCw,
@@ -15,6 +16,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import Link from "next/link";
 import type {
   ChangeCenterPlanStep,
   ChangeCenterStatus,
@@ -248,6 +250,16 @@ export function ChangeCenterPanel() {
                     <span>•</span>
                     <span>{request.risk_level}</span>
                   </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Open detail page</span>
+                    <Link
+                      href={`/ceo/change-requests/${request.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-karuma-600 hover:text-karuma-700"
+                    >
+                      View
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 </button>
               ))}
             </div>
@@ -294,9 +306,39 @@ export function ChangeCenterPanel() {
                       type="button"
                       disabled={actionLoading || !nextStatus}
                       onClick={() => nextStatus && updateRequest(selected.id, { status: nextStatus })}
-                    >
+                      >
                       <Sparkles className="mr-2 h-4 w-4" />
                       {nextStatus ? `Move to ${nextStatus}` : "No next step"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      disabled={actionLoading || selected.status === "approved"}
+                      onClick={() => updateRequest(selected.id, { status: "approved" })}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      disabled={actionLoading || selected.status === "executing"}
+                      onClick={() => updateRequest(selected.id, { status: "executing" })}
+                    >
+                      <Loader2 className="mr-2 h-4 w-4" />
+                      Start execution
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      disabled={actionLoading || selected.status === "preview_ready"}
+                      onClick={() => updateRequest(selected.id, { status: "preview_ready" })}
+                    >
+                      <Clock3 className="mr-2 h-4 w-4" />
+                      Mark preview
                     </Button>
                     <Button
                       variant="secondary"
@@ -322,9 +364,23 @@ export function ChangeCenterPanel() {
                           vercel_preview_url: selected.vercel_preview_url ?? "https://preview.example.com",
                         })
                       }
-                    >
+                      >
                       <Clock3 className="mr-2 h-4 w-4" />
                       Set preview stub
+                    </Button>
+                    <Button
+                      variant="warning"
+                      size="sm"
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() =>
+                        updateRequest(selected.id, {
+                          execution_notes: selected.execution_notes ?? "Awaiting manual executor integration.",
+                        })
+                      }
+                    >
+                      <ShieldAlert className="mr-2 h-4 w-4" />
+                      Add note
                     </Button>
                   </div>
                 </div>
