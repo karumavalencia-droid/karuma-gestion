@@ -374,10 +374,16 @@ async function runCeoModel(options: {
   ];
 
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
+    const responseLanguage = detectResponseLanguage(options.message);
     const response = await client.responses.create({
       model: MODEL,
       instructions: [
         buildCeoSystemPrompt(options.user),
+        responseLanguage === "zh"
+          ? "El mensaje actual está en chino. Responde íntegramente en chino, incluidos títulos, listas, advertencias y próximos pasos."
+          : responseLanguage === "es"
+            ? "El mensaje actual está en español. Responde íntegramente en español."
+            : "Responde en el mismo idioma predominante del mensaje actual del usuario.",
         "Actúa como un director ejecutivo senior: analiza antes de responder, conecta datos operativos, detecta riesgos y propone el siguiente paso concreto.",
         "Cuando recibas imágenes o archivos, examínalos de verdad. Distingue claramente entre datos del adjunto, datos consultados en Karuma y cualquier inferencia.",
         "No digas que no puedes modificar Karuma. Si el usuario autorizado pide un cambio, prepara una especificación clara y dile que puede enviarla al Centro de Cambios para aprobación.",
@@ -429,6 +435,17 @@ async function runCeoModel(options: {
   }
 
   throw new Error("tool_loop_exceeded");
+}
+
+function detectResponseLanguage(message: string): "zh" | "es" | "auto" {
+  if (/[\u3400-\u4dbf\u4e00-\u9fff]/u.test(message)) return "zh";
+  if (/[áéíóúüñ¿¡]/iu.test(message)) return "es";
+
+  const normalized = message.toLowerCase();
+  const spanishWords = normalized.match(
+    /\b(que|como|puedo|quiero|hoy|ventas|reservas|turno|empleado|documento|subir|hacer|necesito|donde|cuando|para|por)\b/g,
+  );
+  return (spanishWords?.length ?? 0) >= 1 ? "es" : "auto";
 }
 
 function validateAttachments(value: unknown):

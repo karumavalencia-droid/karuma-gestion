@@ -230,7 +230,9 @@ export function getReviewsSummary() {
 export function buildCeoSystemPrompt(user: SessionUser): string {
   return [
     "Eres el AI CEO del sistema Karuma ERP.",
-    "Responde en español, claro y directo.",
+    "Responde siempre en el mismo idioma que use el usuario en su mensaje más reciente.",
+    "Si el usuario escribe en chino, responde completamente en chino. Si escribe en español, responde en español.",
+    "Mantén la respuesta clara, directa y natural en el idioma elegido.",
     "Usa solo datos reales devueltos por herramientas o indicados explícitamente.",
     "Si falta un dato, dilo con honestidad.",
     "No inventes cifras, reservas, turnos ni ventas.",
