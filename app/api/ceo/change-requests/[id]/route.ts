@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, isCeoAdmin } from "@/lib/auth/guards";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type {
+  ChangeCenterPlan,
   ChangeCenterStatus,
   DbCeoChangeRequest,
   DbCeoChangeRequestUpdate,
@@ -91,6 +92,11 @@ export async function PATCH(
 
   let body: {
     status?: ChangeCenterStatus;
+    title?: string | null;
+    summary?: string | null;
+    request_text?: string | null;
+    risk_level?: DbCeoChangeRequest["risk_level"];
+    plan?: ChangeCenterPlan;
     github_branch?: string | null;
     github_pr_url?: string | null;
     vercel_preview_url?: string | null;
@@ -103,6 +109,18 @@ export async function PATCH(
   }
 
   const updates: DbCeoChangeRequestUpdate = {};
+  if (typeof body.title === "string") updates.title = body.title;
+  if (typeof body.summary === "string") updates.summary = body.summary;
+  if (typeof body.request_text === "string") updates.request_text = body.request_text;
+  if (
+    body.risk_level === "low" ||
+    body.risk_level === "medium" ||
+    body.risk_level === "high" ||
+    body.risk_level === "critical"
+  ) {
+    updates.risk_level = body.risk_level;
+  }
+  if (body.plan) updates.plan = body.plan;
   if (body.status) {
     const { data: current } = await supabase
       .from("ceo_change_requests")

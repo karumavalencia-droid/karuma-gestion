@@ -71,6 +71,8 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [request, setRequest] = useState<DbCeoChangeRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [planDraft, setPlanDraft] = useState("");
+  const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const nextStatus = useMemo(() => (request ? NEXT_STATUS[request.status] : null), [request]);
@@ -83,6 +85,8 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo cargar la solicitud");
       setRequest(data.request ?? null);
+      setPlanDraft(JSON.stringify(data.request?.plan ?? null, null, 2));
+      setNotesDraft(data.request?.execution_notes ?? "");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la solicitud");
     } finally {
@@ -108,6 +112,54 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       setRequest(data.request ?? null);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar la solicitud");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function savePlan() {
+    if (!request) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      const parsedPlan = JSON.parse(planDraft) as unknown;
+      const res = await fetch(`/api/ceo/change-requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: parsedPlan, execution_notes: notesDraft }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar el plan");
+      setRequest(data.request ?? null);
+      setPlanDraft(JSON.stringify(data.request?.plan ?? null, null, 2));
+      setNotesDraft(data.request?.execution_notes ?? "");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el plan");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function startExecution() {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ceo/change-requests/${id}/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          github_branch: request?.github_branch,
+          github_pr_url: request?.github_pr_url,
+          vercel_preview_url: request?.vercel_preview_url,
+          execution_notes: notesDraft || request?.execution_notes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo iniciar la ejecución");
+      setRequest(data.request ?? null);
+      setNotesDraft(data.request?.execution_notes ?? "");
+    } catch (execError) {
+      setError(execError instanceof Error ? execError.message : "No se pudo iniciar la ejecución");
     } finally {
       setActionLoading(false);
     }
@@ -206,10 +258,10 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                 size="sm"
                 type="button"
                 disabled={actionLoading || request.status === "executing"}
-                onClick={() => updateRequest({ status: "executing" })}
+                onClick={startExecution}
               >
                 <Loader2 className="mr-2 h-4 w-4" />
-                Start execution
+                Start execution placeholder
               </Button>
               <Button
                 variant="secondary"
@@ -298,6 +350,31 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
                 Notes: <span className="font-medium text-gray-900">{request.execution_notes ?? "reserved for executor output"}</span>
               </div>
+            </div>
+          </Card>
+
+          <Card title="Edit plan">
+            <div className="space-y-3">
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Execution notes</p>
+                <textarea
+                  value={notesDraft}
+                  onChange={(event) => setNotesDraft(event.target.value)}
+                  className="min-h-28 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Plan JSON</p>
+                <textarea
+                  value={planDraft}
+                  onChange={(event) => setPlanDraft(event.target.value)}
+                  className="min-h-72 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                />
+              </div>
+              <Button variant="primary" size="sm" type="button" disabled={actionLoading} onClick={savePlan}>
+                <WandSparkles className="mr-2 h-4 w-4" />
+                Save plan and notes
+              </Button>
             </div>
           </Card>
         </div>
