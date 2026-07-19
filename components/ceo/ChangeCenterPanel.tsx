@@ -60,6 +60,16 @@ const NEXT_STATUS: Record<ChangeCenterStatus, ChangeCenterStatus | null> = {
   failed: "planned",
 };
 
+const STATUS_ORDER: ChangeCenterStatus[] = [
+  "draft",
+  "planned",
+  "approved",
+  "executing",
+  "preview_ready",
+  "completed",
+  "failed",
+];
+
 function fmtDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString("es-ES", {
@@ -104,6 +114,18 @@ export function ChangeCenterPanel() {
     () => requests.find((request) => request.id === selectedId) ?? requests[0] ?? null,
     [requests, selectedId],
   );
+
+  const groupedRequests = useMemo(() => {
+    const grouped = new Map<ChangeCenterStatus, DbCeoChangeRequest[]>();
+    for (const status of STATUS_ORDER) grouped.set(status, []);
+    for (const request of requests) {
+      grouped.get(request.status)?.push(request);
+    }
+    return STATUS_ORDER.map((status) => ({
+      status,
+      items: grouped.get(status) ?? [],
+    })).filter((group) => group.items.length > 0);
+  }, [requests]);
 
   async function loadRequests() {
     setLoading(true);
@@ -226,41 +248,55 @@ export function ChangeCenterPanel() {
               No requests yet. Submit the first change request above.
             </div>
           ) : (
-            <div className="space-y-2">
-              {requests.map((request) => (
-                <button
-                  key={request.id}
-                  className={`w-full rounded-2xl border p-3 text-left transition ${
-                    request.id === selected?.id ? "border-karuma-300 bg-karuma-50" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                  onClick={() => setSelectedId(request.id)}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-gray-900">{request.title}</p>
-                      <p className="mt-1 max-h-10 overflow-hidden text-sm text-gray-600">{request.summary}</p>
+            <div className="space-y-4">
+              {groupedRequests.map((group) => (
+                <div key={group.status} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${STATUS_BADGES[group.status]}`}>
+                        {STATUS_LABELS[group.status]}
+                      </span>
+                      <span className="text-xs text-gray-400">{group.items.length}</span>
                     </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${STATUS_BADGES[request.status]}`}>
-                      {STATUS_LABELS[request.status]}
-                    </span>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{fmtDate(request.created_at)}</span>
-                    <span>•</span>
-                    <span>{request.risk_level}</span>
+                  <div className="space-y-2">
+                    {group.items.map((request) => (
+                      <button
+                        key={request.id}
+                        className={`w-full rounded-2xl border p-3 text-left transition ${
+                          request.id === selected?.id ? "border-karuma-300 bg-karuma-50" : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                        onClick={() => setSelectedId(request.id)}
+                        type="button"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">{request.title}</p>
+                            <p className="mt-1 max-h-10 overflow-hidden text-sm text-gray-600">{request.summary}</p>
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${STATUS_BADGES[request.status]}`}>
+                            {STATUS_LABELS[request.status]}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                          <span>{fmtDate(request.created_at)}</span>
+                          <span>•</span>
+                          <span>{request.risk_level}</span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-xs text-gray-400">Open detail page</span>
+                          <Link
+                            href={`/ceo/change-requests/${request.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-karuma-600 hover:text-karuma-700"
+                          >
+                            View
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Open detail page</span>
-                    <Link
-                      href={`/ceo/change-requests/${request.id}`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-karuma-600 hover:text-karuma-700"
-                    >
-                      View
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
