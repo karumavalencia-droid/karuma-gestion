@@ -34,6 +34,9 @@ export async function middleware(request: NextRequest) {
 
   if (
     PUBLIC_PATHS.has(pathname) ||
+    // Endpoints de login (OTP, admin 2FA, registro): siempre públicos.
+    pathname.startsWith("/api/auth/login") ||
+    pathname === "/api/auth/register" ||
     pathname === "/reservas" ||
     pathname.startsWith("/reservas/") ||
     pathname.startsWith("/api/reservas/") ||
