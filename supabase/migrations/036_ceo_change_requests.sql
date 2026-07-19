@@ -42,7 +42,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_ceo_change_requests_updated_at ON ceo_change_requests;
 CREATE TRIGGER trg_ceo_change_requests_updated_at

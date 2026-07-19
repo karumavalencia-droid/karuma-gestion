@@ -167,6 +167,48 @@ export function loadReservas(): ReservaLocal[] {
 }
 export function saveReservas(data: ReservaLocal[]) { write(RESERVAS_KEY, data); }
 
+export function storeCreatedReservation(input: {
+  id: string;
+  fecha: string;
+  hora: string;
+  servicio: ServicioLocal;
+  personas: number;
+  mesaIds: string[];
+  nombre: string;
+  telefono?: string;
+  email?: string | null;
+  notas?: string;
+  origen: NonNullable<ReservaLocal["origen"]>;
+  duracionMin?: number;
+  bloqueo?: boolean;
+}): ReservaLocal {
+  const now = new Date().toISOString();
+  const reserva: ReservaLocal = {
+    id: input.id,
+    type: input.bloqueo ? "table_block" : input.origen === "walkin" ? "walk_in" : "reservation",
+    fecha: input.fecha,
+    hora: input.hora.slice(0, 5),
+    duracionMin: input.duracionMin,
+    servicio: input.servicio,
+    personas: input.bloqueo ? 0 : input.personas,
+    mesaIds: input.mesaIds,
+    nombre: input.bloqueo ? "Bloqueo mesa" : input.nombre,
+    telefono: input.telefono ?? "",
+    email: input.email ?? null,
+    notas: input.notas ?? "",
+    estado: input.origen === "walkin" ? "walkin" : "confirmada",
+    creadoEn: now,
+    origen: input.origen,
+    seatedAt: input.origen === "walkin" ? now : undefined,
+  };
+  const list = loadReservas();
+  const existing = list.findIndex((item) => item.id === reserva.id);
+  if (existing >= 0) list[existing] = reserva;
+  else list.push(reserva);
+  saveReservas(list);
+  return reserva;
+}
+
 export function loadClientes(): ClienteLocal[] {
   return read<ClienteLocal[]>(CLIENTES_KEY, []);
 }
@@ -264,6 +306,18 @@ export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: stri
   comida: { inicio: "13:00", fin: "16:00" },
   cena:   { inicio: "19:30", fin: "23:00" },
 };
+
+// La operativa cambia automáticamente de comida a cena después de las 16:30.
+// Las 16:30 todavía pertenecen a comida; desde las 16:31 se usa cena.
+export function servicioParaHora(hora: string): ServicioLocal {
+  return toMin(hora) > 16 * 60 + 30 ? "cena" : "comida";
+}
+
+export function servicioActual(fecha = new Date()): ServicioLocal {
+  const hora = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+  return servicioParaHora(hora);
+}
+
 // Horas del selector del plano, en pasos de 15 min.
 export function slotsPlano(servicio: ServicioLocal): string[] {
   const { inicio, fin } = SERVICIO_VENTANA[servicio];

@@ -170,10 +170,9 @@ export type DbReserva = {
   personas: number;
   mesa_ids: number[];
   estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
+  seated_at: string | null;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
-  confirmation_email_sent_at: string | null;
-  confirmation_email_send_key: string | null;
   review_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -206,40 +205,6 @@ export type DbCierreServicio = {
   motivo: string | null;
   created_at: string;
 };
-
-export type DbRestosuiteSyncSession = {
-  location_id: string;
-  base_url: string;
-  vulcan_token: string;
-  corporation_id: string;
-  brand_id: string;
-  shop_id: string;
-  organization_id: string;
-  organization_type: string;
-  accept_timezone: string;
-  language_code: string;
-  currency: string;
-  updated_at: string;
-  created_at: string;
-};
-
-export type DbRestosuiteSyncSessionInsert = {
-  location_id: string;
-  base_url?: string;
-  vulcan_token: string;
-  corporation_id: string;
-  brand_id: string;
-  shop_id: string;
-  organization_id: string;
-  organization_type: string;
-  accept_timezone?: string;
-  language_code?: string;
-  currency?: string;
-  updated_at?: string;
-  created_at?: string;
-};
-
-export type DbRestosuiteSyncSessionUpdate = Partial<DbRestosuiteSyncSessionInsert>;
 
 export type DbListaEspera = {
   id: string;
@@ -367,6 +332,32 @@ export type DbSalesDailyInsert = {
   updated_at?: string;
 };
 
+export type DbSalesImportLog = {
+  id: string;
+  source: string;
+  file_name: string | null;
+  total_rows: number;
+  inserted_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type DbSalesImportLogInsert = {
+  id?: string;
+  source: string;
+  file_name?: string | null;
+  total_rows?: number;
+  inserted_rows?: number;
+  updated_rows?: number;
+  skipped_rows?: number;
+  status: string;
+  error_message?: string | null;
+  created_at?: string;
+};
+
 export type DbCeoConversation = {
   id: string;
   user_email: string;
@@ -443,74 +434,136 @@ export type DbCeoDraftInsert = {
   updated_at?: string;
 };
 
-export type DbSalesImportLog = {
-  id: string;
-  source: string;
-  file_name: string | null;
-  total_rows: number;
-  inserted_rows: number;
-  updated_rows: number;
-  skipped_rows: number;
-  status: string;
-  error_message: string | null;
-  created_at: string;
-};
+// ── Identity System v1.0 ───────────────────────────────────────────────────
 
-export type DbSalesImportLogInsert = {
-  id?: string;
-  source: string;
-  file_name?: string | null;
-  total_rows?: number;
-  inserted_rows?: number;
-  updated_rows?: number;
-  skipped_rows?: number;
-  status: string;
-  error_message?: string | null;
-  created_at?: string;
-};
-
-export type DbDishReorderDaily = {
+export type DbAuthAccount = {
   id: string;
-  location_id: string;
-  business_date: string;
-  item_id: string;
-  item_name: string;
-  category: string | null;
-  orders_with_item: number;
-  reordered_orders: number;
-  reorder_events: number;
-  total_qty: number;
-  reorder_qty: number;
-  gap_minutes_sum: number;
-  gap_samples: number;
-  covered_orders: number;
-  kds_rows: number;
-  source: string;
-  synced_at: string | null;
+  auth_user_id: string;
+  phone: string | null;
+  display_name: string;
+  role_id: string;
+  status: 'active' | 'disabled' | 'suspended';
+  password_changed_at: string | null;
+  last_login_at: string | null;
+  last_login_ip: string | null;
+  mfa_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
 
-export type DbDishReorderDailyInsert = {
-  id?: string;
-  location_id: string;
-  business_date: string;
-  item_id: string;
-  item_name: string;
-  category?: string | null;
-  orders_with_item?: number;
-  reordered_orders?: number;
-  reorder_events?: number;
-  total_qty?: number;
-  reorder_qty?: number;
-  gap_minutes_sum?: number;
-  gap_samples?: number;
-  covered_orders?: number;
-  kds_rows?: number;
-  source?: string;
-  synced_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
+export type DbAuthAccountInsert = {
+  auth_user_id: string;
+  phone?: string | null;
+  display_name: string;
+  role_id?: string;
+  status?: 'active' | 'disabled' | 'suspended';
+  mfa_enabled?: boolean;
+};
+
+export type DbAuthAccountUpdate = Partial<Omit<DbAuthAccount, "id" | "auth_user_id" | "created_at" | "updated_at">>;
+
+export type DbAuthOtpSession = {
+  id: string;
+  phone: string;
+  code: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  verified_at: string | null;
+  account_id: string | null;
+  created_at: string;
+};
+
+export type DbAuthOtpSessionInsert = {
+  phone: string;
+  code: string;
+  attempts?: number;
+  max_attempts?: number;
+  expires_at: string;
+  verified_at?: string | null;
+  account_id?: string | null;
+};
+
+export type DbAuthLoginLog = {
+  id: string;
+  account_id: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address: string | null;
+  user_agent: string | null;
+  device_info: Record<string, unknown> | null;
+  failure_reason: string | null;
+  created_at: string;
+};
+
+export type DbAuthLoginLogInsert = {
+  account_id?: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address?: string | null;
+  user_agent?: string | null;
+  device_info?: Record<string, unknown> | null;
+  failure_reason?: string | null;
+};
+
+export type DbAuthSession = {
+  id: string;
+  account_id: string;
+  device_id: string;
+  device_name: string | null;
+  device_type: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name: string | null;
+  browser_version: string | null;
+  os: string | null;
+  ip_address: string | null;
+  last_active_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type DbAuthSessionInsert = {
+  account_id: string;
+  device_id: string;
+  device_name?: string | null;
+  device_type?: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name?: string | null;
+  browser_version?: string | null;
+  os?: string | null;
+  ip_address?: string | null;
+  last_active_at?: string;
+  expires_at: string;
+  revoked_at?: string | null;
+};
+
+export type DbAppConfig = {
+  id: number;
+  permissions_enabled: boolean;
+  otp_max_attempts: number;
+  otp_validity_minutes: number;
+  session_duration_days: number;
+  owner_phone: string | null;
+  updated_at: string;
+};
+
+export type DbAppConfigInsert = Partial<Omit<DbAppConfig, 'id' | 'updated_at'>>;
+
+// ── CEO Morning Brief ────────────────────────────────────────────────────────
+
+export type DbCeoMorningBrief = {
+  id: string;
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
+  created_at: string;
+};
+
+export type DbCeoMorningBriefInsert = {
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
 };
 
 // ── Database ─────────────────────────────────────────────────────────────────
@@ -529,6 +582,65 @@ import type {
   DbCeoChangeRequest,
   DbCeoChangeRequestInsert,
 } from "../ceo/change-center";
+
+// ── Finanzas privadas (solo owner) ──────────────────────────────────────────
+
+export type DbGastoCategoria =
+  | "alquiler"
+  | "personal"
+  | "seguros_sociales"
+  | "proveedores"
+  | "suministros"
+  | "impuestos"
+  | "marketing"
+  | "comisiones"
+  | "otros";
+
+export type DbGasto = {
+  id: string;
+  fecha: string;
+  categoria: DbGastoCategoria;
+  concepto: string;
+  importe: number;
+  empresa: "kosushi" | "spicy";
+  fuente: string;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbGastoInsert = Omit<DbGasto, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  notas?: string | null;
+  fuente?: string;
+};
+
+export type DbDocumentoCategoria =
+  | "bancos"
+  | "contratos"
+  | "nominas"
+  | "impuestos"
+  | "seguros"
+  | "licencias"
+  | "otros";
+
+export type DbDocumento = {
+  id: string;
+  nombre: string;
+  categoria: DbDocumentoCategoria;
+  storage_path: string;
+  mime_type: string | null;
+  tamano_bytes: number | null;
+  notas: string | null;
+  created_at: string;
+};
+
+export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
+  id?: string;
+  mime_type?: string | null;
+  tamano_bytes?: number | null;
+  notas?: string | null;
+};
 
 export type Database = {
   public: {
@@ -594,13 +706,8 @@ export type Database = {
       };
       reservas: {
         Row: DbReserva;
-        Insert: Omit<
-          DbReserva,
-          "id" | "created_at" | "updated_at" | "review_email_sent_at" | "confirmation_email_sent_at" | "confirmation_email_send_key"
-        > & {
+        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at" | "review_email_sent_at"> & {
           id?: string;
-          confirmation_email_sent_at?: string | null;
-          confirmation_email_send_key?: string | null;
           review_email_sent_at?: string | null;
         };
         Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
@@ -690,12 +797,6 @@ export type Database = {
         Update: Partial<DbCeoChangeRequestInsert>;
         Relationships: [];
       };
-      dish_reorder_daily: {
-        Row: DbDishReorderDaily;
-        Insert: DbDishReorderDailyInsert;
-        Update: Partial<DbDishReorderDailyInsert>;
-        Relationships: [];
-      };
       coach_conversations: {
         Row: DbCoachConversation;
         Insert: DbCoachConversationInsert;
@@ -718,6 +819,54 @@ export type Database = {
         Row: DbCoachKnowledgeEntry;
         Insert: DbCoachKnowledgeEntryInsert;
         Update: Partial<DbCoachKnowledgeEntryInsert>;
+        Relationships: [];
+      };
+      ceo_morning_briefs: {
+        Row: DbCeoMorningBrief;
+        Insert: DbCeoMorningBriefInsert;
+        Update: Partial<DbCeoMorningBriefInsert>;
+        Relationships: [];
+      };
+      auth_accounts: {
+        Row: DbAuthAccount;
+        Insert: DbAuthAccountInsert;
+        Update: DbAuthAccountUpdate;
+        Relationships: [];
+      };
+      auth_otp_sessions: {
+        Row: DbAuthOtpSession;
+        Insert: DbAuthOtpSessionInsert;
+        Update: Partial<DbAuthOtpSessionInsert>;
+        Relationships: [];
+      };
+      auth_login_logs: {
+        Row: DbAuthLoginLog;
+        Insert: DbAuthLoginLogInsert;
+        Update: Partial<DbAuthLoginLogInsert>;
+        Relationships: [];
+      };
+      auth_sessions: {
+        Row: DbAuthSession;
+        Insert: DbAuthSessionInsert;
+        Update: Partial<DbAuthSessionInsert>;
+        Relationships: [];
+      };
+      app_config: {
+        Row: DbAppConfig;
+        Insert: DbAppConfigInsert;
+        Update: DbAppConfigInsert;
+        Relationships: [];
+      };
+      gastos: {
+        Row: DbGasto;
+        Insert: DbGastoInsert;
+        Update: Partial<DbGastoInsert>;
+        Relationships: [];
+      };
+      documentos: {
+        Row: DbDocumento;
+        Insert: DbDocumentoInsert;
+        Update: Partial<DbDocumentoInsert>;
         Relationships: [];
       };
     };

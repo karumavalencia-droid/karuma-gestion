@@ -77,8 +77,8 @@ export function ProductPriceHistory({
       });
 
       if (!response.ok) throw new Error("Error al agregar precio");
-
-      await fetchPrices();
+      const data = await response.json() as { price?: Price };
+      if (data.price) setPrices((current) => [data.price!, ...current]);
       setNewPrice({
         unit_price: "",
         effective_date: new Date().toISOString().split("T")[0],

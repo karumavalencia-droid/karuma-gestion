@@ -1,25 +1,44 @@
 import bcrypt from "bcryptjs";
 import type { SessionUser } from "./session";
 
-const ADMIN_USERNAME = (
-  process.env.KARUMA_ADMIN_USERNAME ?? "karuma"
-).trim().toLowerCase();
-const ADMIN_PASSWORD_HASH =
-  process.env.KARUMA_ADMIN_PASSWORD_HASH ??
-  "$2b$12$9FsIkdLeg57Lccg94zxxAeFeLS3L2ACMtHIXA4Axc6R3jE7zzMnO.";
+/**
+ * Cuenta de administrador (máximo privilegio) definida por variables de entorno:
+ *
+ *   KARUMA_ADMIN_USERNAME       usuario (ej. "zhou")
+ *   KARUMA_ADMIN_PASSWORD_HASH  hash bcrypt de la contraseña
+ *   KARUMA_ADMIN_PHONE          teléfono E.164 (+34...) que recibe el código SMS
+ *
+ * Sin usuario+hash la cuenta queda desactivada. Con KARUMA_ADMIN_PHONE
+ * configurado, el login exige contraseña + código SMS (2FA). En producción
+ * el teléfono es obligatorio; en desarrollo, si falta, entra solo con contraseña.
+ */
 
-export async function authenticateBuiltInAdmin(
+const ADMIN_USERNAME = (process.env.KARUMA_ADMIN_USERNAME ?? "").trim().toLowerCase();
+const ADMIN_PASSWORD_HASH = process.env.KARUMA_ADMIN_PASSWORD_HASH ?? "";
+const ADMIN_PHONE = (process.env.KARUMA_ADMIN_PHONE ?? "").trim();
+
+export function getAdminPhone(): string | null {
+  return /^\+\d{10,15}$/.test(ADMIN_PHONE) ? ADMIN_PHONE : null;
+}
+
+/** "+34625086359" -> "+34•••••359" (para mostrar sin revelar el número). */
+export function maskPhone(phone: string): string {
+  return `${phone.slice(0, 3)}•••••${phone.slice(-3)}`;
+}
+
+export async function verifyAdminCredentials(
   username: string,
   password: string,
-): Promise<SessionUser | null> {
-  if (username !== ADMIN_USERNAME) return null;
+): Promise<boolean> {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) return false;
+  if (username.trim().toLowerCase() !== ADMIN_USERNAME) return false;
+  return bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+}
 
-  const valid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
-  if (!valid) return null;
-
+export function adminSessionUser(): SessionUser {
   return {
-    name: "Karuma Admin",
-    email: "karuma@local",
+    name: "Zhou",
+    email: "admin@karuma.local",
     role: "owner",
     employeeId: null,
   };

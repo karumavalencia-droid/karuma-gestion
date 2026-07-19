@@ -52,6 +52,7 @@ export default function ConfigReservasPage() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [error, setError] = useState("");
 
   const [cierres, setCierres] = useState<CierreRow[]>([]);
   const [cFecha, setCFecha] = useState(new Date().toISOString().split("T")[0]);
@@ -88,18 +89,25 @@ export default function ConfigReservasPage() {
 
   async function guardar() {
     setGuardando(true);
-    await Promise.all([
-      sb ? sb.from("reservas_config").update(config).eq("id", 1) : Promise.resolve(),
-      fetch("/api/reservas/horario-semanal", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(horario),
-      }),
-    ]);
-    localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(config));
-    setGuardando(false);
-    setOk(true);
-    setTimeout(() => setOk(false), 2000);
+    setError("");
+    try {
+      const [configResult, horarioResult] = await Promise.all([
+        sb ? sb.from("reservas_config").update(config).eq("id", 1) : Promise.resolve({ error: null }),
+        fetch("/api/reservas/horario-semanal", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(horario),
+        }),
+      ]);
+      if (configResult.error || !horarioResult.ok) throw new Error("No se pudo guardar la configuración.");
+      localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(config));
+      setOk(true);
+      setTimeout(() => setOk(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la configuración.");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function setDia<K extends keyof HorarioDia>(dia: number, k: K, v: HorarioDia[K]) {
@@ -109,21 +117,29 @@ export default function ConfigReservasPage() {
   async function añadirCierre() {
     if (!sb || !cFecha) return;
     setCGuardando(true);
-    const { data } = await sb
+    setError("");
+    const { data, error: saveError } = await sb
       .from("cierres_servicio")
       .upsert({ fecha: cFecha, servicio: cServicio, motivo: cMotivo || null }, { onConflict: "fecha,servicio" })
       .select("*").single();
     if (data) {
       setCierres((prev) => [data as CierreRow, ...prev.filter((c) => !(c.fecha === cFecha && c.servicio === cServicio))]);
     }
+    if (saveError) setError("No se pudo añadir el cierre.");
     setCMotivo("");
     setCGuardando(false);
   }
 
   async function eliminarCierre(id: number) {
     if (!sb) return;
-    await sb.from("cierres_servicio").delete().eq("id", id);
+    const previous = cierres;
     setCierres((prev) => prev.filter((c) => c.id !== id));
+    setError("");
+    const { error: deleteError } = await sb.from("cierres_servicio").delete().eq("id", id);
+    if (deleteError) {
+      setCierres(previous);
+      setError("No se pudo eliminar el cierre.");
+    }
   }
 
   function set<K extends keyof ReservasConfig>(k: K, v: ReservasConfig[K]) {
@@ -140,6 +156,12 @@ export default function ConfigReservasPage() {
       <div className="mx-auto max-w-2xl">
         <ReservasNav />
         <h1 className="mb-6 text-xl font-bold">Configuración de Reservas</h1>
+
+        {error && (
+          <p className="mb-4 rounded-lg border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
 
         <div className="space-y-5">
           <Section title="General">

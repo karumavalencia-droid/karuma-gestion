@@ -38,7 +38,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_ceo_conversations_updated_at ON ceo_conversations;
 CREATE TRIGGER trg_ceo_conversations_updated_at
@@ -52,11 +53,13 @@ ALTER TABLE ceo_messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "service_manage_ceo_conversations" ON ceo_conversations;
 CREATE POLICY "service_manage_ceo_conversations" ON ceo_conversations
   FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "service_manage_ceo_messages" ON ceo_messages;
 CREATE POLICY "service_manage_ceo_messages" ON ceo_messages
   FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+  TO service_role
+  USING (true)
+  WITH CHECK (true);

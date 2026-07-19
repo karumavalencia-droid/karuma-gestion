@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -39,34 +39,44 @@ export default function DashboardPage() {
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const thisMonth = todayStr.slice(0, 7);
 
-  useEffect(() => {
-    // Sync online bookings then compute stats
-    syncAndLoadReservas(todayStr)
-      .then(() => setStats(getDashboardStats(todayStr)))
-      .catch(() => {
-        setStats(getDashboardStats(todayStr));
-        setDataWarnings((current) => [...current, "reservas"]);
-      });
-
-    fetch("/api/sales/daily", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: SalesResponse | null) => {
-        // Solo aceptar respuestas con forma válida; si la API falla, dejar
-        // sales en null para que el panel muestre "—" sin romperse.
-        if (d && Array.isArray(d.records)) setSales(d);
-      })
-      .catch(() => setDataWarnings((current) => [...current, "ventas"]));
-
-    fetch("/api/facturas", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: FacturasResponse) => setFacturas(d))
-      .catch(() => setDataWarnings((current) => [...current, "facturas"]));
-
-    fetch("/api/attendance/admin", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: AttendanceResponse | null) => setAttendance(d))
-      .catch(() => setDataWarnings((current) => [...current, "personal"]));
+  const loadDashboard = useCallback(async () => {
+    setDataWarnings([]);
+    const warnings: string[] = [];
+    await Promise.all([
+      syncAndLoadReservas(todayStr)
+        .then(() => setStats(getDashboardStats(todayStr)))
+        .catch(() => {
+          setStats(getDashboardStats(todayStr));
+          warnings.push("reservas");
+        }),
+      fetch("/api/sales/daily", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: SalesResponse | null) => {
+          if (d && Array.isArray(d.records)) setSales(d);
+          else warnings.push("ventas");
+        })
+        .catch(() => warnings.push("ventas")),
+      fetch("/api/facturas", { cache: "no-store" })
+        .then((r) => {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
+        .then((d: FacturasResponse) => setFacturas(d))
+        .catch(() => warnings.push("facturas")),
+      fetch("/api/attendance/admin", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: AttendanceResponse | null) => {
+          if (d) setAttendance(d);
+          else warnings.push("personal");
+        })
+        .catch(() => warnings.push("personal")),
+    ]);
+    setDataWarnings([...new Set(warnings)]);
   }, [todayStr]);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
 
   // Refresh every 30s
   useEffect(() => {
@@ -117,9 +127,13 @@ export default function DashboardPage() {
     ? attendance.rows.reduce((s, r) => s + (r.workedMinutes || 0), 0) / 60
     : null;
 
-  function refreshDashboard() {
+  async function refreshDashboard() {
     setRefreshing(true);
-    window.location.reload();
+    try {
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (

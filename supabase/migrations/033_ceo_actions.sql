@@ -20,7 +20,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_ceo_actions_updated_at ON ceo_actions;
 CREATE TRIGGER trg_ceo_actions_updated_at
@@ -33,5 +34,6 @@ ALTER TABLE ceo_actions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "service_manage_ceo_actions" ON ceo_actions;
 CREATE POLICY "service_manage_ceo_actions" ON ceo_actions
   FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+  TO service_role
+  USING (true)
+  WITH CHECK (true);

@@ -58,9 +58,10 @@ export function UserManagement() {
       });
 
       if (res.ok) {
+        const data = await res.json() as { user?: User };
+        if (data.user) setUsers((current) => [data.user!, ...current]);
         setFormData({ email: "", full_name: "", role: "buyer", department: "" });
         setShowForm(false);
-        await fetchUsers();
       }
     } catch (error) {
       console.error("Error creating user:", error);
@@ -68,6 +69,10 @@ export function UserManagement() {
   };
 
   const updateUser = async (userId: number, updates: Partial<User>) => {
+    const previous = users;
+    setUsers((current) =>
+      current.map((user) => user.id === userId ? { ...user, ...updates } : user),
+    );
     try {
       const res = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -75,22 +80,22 @@ export function UserManagement() {
         body: JSON.stringify(updates),
       });
 
-      if (res.ok) {
-        await fetchUsers();
-      }
+      if (!res.ok) throw new Error("No se pudo actualizar el usuario");
     } catch (error) {
+      setUsers(previous);
       console.error("Error updating user:", error);
     }
   };
 
   const deleteUser = async (userId: number) => {
     if (confirm("¿Desactivar este usuario?")) {
+      const previous = users;
+      setUsers((current) => current.filter((user) => user.id !== userId));
       try {
         const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
-        if (res.ok) {
-          await fetchUsers();
-        }
+        if (!res.ok) throw new Error("No se pudo desactivar el usuario");
       } catch (error) {
+        setUsers(previous);
         console.error("Error deleting user:", error);
       }
     }
