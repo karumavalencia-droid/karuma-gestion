@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   Bot,
+  FileText,
   Loader2,
   MessageSquare,
+  Paperclip,
   RefreshCw,
   Send,
   Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -45,6 +48,64 @@ type ChatState = {
   drafts: CeoDraftPreview[];
 };
 
+type CeoAttachment = {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+};
+
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENT_BYTES = 3_000_000;
+
+function readAsDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepareAttachment(file: File): Promise<CeoAttachment> {
+  if (!file.type.startsWith("image/")) {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      throw new Error(`${file.name} supera el límite de 3 MB`);
+    }
+    return {
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: file.size,
+      dataUrl: await readAsDataUrl(file),
+    };
+  }
+
+  const source = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("No se pudo preparar la imagen");
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  source.close();
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("No se pudo comprimir la imagen"))),
+      "image/jpeg",
+      0.82,
+    );
+  });
+
+  return {
+    name: file.name.replace(/\.[^.]+$/, "") + ".jpg",
+    type: "image/jpeg",
+    size: blob.size,
+    dataUrl: await readAsDataUrl(blob),
+  };
+}
+
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString("es-ES", {
     hour: "2-digit",
@@ -65,6 +126,8 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
     drafts: [],
   });
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState<CeoAttachment[]>([]);
+  const [preparingAttachments, setPreparingAttachments] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [actionsLoading, setActionsLoading] = useState(true);
@@ -78,6 +141,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
   const [draftSaving, setDraftSaving] = useState(false);
   const [autoDailyBrief, setAutoDailyBrief] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const autoBriefTriggeredRef = useRef(false);
   const router = useRouter();
   const anomalyAlerts = useMemo(() => {
@@ -269,7 +333,13 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
 
   async function sendMessage() {
     const trimmed = message.trim();
-    if (!trimmed || loading) return;
+    if ((!trimmed && attachments.length === 0) || loading || preparingAttachments) return;
+    const outgoingAttachments = attachments;
+    const prompt = trimmed || "Analiza los archivos adjuntos y dime qué información importante contienen.";
+    const attachmentLabel =
+      outgoingAttachments.length > 0
+        ? `\n\nAdjuntos: ${outgoingAttachments.map((item) => item.name).join(", ")}`
+        : "";
 
     setLoading(true);
     setError(null);
@@ -277,7 +347,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
       id: `local-${Date.now()}`,
       conversation_id: state.conversation?.id ?? "local",
       sender: "user",
-      content: trimmed,
+      content: `${prompt}${attachmentLabel}`,
       created_at: new Date().toISOString(),
     };
 
@@ -286,6 +356,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
       messages: [...current.messages, optimisticUser],
     }));
     setMessage("");
+    setAttachments([]);
 
     try {
       const res = await fetch("/api/ceo/chat", {
@@ -293,7 +364,8 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: state.conversation?.id ?? undefined,
-          message: trimmed,
+          message: prompt,
+          attachments: outgoingAttachments,
           stream: true,
         }),
       });
@@ -402,8 +474,31 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
         ...current,
         messages: current.messages.filter((item) => !item.id.startsWith("local-")),
       }));
+      setAttachments(outgoingAttachments);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function addAttachments(files: FileList | null) {
+    if (!files?.length) return;
+    setPreparingAttachments(true);
+    setError(null);
+    try {
+      const available = Math.max(0, MAX_ATTACHMENTS - attachments.length);
+      const selected = Array.from(files).slice(0, available);
+      if (selected.length === 0) throw new Error("Puedes adjuntar un máximo de 3 archivos");
+      const prepared = await Promise.all(selected.map(prepareAttachment));
+      const totalBytes = [...attachments, ...prepared].reduce((sum, item) => sum + item.size, 0);
+      if (totalBytes > MAX_ATTACHMENT_BYTES) {
+        throw new Error("Los adjuntos juntos superan el límite de 3 MB");
+      }
+      setAttachments((current) => [...current, ...prepared].slice(0, MAX_ATTACHMENTS));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo adjuntar el archivo");
+    } finally {
+      setPreparingAttachments(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -972,6 +1067,35 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
 
         <div className="border-t border-gray-100 bg-white px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.txt,.csv,text/plain,text/csv,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(event) => void addAttachments(event.target.files)}
+            />
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((attachment, index) => (
+                  <div
+                    key={`${attachment.name}-${index}`}
+                    className="flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+                  >
+                    <FileText className="h-4 w-4 shrink-0 text-amber-700" />
+                    <span className="max-w-48 truncate">{attachment.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      className="rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                      aria-label={`Quitar ${attachment.name}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -986,13 +1110,29 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
               className="min-h-12 rounded-2xl px-4 py-3"
             />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-gray-500">
-                Solo lectura por ahora. Ventas, turnos y reservas se consultan sin escribir datos.
-              </p>
+              <div className="flex min-w-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading || preparingAttachments || attachments.length >= MAX_ATTACHMENTS}
+                  className="shrink-0 gap-2 rounded-2xl"
+                >
+                  {preparingAttachments ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
+                  Adjuntar
+                </Button>
+                <p className="hidden text-xs text-gray-500 sm:block">
+                  Fotos, PDF, TXT o CSV. Máximo 3 MB en total.
+                </p>
+              </div>
               <Button
                 onClick={() => void sendMessage()}
-                disabled={loading || !message.trim()}
-                className="gap-2 rounded-2xl"
+                disabled={loading || preparingAttachments || (!message.trim() && attachments.length === 0)}
+                className="shrink-0 gap-2 rounded-2xl"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Enviar

@@ -27,9 +27,27 @@ export const dynamic = "force-dynamic";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.6";
 const MAX_HISTORY = 16;
-const MAX_OUTPUT_TOKENS = 900;
+const MAX_OUTPUT_TOKENS = 1800;
 const MAX_ROUNDS = 4;
+const MAX_ATTACHMENT_BYTES = 3_000_000;
+const MAX_ATTACHMENTS = 3;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+]);
+
+type CeoAttachment = {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+};
 
 const tools: OpenAI.Responses.Tool[] = [
   {
@@ -155,7 +173,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }
 
-  let body: { conversationId?: string; message?: string; stream?: boolean };
+  let body: {
+    conversationId?: string;
+    message?: string;
+    stream?: boolean;
+    attachments?: CeoAttachment[];
+  };
   try {
     body = (await request.json()) as { conversationId?: string; message?: string };
   } catch {
@@ -163,9 +186,14 @@ export async function POST(request: NextRequest) {
   }
 
   const message = typeof body.message === "string" ? body.message.trim() : "";
-  if (!message) {
+  const attachments = validateAttachments(body.attachments);
+  if (!attachments.ok) {
+    return NextResponse.json({ error: attachments.error }, { status: 400 });
+  }
+  if (!message && attachments.items.length === 0) {
     return NextResponse.json({ error: "invalid_message" }, { status: 400 });
   }
+  const effectiveMessage = message || "Analiza los archivos adjuntos y resume los puntos importantes.";
 
   const conversationId =
     typeof body.conversationId === "string" && UUID_PATTERN.test(body.conversationId)
@@ -192,7 +220,7 @@ export async function POST(request: NextRequest) {
         user_email: user.email,
         user_name: user.name,
         role: user.role,
-        title: message.slice(0, 64) || "AI CEO",
+        title: effectiveMessage.slice(0, 64) || "AI CEO",
       })
       .select("*")
       .single<DbCeoConversation>();
@@ -215,7 +243,14 @@ export async function POST(request: NextRequest) {
     conversation_id: string;
     sender: "user" | "assistant";
     content: string;
-  }> = [{ conversation_id: conversation.id, sender: "user", content: message }];
+  }> = [{
+    conversation_id: conversation.id,
+    sender: "user",
+    content:
+      attachments.items.length > 0
+        ? `${effectiveMessage}\n\nAdjuntos: ${attachments.items.map((item) => item.name).join(", ")}`
+        : effectiveMessage,
+  }];
 
   try {
     const result = await runCeoModel({
@@ -223,7 +258,8 @@ export async function POST(request: NextRequest) {
       user,
       conversationId: conversation.id,
       history,
-      message,
+      message: effectiveMessage,
+      attachments: attachments.items,
       canManageActions: isCeoAdmin(user),
     });
 
@@ -320,25 +356,39 @@ async function runCeoModel(options: {
   conversationId: string;
   history: DbCeoMessage[];
   message: string;
+  attachments: CeoAttachment[];
   canManageActions: boolean;
 }): Promise<CeoChatResponse> {
   const client = new OpenAI({ apiKey: options.apiKey });
   const toolState: Record<string, unknown> = {};
+  const userContent: OpenAI.Responses.ResponseInputContent[] = [
+    { type: "input_text", text: options.message },
+    ...options.attachments.map(toResponseAttachment),
+  ];
   const input: OpenAI.Responses.ResponseInput = [
     ...options.history.map((row) => ({
       role: row.sender === "assistant" ? ("assistant" as const) : ("user" as const),
       content: row.content,
     })),
-    { role: "user" as const, content: options.message },
+    { role: "user" as const, content: userContent },
   ];
 
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
     const response = await client.responses.create({
       model: MODEL,
-      instructions: `${buildCeoSystemPrompt(options.user)}\n${options.canManageActions ? "Este usuario puede revisar cambios del sistema." : "Este usuario solo puede hacer preguntas básicas. No sugieras confirmaciones, borradores ni acciones de edición."}`,
+      instructions: [
+        buildCeoSystemPrompt(options.user),
+        "Actúa como un director ejecutivo senior: analiza antes de responder, conecta datos operativos, detecta riesgos y propone el siguiente paso concreto.",
+        "Cuando recibas imágenes o archivos, examínalos de verdad. Distingue claramente entre datos del adjunto, datos consultados en Karuma y cualquier inferencia.",
+        "No digas que no puedes modificar Karuma. Si el usuario autorizado pide un cambio, prepara una especificación clara y dile que puede enviarla al Centro de Cambios para aprobación.",
+        options.canManageActions
+          ? "Este usuario puede revisar y aprobar cambios del sistema."
+          : "Este usuario solo puede hacer preguntas básicas. No sugieras confirmaciones, borradores ni acciones de edición.",
+      ].join("\n"),
       input,
       tools,
       max_output_tokens: MAX_OUTPUT_TOKENS,
+      reasoning: { effort: "medium" },
       ...(round === MAX_ROUNDS - 1 ? { tool_choice: "none" as const } : {}),
     });
 
@@ -379,6 +429,58 @@ async function runCeoModel(options: {
   }
 
   throw new Error("tool_loop_exceeded");
+}
+
+function validateAttachments(value: unknown):
+  | { ok: true; items: CeoAttachment[] }
+  | { ok: false; error: string } {
+  if (value === undefined) return { ok: true, items: [] };
+  if (!Array.isArray(value) || value.length > MAX_ATTACHMENTS) {
+    return { ok: false, error: "invalid_attachments" };
+  }
+
+  let totalBytes = 0;
+  const items: CeoAttachment[] = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object") {
+      return { ok: false, error: "invalid_attachment" };
+    }
+    const item = candidate as Partial<CeoAttachment>;
+    const name = typeof item.name === "string" ? item.name.trim().slice(0, 120) : "";
+    const type = typeof item.type === "string" ? item.type.toLowerCase() : "";
+    const size = typeof item.size === "number" && Number.isFinite(item.size) ? item.size : 0;
+    const dataUrl = typeof item.dataUrl === "string" ? item.dataUrl : "";
+    if (!name || !ALLOWED_ATTACHMENT_TYPES.has(type) || size <= 0 || size > MAX_ATTACHMENT_BYTES) {
+      return { ok: false, error: "unsupported_attachment" };
+    }
+    if (!dataUrl.startsWith(`data:${type};base64,`)) {
+      return { ok: false, error: "invalid_attachment_data" };
+    }
+    totalBytes += size;
+    if (totalBytes > MAX_ATTACHMENT_BYTES) {
+      return { ok: false, error: "attachments_too_large" };
+    }
+    items.push({ name, type, size, dataUrl });
+  }
+  return { ok: true, items };
+}
+
+function toResponseAttachment(
+  attachment: CeoAttachment,
+): OpenAI.Responses.ResponseInputImage | OpenAI.Responses.ResponseInputFile {
+  if (attachment.type.startsWith("image/")) {
+    return {
+      type: "input_image",
+      image_url: attachment.dataUrl,
+      detail: "high",
+    };
+  }
+  return {
+    type: "input_file",
+    filename: attachment.name,
+    file_data: attachment.dataUrl,
+    detail: "auto",
+  };
 }
 
 function buildInsightCards(toolState: Record<string, unknown>): CeoInsightCard[] {
