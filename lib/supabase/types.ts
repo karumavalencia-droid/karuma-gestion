@@ -466,6 +466,65 @@ import type {
   DbCoachMessageInsert,
 } from "../coach/types";
 
+// ── Finanzas privadas (solo owner) ──────────────────────────────────────────
+
+export type DbGastoCategoria =
+  | "alquiler"
+  | "personal"
+  | "seguros_sociales"
+  | "proveedores"
+  | "suministros"
+  | "impuestos"
+  | "marketing"
+  | "comisiones"
+  | "otros";
+
+export type DbGasto = {
+  id: string;
+  fecha: string;
+  categoria: DbGastoCategoria;
+  concepto: string;
+  importe: number;
+  empresa: "kosushi" | "spicy";
+  fuente: string;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbGastoInsert = Omit<DbGasto, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  notas?: string | null;
+  fuente?: string;
+};
+
+export type DbDocumentoCategoria =
+  | "bancos"
+  | "contratos"
+  | "nominas"
+  | "impuestos"
+  | "seguros"
+  | "licencias"
+  | "otros";
+
+export type DbDocumento = {
+  id: string;
+  nombre: string;
+  categoria: DbDocumentoCategoria;
+  storage_path: string;
+  mime_type: string | null;
+  tamano_bytes: number | null;
+  notas: string | null;
+  created_at: string;
+};
+
+export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
+  id?: string;
+  mime_type?: string | null;
+  tamano_bytes?: number | null;
+  notas?: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -631,6 +690,18 @@ export type Database = {
         Row: DbAppConfig;
         Insert: DbAppConfigInsert;
         Update: DbAppConfigInsert;
+        Relationships: [];
+      };
+      gastos: {
+        Row: DbGasto;
+        Insert: DbGastoInsert;
+        Update: Partial<DbGastoInsert>;
+        Relationships: [];
+      };
+      documentos: {
+        Row: DbDocumento;
+        Insert: DbDocumentoInsert;
+        Update: Partial<DbDocumentoInsert>;
         Relationships: [];
       };
     };

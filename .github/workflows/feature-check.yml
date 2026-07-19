@@ -1,0 +1,27 @@
+name: Feature Regression Check
+
+# Evita que un commit que añade una función nueva deje una vieja sin acceso en
+# el menú (regresión histórica: commit b356c68 podó el menú de 18 a 4 entradas).
+# Ver FEATURE_AUDIT.md y scripts/feature-regression-check.mjs.
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "lib/layout/navigation.ts"
+      - "components/layout/Sidebar.tsx"
+      - "scripts/feature-regression-check.mjs"
+  push:
+    branches:
+      - main
+
+jobs:
+  check-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Feature regression check
+        run: node scripts/feature-regression-check.mjs
