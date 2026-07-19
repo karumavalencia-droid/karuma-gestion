@@ -46,3 +46,6 @@ token.json
 
 # exportaciones locales de facturas (datos reales)
 /facturas-export/
+
+# Datos sensibles locales (nunca subir)
+datos-privados/
