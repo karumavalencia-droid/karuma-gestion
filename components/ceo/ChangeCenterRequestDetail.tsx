@@ -72,19 +72,36 @@ function StepEditor({
   index,
   onChange,
   onRemove,
+  onCopy,
+  onMoveUp,
+  onMoveDown,
 }: {
   step: StepDraft;
   index: number;
   onChange: (next: StepDraft) => void;
   onRemove: () => void;
+  onCopy: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-gray-900">Step {index + 1}</p>
-        <button type="button" onClick={onRemove} className="text-xs font-medium text-red-600 hover:text-red-700">
-          Remove
-        </button>
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <button type="button" onClick={onMoveUp} className="text-karuma-600 hover:text-karuma-700">
+            Up
+          </button>
+          <button type="button" onClick={onMoveDown} className="text-karuma-600 hover:text-karuma-700">
+            Down
+          </button>
+          <button type="button" onClick={onCopy} className="text-karuma-600 hover:text-karuma-700">
+            Copy
+          </button>
+          <button type="button" onClick={onRemove} className="text-red-600 hover:text-red-700">
+            Remove
+          </button>
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
@@ -170,6 +187,12 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const nextStatus = useMemo(() => (request ? NEXT_STATUS[request.status] : null), [request]);
+  const appendLogLine = (line: string) => {
+    setLogDraft((current) => {
+      const trimmed = current.trim();
+      return trimmed ? `${trimmed}\n${line}` : line;
+    });
+  };
 
   async function loadRequest() {
     setLoading(true);
@@ -218,6 +241,9 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo actualizar la solicitud");
       setRequest(data.request ?? null);
+      if (payload.status && typeof payload.status === "string") {
+        appendLogLine(`[${fmtDate(data.request?.updated_at ?? new Date().toISOString())}] Status moved to ${payload.status}`);
+      }
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar la solicitud");
     } finally {
@@ -315,6 +341,7 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       );
       setNotesDraft(data.request?.execution_notes ?? "");
       setLogDraft((data.request?.execution_log ?? []).join("\n"));
+      appendLogLine(`[${fmtDate(data.request?.updated_at ?? nowIso())}] Execution placeholder started`);
     } catch (execError) {
       setError(execError instanceof Error ? execError.message : "No se pudo iniciar la ejecución");
     } finally {
@@ -338,6 +365,33 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       request.failed_at ? `[${fmtDate(request.failed_at)}] Marked as failed` : null,
     ].filter((line): line is string => Boolean(line));
   }, [logDraft, request]);
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function moveStep(index: number, direction: -1 | 1) {
+    setStepDrafts((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+    appendLogLine(`[${fmtDate(new Date().toISOString())}] Moved step ${index + 1} ${direction < 0 ? "up" : "down"}`);
+  }
+
+  function copyStep(index: number) {
+    setStepDrafts((current) => {
+      const source = current[index];
+      if (!source) return current;
+      const next = [...current];
+      next.splice(index + 1, 0, { ...source });
+      return next;
+    });
+    appendLogLine(`[${fmtDate(new Date().toISOString())}] Copied step ${index + 1}`);
+  }
 
   if (loading) {
     return (
@@ -580,18 +634,18 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Steps</p>
-                    <button
-                      type="button"
-                      onClick={() => setStepDrafts((current) => [...current, { ...EMPTY_STEP }])}
-                      className="text-xs font-medium text-karuma-600 hover:text-karuma-700"
-                    >
+                      <button
+                        type="button"
+                        onClick={() => setStepDrafts((current) => [...current, { ...EMPTY_STEP }])}
+                        className="text-xs font-medium text-karuma-600 hover:text-karuma-700"
+                      >
                       Add step
                     </button>
                   </div>
                   <div className="space-y-3">
                     {stepDrafts.length ? (
                       stepDrafts.map((step, index) => (
-                        <StepEditor
+                          <StepEditor
                           key={`${index}-${step.title}`}
                           step={step}
                           index={index}
@@ -601,6 +655,9 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                           onRemove={() =>
                             setStepDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
                           }
+                          onCopy={() => copyStep(index)}
+                          onMoveUp={() => moveStep(index, -1)}
+                          onMoveDown={() => moveStep(index, 1)}
                         />
                       ))
                     ) : (

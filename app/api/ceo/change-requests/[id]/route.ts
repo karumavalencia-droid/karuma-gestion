@@ -35,6 +35,11 @@ function computeAuditFields(status: ChangeCenterStatus) {
   return {};
 }
 
+function appendLog(currentLog: unknown, entries: string[]) {
+  const base = Array.isArray(currentLog) ? currentLog.filter((entry): entry is string => typeof entry === "string") : [];
+  return [...base, ...entries];
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -110,6 +115,7 @@ export async function PATCH(
   }
 
   const updates: DbCeoChangeRequestUpdate = {};
+  let statusLogEntry: string | null = null;
   if (typeof body.title === "string") updates.title = body.title;
   if (typeof body.summary === "string") updates.summary = body.summary;
   if (typeof body.request_text === "string") updates.request_text = body.request_text;
@@ -137,12 +143,18 @@ export async function PATCH(
     }
     updates.status = body.status;
     Object.assign(updates, computeAuditFields(body.status));
+    const now = new Date().toISOString();
+    statusLogEntry = `[${now}] Status changed from ${currentStatus} to ${body.status}`;
   }
   if (typeof body.github_branch === "string" || body.github_branch === null) updates.github_branch = body.github_branch;
   if (typeof body.github_pr_url === "string" || body.github_pr_url === null) updates.github_pr_url = body.github_pr_url;
   if (typeof body.vercel_preview_url === "string" || body.vercel_preview_url === null) updates.vercel_preview_url = body.vercel_preview_url;
   if (typeof body.execution_notes === "string" || body.execution_notes === null) updates.execution_notes = body.execution_notes;
   if (Array.isArray(body.execution_log)) updates.execution_log = body.execution_log;
+
+  if (statusLogEntry) {
+    updates.execution_log = appendLog(updates.execution_log ?? (current as { execution_log?: unknown } | null)?.execution_log, [statusLogEntry]);
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "no_changes" }, { status: 400 });
