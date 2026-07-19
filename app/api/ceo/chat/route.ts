@@ -99,6 +99,14 @@ const tools: OpenAI.Responses.Tool[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
     strict: true,
   },
+  {
+    type: "function",
+    name: "list_confidential_documents",
+    description:
+      "Consultar el archivo privado de Documentos de Karuma, incluidas nóminas, contratos, bancos e impuestos. Solo disponible para el propietario.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    strict: true,
+  },
 ];
 
 export async function GET(request: NextRequest) {
@@ -261,6 +269,7 @@ export async function POST(request: NextRequest) {
       message: effectiveMessage,
       attachments: attachments.items,
       canManageActions: isCeoAdmin(user),
+      canViewConfidentialDocuments: user.role === "owner" && !user.employeeId,
     });
 
     pendingRows.push({ conversation_id: conversation.id, sender: "assistant", content: result.reply });
@@ -358,6 +367,7 @@ async function runCeoModel(options: {
   message: string;
   attachments: CeoAttachment[];
   canManageActions: boolean;
+  canViewConfidentialDocuments: boolean;
 }): Promise<CeoChatResponse> {
   const client = new OpenAI({ apiKey: options.apiKey });
   const toolState: Record<string, unknown> = {};
@@ -390,9 +400,14 @@ async function runCeoModel(options: {
         options.canManageActions
           ? "Este usuario puede revisar y aprobar cambios del sistema."
           : "Este usuario solo puede hacer preguntas básicas. No sugieras confirmaciones, borradores ni acciones de edición.",
+        options.canViewConfidentialDocuments
+          ? "Este usuario es el propietario. Cuando pregunte por archivos, documentos, nóminas, contratos, bancos o impuestos, usa list_confidential_documents antes de responder."
+          : "Este usuario no puede consultar documentos confidenciales, nóminas ni datos salariales.",
       ].join("\n"),
       input,
-      tools,
+      tools: options.canViewConfidentialDocuments
+        ? tools
+        : tools.filter((tool) => tool.type !== "function" || tool.name !== "list_confidential_documents"),
       max_output_tokens: MAX_OUTPUT_TOKENS,
       reasoning: { effort: "medium" },
       ...(round === MAX_ROUNDS - 1 ? { tool_choice: "none" as const } : {}),
@@ -420,7 +435,7 @@ async function runCeoModel(options: {
     input.push(...(response.output as unknown as OpenAI.Responses.ResponseInput));
 
     for (const call of functionCalls) {
-      const output = await runCeoTool(call.name);
+      const output = await runCeoTool(call.name, options.user);
       try {
         toolState[call.name] = JSON.parse(output) as unknown;
       } catch {
@@ -709,7 +724,7 @@ function buildDrafts(result: CeoChatResponse, conversationId: string): CeoDraftP
   return [...unique.values()].slice(0, 5);
 }
 
-async function runCeoTool(name: string): Promise<string> {
+async function runCeoTool(name: string, user: SessionUser): Promise<string> {
   try {
     switch (name) {
       case "get_today_sales":
@@ -726,6 +741,26 @@ async function runCeoTool(name: string): Promise<string> {
         return JSON.stringify(getProfitSummary());
       case "get_reviews_summary":
         return JSON.stringify(getReviewsSummary());
+      case "list_confidential_documents": {
+        if (user.role !== "owner" || user.employeeId) {
+          return JSON.stringify({ available: false, error: "Acceso restringido al propietario." });
+        }
+        const supabase = getSupabaseAdmin();
+        if (!supabase) throw new Error("Supabase no configurado");
+        const { data, error } = await supabase
+          .from("documentos")
+          .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw new Error(error.message);
+        return JSON.stringify({
+          available: true,
+          count: data?.length ?? 0,
+          documents: data ?? [],
+          privacy:
+            "Metadatos privados visibles únicamente para el propietario. El contenido no se ha abierto en esta consulta.",
+        });
+      }
       default:
         return JSON.stringify({ available: false, error: "Herramienta no disponible" });
     }
