@@ -172,6 +172,8 @@ export type DbReserva = {
   estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
+  confirmation_email_sent_at: string | null;
+  confirmation_email_send_key: string | null;
   review_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -204,6 +206,40 @@ export type DbCierreServicio = {
   motivo: string | null;
   created_at: string;
 };
+
+export type DbRestosuiteSyncSession = {
+  location_id: string;
+  base_url: string;
+  vulcan_token: string;
+  corporation_id: string;
+  brand_id: string;
+  shop_id: string;
+  organization_id: string;
+  organization_type: string;
+  accept_timezone: string;
+  language_code: string;
+  currency: string;
+  updated_at: string;
+  created_at: string;
+};
+
+export type DbRestosuiteSyncSessionInsert = {
+  location_id: string;
+  base_url?: string;
+  vulcan_token: string;
+  corporation_id: string;
+  brand_id: string;
+  shop_id: string;
+  organization_id: string;
+  organization_type: string;
+  accept_timezone?: string;
+  language_code?: string;
+  currency?: string;
+  updated_at?: string;
+  created_at?: string;
+};
+
+export type DbRestosuiteSyncSessionUpdate = Partial<DbRestosuiteSyncSessionInsert>;
 
 export type DbListaEspera = {
   id: string;
@@ -331,6 +367,82 @@ export type DbSalesDailyInsert = {
   updated_at?: string;
 };
 
+export type DbCeoConversation = {
+  id: string;
+  user_email: string;
+  user_name: string;
+  role: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoConversationInsert = {
+  id?: string;
+  user_email: string;
+  user_name: string;
+  role: string;
+  title?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbCeoMessage = {
+  id: string;
+  conversation_id: string;
+  sender: "user" | "assistant" | "tool" | "system";
+  content: string;
+  created_at: string;
+};
+
+export type DbCeoMessageInsert = {
+  id?: string;
+  conversation_id: string;
+  sender: "user" | "assistant" | "tool" | "system";
+  content: string;
+  created_at?: string;
+};
+
+export type DbCeoAction = {
+  id: string;
+  conversation_id: string;
+  label: string;
+  status: "pending" | "confirmed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoActionInsert = {
+  id?: string;
+  conversation_id: string;
+  label: string;
+  status?: "pending" | "confirmed" | "cancelled";
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbCeoDraft = {
+  id: string;
+  conversation_id: string;
+  draft_type: "purchase_note" | "staff_message" | "review_reply" | "ops_note";
+  title: string;
+  content: string;
+  status: "draft" | "reviewed" | "archived";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoDraftInsert = {
+  id?: string;
+  conversation_id: string;
+  draft_type: "purchase_note" | "staff_message" | "review_reply" | "ops_note";
+  title: string;
+  content: string;
+  status?: "draft" | "reviewed" | "archived";
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type DbSalesImportLog = {
   id: string;
   source: string;
@@ -357,6 +469,50 @@ export type DbSalesImportLogInsert = {
   created_at?: string;
 };
 
+export type DbDishReorderDaily = {
+  id: string;
+  location_id: string;
+  business_date: string;
+  item_id: string;
+  item_name: string;
+  category: string | null;
+  orders_with_item: number;
+  reordered_orders: number;
+  reorder_events: number;
+  total_qty: number;
+  reorder_qty: number;
+  gap_minutes_sum: number;
+  gap_samples: number;
+  covered_orders: number;
+  kds_rows: number;
+  source: string;
+  synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbDishReorderDailyInsert = {
+  id?: string;
+  location_id: string;
+  business_date: string;
+  item_id: string;
+  item_name: string;
+  category?: string | null;
+  orders_with_item?: number;
+  reordered_orders?: number;
+  reorder_events?: number;
+  total_qty?: number;
+  reorder_qty?: number;
+  gap_minutes_sum?: number;
+  gap_samples?: number;
+  covered_orders?: number;
+  kds_rows?: number;
+  source?: string;
+  synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 import type {
@@ -369,6 +525,10 @@ import type {
   DbCoachMessage,
   DbCoachMessageInsert,
 } from "../coach/types";
+import type {
+  DbCeoChangeRequest,
+  DbCeoChangeRequestInsert,
+} from "../ceo/change-center";
 
 export type Database = {
   public: {
@@ -434,8 +594,13 @@ export type Database = {
       };
       reservas: {
         Row: DbReserva;
-        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at" | "review_email_sent_at"> & {
+        Insert: Omit<
+          DbReserva,
+          "id" | "created_at" | "updated_at" | "review_email_sent_at" | "confirmation_email_sent_at" | "confirmation_email_send_key"
+        > & {
           id?: string;
+          confirmation_email_sent_at?: string | null;
+          confirmation_email_send_key?: string | null;
           review_email_sent_at?: string | null;
         };
         Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
@@ -493,6 +658,42 @@ export type Database = {
         Row: DbSalesImportLog;
         Insert: DbSalesImportLogInsert;
         Update: Partial<DbSalesImportLogInsert>;
+        Relationships: [];
+      };
+      ceo_conversations: {
+        Row: DbCeoConversation;
+        Insert: DbCeoConversationInsert;
+        Update: Partial<DbCeoConversationInsert>;
+        Relationships: [];
+      };
+      ceo_messages: {
+        Row: DbCeoMessage;
+        Insert: DbCeoMessageInsert;
+        Update: Partial<DbCeoMessageInsert>;
+        Relationships: [];
+      };
+      ceo_actions: {
+        Row: DbCeoAction;
+        Insert: DbCeoActionInsert;
+        Update: Partial<DbCeoActionInsert>;
+        Relationships: [];
+      };
+      ceo_drafts: {
+        Row: DbCeoDraft;
+        Insert: DbCeoDraftInsert;
+        Update: Partial<DbCeoDraftInsert>;
+        Relationships: [];
+      };
+      ceo_change_requests: {
+        Row: DbCeoChangeRequest;
+        Insert: DbCeoChangeRequestInsert;
+        Update: Partial<DbCeoChangeRequestInsert>;
+        Relationships: [];
+      };
+      dish_reorder_daily: {
+        Row: DbDishReorderDaily;
+        Insert: DbDishReorderDailyInsert;
+        Update: Partial<DbDishReorderDailyInsert>;
         Relationships: [];
       };
       coach_conversations: {

@@ -8,6 +8,15 @@ import { SESSION_COOKIE_NAME, verifySessionToken, type SessionUser } from "./ses
  */
 const SALES_ADMIN_ROLES = new Set<SessionUser["role"]>(["owner", "manager"]);
 
+function normalizeEmail(value: string | undefined): string | null {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed ? trimmed : null;
+}
+
+function getSalesViewerEmail(): string | null {
+  return normalizeEmail(process.env.KARUMA_SALES_VIEWER_EMAIL ?? "karuma@local");
+}
+
 /** Devuelve el usuario de la sesión (cookie firmada) o null si no hay sesión válida. */
 export async function getSessionUser(
   request: NextRequest,
@@ -20,6 +29,12 @@ export function isSalesAdmin(user: SessionUser | null): boolean {
   return Boolean(user && SALES_ADMIN_ROLES.has(user.role));
 }
 
+/** Solo la cuenta personal autorizada puede ver las ventas. */
+export function canViewSales(user: SessionUser | null): boolean {
+  const allowedEmail = getSalesViewerEmail();
+  return Boolean(user && allowedEmail && user.email.trim().toLowerCase() === allowedEmail);
+}
+
 /**
  * Roles que gestionan Karuma Coach (reportes de incidencias y base de
  * conocimiento). Las cuentas de empleado (con employeeId) nunca acceden,
@@ -29,4 +44,10 @@ const COACH_ADMIN_ROLES = new Set<SessionUser["role"]>(["owner", "manager"]);
 
 export function isCoachAdmin(user: SessionUser | null): boolean {
   return Boolean(user && !user.employeeId && COACH_ADMIN_ROLES.has(user.role));
+}
+
+const CEO_ADMIN_ROLES = new Set<SessionUser["role"]>(["owner", "manager"]);
+
+export function isCeoAdmin(user: SessionUser | null): boolean {
+  return Boolean(user && !user.employeeId && CEO_ADMIN_ROLES.has(user.role));
 }

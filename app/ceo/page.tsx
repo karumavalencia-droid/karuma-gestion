@@ -1,5 +1,5 @@
-import { CeoPanel } from "@/components/ceo/CeoPanel";
+import { ChangeCenterPanel } from "@/components/ceo/ChangeCenterPanel";
 
 export default function CeoPage() {
-  return <CeoPanel />;
+  return <ChangeCenterPanel />;
 }
