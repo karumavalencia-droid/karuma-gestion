@@ -17,7 +17,7 @@ export default async function CeoPage() {
   const canManageActions = isCeoAdmin(user);
 
   return (
-    <div className="space-y-6 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-w-0 space-y-4 overflow-x-hidden px-2 py-3 sm:space-y-6 sm:px-6 sm:py-4 lg:px-8">
       <section className="overflow-hidden rounded-3xl border border-gray-200 bg-[linear-gradient(135deg,#0f172a_0%,#111827_42%,#1f2937_100%)] p-5 text-white shadow-xl sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
@@ -50,7 +50,7 @@ export default async function CeoPage() {
         </div>
       </section>
 
-      <section id="ceo-chat" className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      <section id="ceo-chat" className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 shadow-sm sm:rounded-3xl sm:p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">Panel</p>

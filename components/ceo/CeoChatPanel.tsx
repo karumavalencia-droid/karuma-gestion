@@ -741,8 +741,8 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="space-y-4">
+    <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-4 overflow-x-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="order-2 min-w-0 space-y-4 lg:order-1">
         <div className="rounded-3xl bg-gradient-to-br from-gray-900 via-gray-950 to-gray-800 p-5 text-white shadow-lg">
           <div className="flex items-center gap-2 text-amber-300">
             <Bot className="h-5 w-5" />
@@ -988,14 +988,14 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
         </Card>
       </aside>
 
-      <main className="flex min-h-[70vh] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-lg">
+      <main className="order-1 flex min-h-[70vh] min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg sm:rounded-3xl lg:order-2">
         <div className="border-b border-gray-100 bg-gradient-to-r from-white via-white to-amber-50 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
                 Karuma ERP
               </p>
-              <h2 className="mt-1 text-xl font-semibold text-gray-900">{currentTitle}</h2>
+              <h2 className="mt-1 break-words text-xl font-semibold text-gray-900">{currentTitle}</h2>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <MessageSquare className="h-4 w-4" />
@@ -1012,9 +1012,9 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,#fafafa_0%,#ffffff_100%)] px-4 py-5 sm:px-6">
           {error && (
-            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="flex min-w-0 items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error}</span>
+              <span className="min-w-0 break-words">{error}</span>
             </div>
           )}
 
@@ -1057,7 +1057,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
                     <span>{msg.sender === "user" ? "Tú" : msg.sender === "assistant" ? "AI CEO" : "Tool"}</span>
                     <span>{formatTime(msg.created_at)}</span>
                   </div>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  <div className="break-words whitespace-pre-wrap">{msg.content}</div>
                 </div>
               </div>
             ))
@@ -1109,8 +1109,8 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
               disabled={loading}
               className="min-h-12 rounded-2xl px-4 py-3"
             />
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <Button
                   type="button"
                   variant="secondary"

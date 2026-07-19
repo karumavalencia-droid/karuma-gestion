@@ -693,22 +693,33 @@ function buildDrafts(result: CeoChatResponse, conversationId: string): CeoDraftP
 }
 
 async function runCeoTool(name: string): Promise<string> {
-  switch (name) {
-    case "get_today_sales":
-      return JSON.stringify(await getTodaySales());
-    case "get_staff_schedule":
-      return JSON.stringify(await getStaffSchedule());
-    case "get_today_reservations":
-      return JSON.stringify(await getTodayReservations());
-    case "get_month_sales_summary":
-      return JSON.stringify(await getMonthSalesSummary());
-    case "get_low_stock_items":
-      return JSON.stringify(await getLowStockItems());
-    case "get_profit_summary":
-      return JSON.stringify(getProfitSummary());
-    case "get_reviews_summary":
-      return JSON.stringify(getReviewsSummary());
-    default:
-      return JSON.stringify({ error: "unknown_tool" });
+  try {
+    switch (name) {
+      case "get_today_sales":
+        return JSON.stringify(await getTodaySales());
+      case "get_staff_schedule":
+        return JSON.stringify(await getStaffSchedule());
+      case "get_today_reservations":
+        return JSON.stringify(await getTodayReservations());
+      case "get_month_sales_summary":
+        return JSON.stringify(await getMonthSalesSummary());
+      case "get_low_stock_items":
+        return JSON.stringify(await getLowStockItems());
+      case "get_profit_summary":
+        return JSON.stringify(getProfitSummary());
+      case "get_reviews_summary":
+        return JSON.stringify(getReviewsSummary());
+      default:
+        return JSON.stringify({ available: false, error: "Herramienta no disponible" });
+    }
+  } catch (error) {
+    console.warn("[ceo-tool] data source unavailable", {
+      tool: name,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return JSON.stringify({
+      available: false,
+      error: "Esta fuente de datos no está disponible ahora. Continúa con la información restante.",
+    });
   }
 }
