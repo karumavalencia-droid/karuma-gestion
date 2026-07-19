@@ -76,6 +76,7 @@ const INTENTIONALLY_UNLINKED = {
 
   // Detalle / rutas dinámicas
   "/staff/:id": "detalle de empleado (enlace desde /staff)",
+  "/ceo/change-requests/:id": "detalle de solicitud (enlace desde /ceo)",
 
   // Panel admin (acceso por enlace/rol admin)
   "/admin/dashboard": "panel admin",
