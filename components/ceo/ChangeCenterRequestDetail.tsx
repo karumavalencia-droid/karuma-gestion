@@ -67,11 +67,23 @@ function StepLine({ title, value }: { title: string; value: string | null }) {
   );
 }
 
+function splitLines(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function ChangeCenterRequestDetail({ id }: { id: string }) {
   const [request, setRequest] = useState<DbCeoChangeRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [planDraft, setPlanDraft] = useState("");
+  const [titleDraft, setTitleDraft] = useState("");
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [requestTextDraft, setRequestTextDraft] = useState("");
+  const [riskDraft, setRiskDraft] = useState<DbCeoChangeRequest["risk_level"]>("medium");
+  const [assumptionsDraft, setAssumptionsDraft] = useState("");
+  const [stepsDraft, setStepsDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -84,9 +96,21 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       const res = await fetch(`/api/ceo/change-requests/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo cargar la solicitud");
-      setRequest(data.request ?? null);
-      setPlanDraft(JSON.stringify(data.request?.plan ?? null, null, 2));
-      setNotesDraft(data.request?.execution_notes ?? "");
+      const nextRequest = data.request ?? null;
+      setRequest(nextRequest);
+      setTitleDraft(nextRequest?.title ?? "");
+      setSummaryDraft(nextRequest?.summary ?? "");
+      setRequestTextDraft(nextRequest?.request_text ?? "");
+      setRiskDraft(nextRequest?.risk_level ?? "medium");
+      setAssumptionsDraft((nextRequest?.plan.assumptions ?? []).join("\n"));
+      setStepsDraft(
+        (nextRequest?.plan.steps ?? [])
+          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
+            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
+          )
+          .join("\n"),
+      );
+      setNotesDraft(nextRequest?.execution_notes ?? "");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la solicitud");
     } finally {
@@ -122,16 +146,50 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
     setActionLoading(true);
     setError(null);
     try {
-      const parsedPlan = JSON.parse(planDraft) as unknown;
+      const plan = {
+        title: titleDraft.trim() || request.title,
+        summary: summaryDraft.trim() || request.summary,
+        assumptions: splitLines(assumptionsDraft),
+        steps: splitLines(stepsDraft).map((line) => {
+          const [rawTitle, rawOwner, rawRisk, ...rest] = line.split("|");
+          const owner = (rawOwner ?? "").trim();
+          const risk = (rawRisk ?? "").trim();
+          return {
+            title: (rawTitle ?? "").trim() || "Untitled step",
+            owner: owner === "owner" || owner === "engineer" || owner === "reviewer" ? owner : "ai",
+            risk: risk === "low" || risk === "medium" || risk === "high" || risk === "critical" ? risk : "medium",
+            detail: rest.join("|").trim() || "Add detail for this step.",
+          };
+        }),
+        riskLevel: riskDraft,
+      };
       const res = await fetch(`/api/ceo/change-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: parsedPlan, execution_notes: notesDraft }),
+        body: JSON.stringify({
+          title: titleDraft,
+          summary: summaryDraft,
+          request_text: requestTextDraft,
+          risk_level: riskDraft,
+          plan,
+          execution_notes: notesDraft,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar el plan");
       setRequest(data.request ?? null);
-      setPlanDraft(JSON.stringify(data.request?.plan ?? null, null, 2));
+      setTitleDraft(data.request?.title ?? "");
+      setSummaryDraft(data.request?.summary ?? "");
+      setRequestTextDraft(data.request?.request_text ?? "");
+      setRiskDraft(data.request?.risk_level ?? "medium");
+      setAssumptionsDraft((data.request?.plan.assumptions ?? []).join("\n"));
+      setStepsDraft(
+        (data.request?.plan.steps ?? [])
+          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
+            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
+          )
+          .join("\n"),
+      );
       setNotesDraft(data.request?.execution_notes ?? "");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el plan");
@@ -157,6 +215,18 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo iniciar la ejecución");
       setRequest(data.request ?? null);
+      setTitleDraft(data.request?.title ?? "");
+      setSummaryDraft(data.request?.summary ?? "");
+      setRequestTextDraft(data.request?.request_text ?? "");
+      setRiskDraft(data.request?.risk_level ?? "medium");
+      setAssumptionsDraft((data.request?.plan.assumptions ?? []).join("\n"));
+      setStepsDraft(
+        (data.request?.plan.steps ?? [])
+          .map((step: { title: string; owner: string; risk: string; detail: string }) =>
+            `${step.title} | ${step.owner} | ${step.risk} | ${step.detail}`,
+          )
+          .join("\n"),
+      );
       setNotesDraft(data.request?.execution_notes ?? "");
     } catch (execError) {
       setError(execError instanceof Error ? execError.message : "No se pudo iniciar la ejecución");
@@ -164,6 +234,20 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
       setActionLoading(false);
     }
   }
+
+  const executionLog = useMemo(() => {
+    if (!request) return [];
+    return [
+      `[${fmtDate(request.created_at)}] Request created by ${request.created_by_name}`,
+      request.approved_at ? `[${fmtDate(request.approved_at)}] Approved by owner` : null,
+      request.status === "executing" ? `[${fmtDate(request.updated_at)}] Execution placeholder started` : null,
+      request.github_branch ? `[${fmtDate(request.updated_at)}] Branch reserved: ${request.github_branch}` : null,
+      request.github_pr_url ? `[${fmtDate(request.updated_at)}] PR reserved: ${request.github_pr_url}` : null,
+      request.vercel_preview_url ? `[${fmtDate(request.updated_at)}] Preview linked: ${request.vercel_preview_url}` : null,
+      request.completed_at ? `[${fmtDate(request.completed_at)}] Marked as completed` : null,
+      request.failed_at ? `[${fmtDate(request.failed_at)}] Marked as failed` : null,
+    ].filter((line): line is string => Boolean(line));
+  }, [request]);
 
   if (loading) {
     return (
@@ -355,6 +439,65 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
 
           <Card title="Edit plan">
             <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Title</p>
+                  <input
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Risk level</p>
+                  <select
+                    value={riskDraft}
+                    onChange={(event) => setRiskDraft(event.target.value as DbCeoChangeRequest["risk_level"])}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                  >
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="critical">critical</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Summary</p>
+                <textarea
+                  value={summaryDraft}
+                  onChange={(event) => setSummaryDraft(event.target.value)}
+                  className="min-h-24 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Request text</p>
+                <textarea
+                  value={requestTextDraft}
+                  onChange={(event) => setRequestTextDraft(event.target.value)}
+                  className="min-h-28 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Assumptions, one per line</p>
+                  <textarea
+                    value={assumptionsDraft}
+                    onChange={(event) => setAssumptionsDraft(event.target.value)}
+                    className="min-h-48 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Steps in `title | owner | risk | detail` format
+                  </p>
+                  <textarea
+                    value={stepsDraft}
+                    onChange={(event) => setStepsDraft(event.target.value)}
+                    className="min-h-48 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
+                  />
+                </div>
+              </div>
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Execution notes</p>
                 <textarea
@@ -375,6 +518,22 @@ export function ChangeCenterRequestDetail({ id }: { id: string }) {
                 <WandSparkles className="mr-2 h-4 w-4" />
                 Save plan and notes
               </Button>
+            </div>
+          </Card>
+
+          <Card title="Execution log">
+            <div className="space-y-2">
+              {executionLog.length ? (
+                executionLog.map((line) => (
+                  <div key={line} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {line}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-500">
+                  No execution log yet.
+                </div>
+              )}
             </div>
           </Card>
         </div>
