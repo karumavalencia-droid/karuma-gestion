@@ -4,15 +4,31 @@ import type { SessionUser } from "@/lib/auth/session";
 import { computeMetrics, seedProfit } from "@/lib/profit/helpers";
 import { seedReviews } from "@/lib/reviews/helpers";
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+function dateInMadrid(daysFromToday = 0) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysFromToday);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
-export async function getTodaySales() {
+export function getCeoReferenceDates() {
+  return {
+    today: dateInMadrid(),
+    yesterday: dateInMadrid(-1),
+  };
+}
+
+export async function getSalesByDate(date: string) {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase no configurado");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Fecha de ventas no válida");
+  }
 
-  const date = todayIso();
   const { data, error } = await supabase
     .from("sales_daily")
     .select("*")
@@ -42,6 +58,10 @@ export async function getTodaySales() {
     locationId: data?.location_id ?? null,
     syncedAt: data?.synced_at ?? data?.updated_at ?? null,
   };
+}
+
+export async function getTodaySales() {
+  return getSalesByDate(dateInMadrid());
 }
 
 export async function getStaffSchedule() {
@@ -81,7 +101,7 @@ export async function getTodayReservations() {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase no configurado");
 
-  const date = todayIso();
+  const date = dateInMadrid();
   const [{ data: reservations, error: reservationsError }, { data: tables, error: tablesError }] =
     await Promise.all([
       supabase.from("reservas").select("*").eq("fecha", date),
@@ -228,12 +248,15 @@ export function getReviewsSummary() {
 }
 
 export function buildCeoSystemPrompt(user: SessionUser): string {
+  const dates = getCeoReferenceDates();
   return [
     "Eres el AI CEO del sistema Karuma ERP.",
     "Responde siempre en el mismo idioma que use el usuario en su mensaje más reciente.",
     "Si el usuario escribe en chino, responde completamente en chino. Si escribe en español, responde en español.",
     "Mantén la respuesta clara, directa y natural en el idioma elegido.",
+    `Fecha actual en Europe/Madrid: ${dates.today}. Ayer fue ${dates.yesterday}.`,
     "Usa solo datos reales devueltos por herramientas o indicados explícitamente.",
+    "Para preguntas sobre ayer o una fecha concreta, usa get_sales_by_date; no intentes deducir ese día desde el resumen mensual.",
     "Si falta un dato, dilo con honestidad.",
     "No inventes cifras, reservas, turnos ni ventas.",
     "No ejecutes acciones de escritura; solo análisis y borradores.",

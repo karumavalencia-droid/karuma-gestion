@@ -7,6 +7,7 @@ import {
   getMonthSalesSummary,
   getProfitSummary,
   getReviewsSummary,
+  getSalesByDate,
   getStaffSchedule,
   getTodayReservations,
   getTodaySales,
@@ -55,6 +56,24 @@ const tools: OpenAI.Responses.Tool[] = [
     name: "get_today_sales",
     description: "Consultar las ventas de hoy en Karuma.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
+    strict: true,
+  },
+  {
+    type: "function",
+    name: "get_sales_by_date",
+    description:
+      "Consultar las ventas de una fecha concreta en Karuma. Usar siempre para ayer o cuando el usuario mencione un día específico.",
+    parameters: {
+      type: "object",
+      properties: {
+        date: {
+          type: "string",
+          description: "Fecha de negocio en formato YYYY-MM-DD.",
+        },
+      },
+      required: ["date"],
+      additionalProperties: false,
+    },
     strict: true,
   },
   {
@@ -435,7 +454,7 @@ async function runCeoModel(options: {
     input.push(...(response.output as unknown as OpenAI.Responses.ResponseInput));
 
     for (const call of functionCalls) {
-      const output = await runCeoTool(call.name, options.user);
+      const output = await runCeoTool(call.name, call.arguments, options.user);
       try {
         toolState[call.name] = JSON.parse(output) as unknown;
       } catch {
@@ -536,6 +555,40 @@ function buildInsightCards(toolState: Record<string, unknown>): CeoInsightCard[]
           maximumFractionDigits: 2,
         })}`,
         detail: todaySales.found ? "Dato de hoy" : "Sin registro de ventas hoy",
+        tone: "neutral",
+      },
+    );
+  }
+
+  const datedSales = toolState.get_sales_by_date as
+    | {
+        date?: string;
+        found?: boolean;
+        netSales?: number;
+        customers?: number;
+        orders?: number;
+        averageTicket?: number;
+      }
+    | undefined;
+  if (datedSales) {
+    cards.push(
+      {
+        title: `Ventas ${datedSales.date ?? "fecha"}`,
+        value: `€${Number(datedSales.netSales ?? 0).toLocaleString("es-ES", {
+          maximumFractionDigits: 2,
+        })}`,
+        detail: datedSales.found
+          ? `${Number(datedSales.customers ?? 0)} clientes · ${Number(datedSales.orders ?? 0)} pedidos`
+          : "Sin registro para esa fecha",
+        tone: Number(datedSales.netSales ?? 0) > 0 ? "positive" : "neutral",
+      },
+      {
+        title: "Ticket medio",
+        value: `€${Number(datedSales.averageTicket ?? 0).toLocaleString("es-ES", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        detail: datedSales.date ?? "Fecha consultada",
         tone: "neutral",
       },
     );
@@ -724,11 +777,22 @@ function buildDrafts(result: CeoChatResponse, conversationId: string): CeoDraftP
   return [...unique.values()].slice(0, 5);
 }
 
-async function runCeoTool(name: string, user: SessionUser): Promise<string> {
+async function runCeoTool(
+  name: string,
+  rawArguments: string,
+  user: SessionUser,
+): Promise<string> {
   try {
     switch (name) {
       case "get_today_sales":
         return JSON.stringify(await getTodaySales());
+      case "get_sales_by_date": {
+        const args = JSON.parse(rawArguments) as { date?: unknown };
+        if (typeof args.date !== "string") {
+          return JSON.stringify({ available: false, error: "Fecha no válida." });
+        }
+        return JSON.stringify(await getSalesByDate(args.date));
+      }
       case "get_staff_schedule":
         return JSON.stringify(await getStaffSchedule());
       case "get_today_reservations":
