@@ -584,6 +584,13 @@ import type {
   DbCeoChangeRequest,
   DbCeoChangeRequestInsert,
 } from "../ceo/change-center";
+import type {
+  DbBusinessEvent,
+  DbBusinessEventInsert,
+  DbOperationalAlert,
+  DbOperationalAlertInsert,
+  DbOperationalAlertUpdate,
+} from "../operations/types";
 
 // ── Finanzas privadas (solo owner) ──────────────────────────────────────────
 
@@ -782,6 +789,18 @@ export type DbInboxSettings = {
 export type Database = {
   public: {
     Tables: {
+      business_events: {
+        Row: DbBusinessEvent;
+        Insert: DbBusinessEventInsert;
+        Update: Partial<DbBusinessEventInsert>;
+        Relationships: [];
+      };
+      operational_alerts: {
+        Row: DbOperationalAlert;
+        Insert: DbOperationalAlertInsert;
+        Update: DbOperationalAlertUpdate;
+        Relationships: [];
+      };
       roles: {
         Row: DbRole;
         Insert: { id: string; name_zh: string };
