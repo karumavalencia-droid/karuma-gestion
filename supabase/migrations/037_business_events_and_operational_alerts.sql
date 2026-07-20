@@ -73,13 +73,15 @@ ALTER TABLE operational_alerts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_manage_business_events" ON business_events;
 CREATE POLICY "service_manage_business_events" ON business_events
-  FOR ALL USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "service_manage_operational_alerts" ON operational_alerts;
 CREATE POLICY "service_manage_operational_alerts" ON operational_alerts
-  FOR ALL USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- First live detector: inventory below its configured minimum.
 CREATE OR REPLACE FUNCTION detect_inventory_stock_exception()
@@ -166,38 +168,49 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_inventory_stock_exception ON inventory_items;
-CREATE TRIGGER trg_inventory_stock_exception
-  AFTER INSERT OR UPDATE OF current_quantity, minimum_quantity, active
-  ON inventory_items
-  FOR EACH ROW EXECUTE FUNCTION detect_inventory_stock_exception();
+-- The production database may receive this migration before inventory_core.
+-- Install and backfill the detector only when inventory_items already exists.
+DO $$
+BEGIN
+  IF to_regclass('public.inventory_items') IS NOT NULL THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS trg_inventory_stock_exception ON public.inventory_items';
+    EXECUTE '
+      CREATE TRIGGER trg_inventory_stock_exception
+      AFTER INSERT OR UPDATE OF current_quantity, minimum_quantity, active
+      ON public.inventory_items
+      FOR EACH ROW EXECUTE FUNCTION detect_inventory_stock_exception()
+    ';
 
--- Populate the exception center for stock that is already below minimum.
-INSERT INTO operational_alerts (
-  alert_type, severity, title, description, entity_type, entity_id,
-  source, evidence, suggested_action
-)
-SELECT
-  'inventory.low_stock',
-  CASE
-    WHEN current_quantity <= 0 THEN 'critical'
-    WHEN current_quantity <= minimum_quantity * 0.5 THEN 'high'
-    ELSE 'medium'
-  END,
-  'Stock bajo: ' || name,
-  format('Quedan %s %s; el mínimo configurado es %s.', current_quantity, unit, minimum_quantity),
-  'inventory_item',
-  id::text,
-  'inventory_backfill',
-  jsonb_build_object(
-    'current_quantity', current_quantity,
-    'minimum_quantity', minimum_quantity,
-    'unit', unit,
-    'supplier', supplier_name
-  ),
-  'Revisar consumo y preparar reposición con el proveedor.'
-FROM inventory_items
-WHERE active AND current_quantity < minimum_quantity
-ON CONFLICT (alert_type, entity_type, entity_id)
-  WHERE status IN ('open', 'acknowledged') AND entity_id IS NOT NULL
-DO NOTHING;
+    EXECUTE $backfill$
+      INSERT INTO operational_alerts (
+        alert_type, severity, title, description, entity_type, entity_id,
+        source, evidence, suggested_action
+      )
+      SELECT
+        'inventory.low_stock',
+        CASE
+          WHEN current_quantity <= 0 THEN 'critical'
+          WHEN current_quantity <= minimum_quantity * 0.5 THEN 'high'
+          ELSE 'medium'
+        END,
+        'Stock bajo: ' || name,
+        format('Quedan %s %s; el mínimo configurado es %s.', current_quantity, unit, minimum_quantity),
+        'inventory_item',
+        id::text,
+        'inventory_backfill',
+        jsonb_build_object(
+          'current_quantity', current_quantity,
+          'minimum_quantity', minimum_quantity,
+          'unit', unit,
+          'supplier', supplier_name
+        ),
+        'Revisar consumo y preparar reposición con el proveedor.'
+      FROM public.inventory_items
+      WHERE active AND current_quantity < minimum_quantity
+      ON CONFLICT (alert_type, entity_type, entity_id)
+        WHERE status IN ('open', 'acknowledged') AND entity_id IS NOT NULL
+      DO NOTHING
+    $backfill$;
+  END IF;
+END;
+$$;
