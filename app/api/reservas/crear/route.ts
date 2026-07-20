@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
       }))
     : { sent: false as const, reason: "invalid_recipient" as const };
 
-  if (!isTableBlock && !emailResult.sent && emailResult.reason !== "missing_config") {
+  if (!isTableBlock && !emailResult.sent) {
     console.warn("Reservation confirmation email not sent", {
       reservaId: reserva.id,
       reason: emailResult.reason,
@@ -202,5 +202,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, reservaId: reserva.id, mesaIds, emailSent: emailResult.sent });
+  return NextResponse.json({
+    ok: true,
+    reservaId: reserva.id,
+    mesaIds,
+    emailSent: emailResult.sent,
+    emailError: emailResult.sent ? null : emailResult.reason,
+  });
 }

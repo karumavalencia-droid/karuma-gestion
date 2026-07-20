@@ -332,7 +332,13 @@ export default function MesaViewPage() {
           forceMesaIds: wiMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
+      const json = await response.json() as {
+        ok?: boolean;
+        error?: string;
+        reservaId?: string;
+        mesaIds?: number[];
+        emailSent?: boolean;
+      };
       if (!response.ok || !json.ok) {
         setWiError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
@@ -417,7 +423,13 @@ export default function MesaViewPage() {
         });
         refreshLocal();
       }
-      setShowNueva(false); void reload(); showToast("Reserva creada");
+      setShowNueva(false);
+      void reload();
+      showToast(
+        nEmail.trim() && !json.emailSent
+          ? "Reserva creada, pero no se pudo enviar la confirmación"
+          : "Reserva creada",
+      );
     } catch {
       setNError("No se pudo crear la reserva.");
     }

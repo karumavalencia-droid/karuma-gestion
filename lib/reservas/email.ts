@@ -210,12 +210,21 @@ async function sendEmailViaResend({
   idempotencyKey: string;
 }): Promise<EmailSendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESERVAS_EMAIL_FROM;
+  // Reuse the verified sender already configured for invoice emails when a
+  // reservation-specific sender has not been added in Vercel yet.
+  const from = process.env.RESERVAS_EMAIL_FROM?.trim()
+    || process.env.FACTURAS_EMAIL_FROM?.trim();
   const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO;
   const normalizedTo = to.trim().toLowerCase();
 
   if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
-  if (!apiKey || !from) return { sent: false, reason: "missing_config" };
+  if (!apiKey || !from) {
+    const missing = [
+      !apiKey ? "RESEND_API_KEY" : null,
+      !from ? "RESERVAS_EMAIL_FROM/FACTURAS_EMAIL_FROM" : null,
+    ].filter(Boolean).join(", ");
+    return { sent: false, reason: "missing_config", error: `Falta configurar: ${missing}` };
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",

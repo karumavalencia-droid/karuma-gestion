@@ -279,7 +279,14 @@ export default function ReservasPage() {
   const [nMesaIds, setNMesaIds] = useState<string[]>([]);
   const [nCanal, setNCanal] = useState<CanalLocal>("telefono");
   const [nError, setNError] = useState("");
-  const [nExito, setNExito] = useState<{ mesaIds: string[]; nombre: string; fecha: string; hora: string; personas: number } | null>(null);
+  const [nExito, setNExito] = useState<{
+    mesaIds: string[];
+    nombre: string;
+    fecha: string;
+    hora: string;
+    personas: number;
+    emailSent: boolean | null;
+  } | null>(null);
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
   const [showWI, setShowWI] = useState(false);
@@ -559,7 +566,13 @@ export default function ReservasPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
+      const json = await response.json() as {
+        ok?: boolean;
+        error?: string;
+        reservaId?: string;
+        mesaIds?: number[];
+        emailSent?: boolean;
+      };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
@@ -573,7 +586,14 @@ export default function ReservasPage() {
         });
         refreshLocal();
       }
-      setNExito({ mesaIds, nombre: nNombre || "Sin nombre", fecha: nFecha, hora: nHora, personas: nPersonas });
+      setNExito({
+        mesaIds,
+        nombre: nNombre || "Sin nombre",
+        fecha: nFecha,
+        hora: nHora,
+        personas: nPersonas,
+        emailSent: nEmail.trim() ? Boolean(json.emailSent) : null,
+      });
       void reload();
     } catch {
       setNError("No se pudo crear la reserva.");
@@ -1464,6 +1484,14 @@ export default function ReservasPage() {
               <div className="flex justify-between"><span className="text-gray-400">Fecha</span><span className="font-semibold">{nExito.fecha} · {nExito.hora}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Personas</span><span className="font-semibold">{nExito.personas}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Mesa</span><span className="font-bold text-karuma-600">{mesaLabel(nExito.mesaIds)}</span></div>
+              {nExito.emailSent !== null && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-400">Confirmación</span>
+                  <span className={nExito.emailSent ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+                    {nExito.emailSent ? "Email enviado" : "Email no enviado"}
+                  </span>
+                </div>
+              )}
             </div>
             <button onClick={cerrarNueva} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">Cerrar</button>
           </div>
