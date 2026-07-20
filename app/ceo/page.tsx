@@ -1,13 +1,15 @@
 import { cookies } from "next/headers";
 import { ChangeCenterPanel } from "@/components/ceo/ChangeCenterPanel";
 import { CeoChatPanel } from "@/components/ceo/CeoChatPanel";
+import { OperationsCenter } from "@/components/ceo/OperationsCenter";
 import { canViewCeo, isCeoAdmin } from "@/lib/auth/guards";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function CeoPage() {
-  const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const user = await verifySessionToken(token);
 
   if (!canViewCeo(user)) {
@@ -69,6 +71,12 @@ export default async function CeoPage() {
         </div>
         <CeoChatPanel canManageActions={canManageActions} />
       </section>
+
+      {canManageActions && (
+        <section id="ceo-operations" className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <OperationsCenter />
+        </section>
+      )}
 
       {canManageActions && (
         <section id="ceo-change-center" className="rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
