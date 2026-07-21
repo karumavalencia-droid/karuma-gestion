@@ -1,135 +1,42 @@
+// NOTA (MVP ventas): esta ruta de cron está EN ESPERA de una API/exportación
+// oficial de Restosuite. Restosuite no expone hoy una API pública estable
+// (ver análisis previo); la vía soportada de entrada de datos es la importación
+// manual de CSV (POST /api/sales/import). Mientras RESTOSUITE_API_URL sea un
+// placeholder o falte, esta ruta responde "no configurada" y NO hace ninguna
+// petición externa (nunca llama a pos-provider.example).
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { logImport, upsertDailySales } from "@/lib/sales-sync/supabaseRepo";
+import { parseRestosuiteCsv } from "@/lib/restosuite/csvImport";
+import { isPlaceholderApiUrl } from "@/lib/sales-sync/config";
+import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
+import { mergeDailySalesRecords } from "@/lib/sales-sync/storage";
 import type { DailySalesRecord } from "@/lib/sales-sync/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const LOCATION_ID = "karuma-valencia";
-const REPORT_PATH = "/api/report/data/queryData";
-
-type Session = {
-  base_url: string;
-  vulcan_token: string;
-  corporation_id: string;
-  brand_id: string;
-  shop_id: string;
-  organization_id: string;
-  organization_type: string;
-  accept_timezone: string;
-  language_code: string;
-  currency: string;
-};
-
-type Cell = { value?: unknown; displayValue?: string };
-type ReportRow = Record<string, Cell | unknown>;
-
-function madridNow() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
+function dateInMadrid(daysFromToday: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysFromToday);
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Madrid",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return {
-    date: `${get("year")}-${get("month")}-${get("day")}`,
-    hour: Number(get("hour")),
-    minute: Number(get("minute")),
-  };
+  }).format(date);
 }
 
-function value(row: ReportRow, key: string): unknown {
-  const cell = row[key];
-  if (cell && typeof cell === "object" && "value" in cell) return (cell as Cell).value;
-  return cell;
-}
-
-function number(row: ReportRow, key: string): number {
-  const raw = value(row, key);
-  if (typeof raw === "number") return Number.isFinite(raw) ? raw : 0;
-  const parsed = Number(String(raw ?? "").replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-async function fetchToday(session: Session, date: string): Promise<DailySalesRecord | null> {
-  const response = await fetch(new URL(REPORT_PATH, session.base_url), {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "vulcan-Token": session.vulcan_token,
-      "Corporation-Id": session.corporation_id,
-      "Brand-Id": session.brand_id,
-      "Shop-Id": session.shop_id,
-      "Organization-Id": session.organization_id,
-      "Organization-Type": session.organization_type,
-      "Accept-Timezone": session.accept_timezone || "Europe/Madrid",
-      "Language-Code": session.language_code || "zh_CN",
-    },
-    body: JSON.stringify({
-      metricsByDimQryV2: [],
-      reportId: "888001",
-      selectFields: [
-        "D_businessDate",
-        "M_Order_COUNT_Orders",
-        "M_Order_SUM_guests",
-        "M_Order_SUM_netSales",
-        "M_Order_SUM_totalGrossSales",
-        "M_Order_AVG_netSalesByGuest",
-      ],
-      aggFilters: [],
-      proportionProperty: { enable: false },
-      dimAdditionalStrategy: [],
-      filters: [
-        { fieldName: "D_businessDate", filterType: "RANGE", filterValue: [date, date] },
-        { fieldName: "D_currency", filterType: "EQ", filterValue: [session.currency || "EUR"] },
-        { fieldName: "D_shopId", filterType: "IN", filterValue: [session.shop_id] },
-      ],
-      page: { pageNo: 1, pageSize: 100 },
-      orderBy: [{ D_businessDate: "ASC" }],
-    }),
-  });
-  if (!response.ok) throw new Error(`RestoSuite HTTP ${response.status}`);
-  const payload = (await response.json()) as {
-    code?: string | number;
-    msg?: string;
-    data?: { rows?: ReportRow[] };
-  };
-  if (String(payload.code ?? "0") === "401" || String(payload.code ?? "0") === "403") {
-    throw new Error("RestoSuite session expired");
+function buildRestosuiteUrl(baseUrl: string, date: string, locationId: string): string {
+  const expanded = baseUrl
+    .replaceAll("{date}", encodeURIComponent(date))
+    .replaceAll("{locationId}", encodeURIComponent(locationId));
+  const url = new URL(expanded);
+  if (!baseUrl.includes("{date}")) {
+    url.searchParams.set(process.env.RESTOSUITE_DATE_PARAM || "date", date);
   }
-  const row = payload.data?.rows?.[0];
-  if (!row) return null;
-  const netSales = number(row, "M_Order_SUM_netSales");
-  const customers = number(row, "M_Order_SUM_guests");
-  const orders = number(row, "M_Order_COUNT_Orders");
-  if (netSales <= 0 && customers <= 0 && orders <= 0) return null;
-  const grossSales = number(row, "M_Order_SUM_totalGrossSales") || netSales;
-  return {
-    date,
-    grossSales,
-    netSales,
-    customers,
-    orders,
-    averageTicket:
-      number(row, "M_Order_AVG_netSalesByGuest") || (customers > 0 ? netSales / customers : 0),
-    drinkSales: 0,
-    deliverySales: 0,
-    cashSales: 0,
-    cardSales: 0,
-    source: "restosuite-live-5m",
-    locationId: LOCATION_ID,
-    externalId: null,
-    notes: "Sincronización automática cada 5 minutos",
-    syncedAt: new Date().toISOString(),
-  };
+  if (locationId && !baseUrl.includes("{locationId}")) {
+    url.searchParams.set(process.env.RESTOSUITE_LOCATION_PARAM || "locationId", locationId);
+  }
+  return url.toString();
 }
 
 export async function GET(request: Request) {
@@ -138,51 +45,94 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const now = madridNow();
-  if (now.hour < 13 || now.hour >= 24) {
-    return NextResponse.json({ success: true, skipped: true, reason: "outside_sync_window", ...now });
+  const apiUrl = process.env.RESTOSUITE_API_URL;
+  const apiToken = process.env.RESTOSUITE_API_TOKEN;
+  const locationId = process.env.RESTOSUITE_LOCATION_ID || "karuma-valencia";
+  // No hacer ninguna petición externa mientras la API sea un placeholder.
+  if (!apiUrl || !apiToken || isPlaceholderApiUrl(apiUrl)) {
+    return NextResponse.json(
+      {
+        success: false,
+        configured: false,
+        pendingOfficialApi: true,
+        message:
+          "Restosuite no tiene API oficial configurada. Usa la importación manual de CSV (/api/sales/import).",
+      },
+      { status: 503 },
+    );
   }
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
-  const { data: session, error } = await supabase
-    .from("restosuite_sync_sessions")
-    .select("base_url,vulcan_token,corporation_id,brand_id,shop_id,organization_id,organization_type,accept_timezone,language_code,currency")
-    .eq("location_id", LOCATION_ID)
-    .maybeSingle<Session>();
-  if (error || !session) {
-    return NextResponse.json({ error: "RestoSuite session not configured" }, { status: 503 });
-  }
+  const requestUrl = new URL(request.url);
+  const targetDate = requestUrl.searchParams.get("date") || dateInMadrid(-1);
+  const authHeader = process.env.RESTOSUITE_API_KEY_HEADER || "Authorization";
+  const authPrefix = process.env.RESTOSUITE_API_KEY_PREFIX ?? "Bearer ";
+  const headers = new Headers({ Accept: "application/json, text/csv" });
+  headers.set(authHeader, `${authPrefix}${apiToken}`);
 
   try {
-    const record = await fetchToday(session, now.date);
-    if (!record) {
-      return NextResponse.json({ success: true, noData: true, date: now.date });
+    const response = await fetch(buildRestosuiteUrl(apiUrl, targetDate, locationId), {
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: `Restosuite responded with ${response.status}` },
+        { status: 502 },
+      );
     }
-    const result = await upsertDailySales([record]);
-    await logImport({
-      source: record.source,
-      fileName: null,
-      totalRows: 1,
-      insertedRows: result.inserted,
-      updatedRows: result.updated,
-      skippedRows: 0,
-      status: "success",
-      errorMessage: null,
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("json") ? await response.json() : await response.text();
+    const records =
+      typeof payload === "string"
+        ? (() => {
+            const parsed = parseRestosuiteCsv(payload, `restosuite-${targetDate}.csv`);
+            const syncedAt = new Date().toISOString();
+            return (parsed.preview?.registros ?? []).map(
+              (record): DailySalesRecord => ({
+                date: record.fecha,
+                grossSales: record.ventas,
+                netSales: record.ventas,
+                customers: record.clientes,
+                orders: record.facturas,
+                averageTicket: record.ticketMedio,
+                drinkSales: record.ventasBebida,
+                deliverySales: 0,
+                cashSales: 0,
+                cardSales: 0,
+                source: "restosuite-csv",
+                locationId,
+                externalId: null,
+                notes: record.observaciones,
+                syncedAt,
+              }),
+            );
+          })()
+        : normalizeSalesPayload(payload, {
+            fallbackDate: targetDate,
+            source: "restosuite-api",
+            locationId,
+          });
+
+    if (records.length === 0) {
+      return NextResponse.json(
+        { error: "No valid sales records found" },
+        { status: 422 },
+      );
+    }
+
+    const result = await mergeDailySalesRecords(records);
+    return NextResponse.json({
+      success: true,
+      date: targetDate,
+      inserted: result.inserted,
+      updated: result.updated,
+      total: result.store.records.length,
     });
-    return NextResponse.json({ success: true, date: now.date, ...result, netSales: record.netSales });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "RestoSuite sync failed";
-    await logImport({
-      source: "restosuite-live-5m",
-      fileName: null,
-      totalRows: 0,
-      insertedRows: 0,
-      updatedRows: 0,
-      skippedRows: 0,
-      status: "error",
-      errorMessage: message,
-    });
-    return NextResponse.json({ success: false, error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Restosuite sync failed" },
+      { status: 500 },
+    );
   }
 }
