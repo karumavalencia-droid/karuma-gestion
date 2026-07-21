@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, Mail, MessageCircle } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
-import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
   canMoveReservation,
@@ -14,6 +13,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { postReservaMutation } from "@/lib/reservas/client-mutations";
 import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -81,6 +81,10 @@ function setSharedFecha(f: string) {
 function maxFecha() {
   const d = new Date(); d.setDate(d.getDate() + MAX_DIAS);
   return d.toISOString().split("T")[0];
+}
+function createRequestKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 function autoServicio(): ServicioLocal {
   const h = new Date().getHours();
@@ -255,6 +259,9 @@ export default function ReservasPage() {
   const [wiInlinePersonas, setWiInlinePersonas] = useState(2);
   const [wiInlineNombre, setWiInlineNombre] = useState("");
   const [wiInlineError, setWiInlineError] = useState("");
+  const [wiInlineSaving, setWiInlineSaving] = useState(false);
+  const [wiInlineRequestKey, setWiInlineRequestKey] = useState(createRequestKey);
+  const wiInlineSavingRef = useRef(false);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [fecha, setFecha] = useState(getSharedFecha);
@@ -285,6 +292,8 @@ export default function ReservasPage() {
   const [blockDuracion, setBlockDuracion] = useState(90);
   const [blockError, setBlockError] = useState("");
   const [blockSaving, setBlockSaving] = useState(false);
+  const [blockRequestKey, setBlockRequestKey] = useState(createRequestKey);
+  const blockSavingRef = useRef(false);
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────
   const [showNueva, setShowNueva] = useState(false);
@@ -300,6 +309,9 @@ export default function ReservasPage() {
   const [nCanal, setNCanal] = useState<CanalLocal>("telefono");
   const [nError, setNError] = useState("");
   const [nExito, setNExito] = useState<{ mesaIds: string[]; nombre: string; fecha: string; hora: string; personas: number } | null>(null);
+  const [nSaving, setNSaving] = useState(false);
+  const [nRequestKey, setNRequestKey] = useState(createRequestKey);
+  const nSavingRef = useRef(false);
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
   const [showWI, setShowWI] = useState(false);
@@ -311,6 +323,9 @@ export default function ReservasPage() {
   const [wCanal, setWCanal] = useState<CanalLocal>("presencial");
   const [wError, setWError] = useState("");
   const [wExito, setWExito] = useState<{ mesaIds: string[]; personas: number } | null>(null);
+  const [wSaving, setWSaving] = useState(false);
+  const [wRequestKey, setWRequestKey] = useState(createRequestKey);
+  const wSavingRef = useRef(false);
 
   // ── Lista de espera ────────────────────────────────────────────────────────
   const [showAddEspera, setShowAddEspera] = useState(false);
@@ -339,6 +354,33 @@ export default function ReservasPage() {
   const [changeErr, setChangeErr] = useState("");
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const openNueva = () => {
+    nSavingRef.current = false;
+    setNSaving(false);
+    setNRequestKey(createRequestKey());
+    setShowNueva(true);
+  };
+  const openWI = () => {
+    wSavingRef.current = false;
+    setWSaving(false);
+    setWRequestKey(createRequestKey());
+    setShowWI(true);
+  };
+  const openInlineWalkIn = (mesa: MesaConEstado) => {
+    wiInlineSavingRef.current = false;
+    setWiInlineSaving(false);
+    setWiInlineRequestKey(createRequestKey());
+    setWiInlineMesa(mesa);
+    setWiInlinePersonas(mesa.capacidad);
+    setWiInlineNombre("");
+    setWiInlineError("");
+  };
+  const cerrarInlineWalkIn = () => {
+    wiInlineSavingRef.current = false;
+    setWiInlineSaving(false);
+    setWiInlineMesa(null);
+    setWiInlineRequestKey(createRequestKey());
+  };
   const selectVistaServicio = (servicio: VistaServicio) => {
     setVistaServicio(servicio);
     if (servicio === "comida" || servicio === "cena") {
@@ -443,25 +485,29 @@ export default function ReservasPage() {
     }
   }
 
-  function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
+  async function handleEstado(r: ReservaLocal, estado: EstadoLocal) {
     updateEstado(r.id, estado);
     setCancelId(null);
     if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, estado }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     reload(); showToast("Estado actualizado");
   }
 
-  function handleLiberar(r: ReservaLocal) {
+  async function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
     if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, estado: "finished" }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "finished" });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     reload(); showToast("Mesa liberada");
   }
@@ -472,26 +518,28 @@ export default function ReservasPage() {
     if (r.origen) {
       // Esperar la respuesta antes de recargar: si no, la sincronización lee el
       // estado antiguo de Supabase y revierte el cambio local.
-      try {
-        await fetch("/api/reservas/actualizar-estado", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: r.id, estado: "confirmada" }),
-        });
-      } catch { /* sin red: el local ya está actualizado */ }
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "confirmada" });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     reload(); showToast("Reserva devuelta a confirmada");
   }
 
   function openSeat(r: ReservaLocal) { setSeatR(r); setSeatIds(r.mesaIds.length ? r.mesaIds : []); setSeatErr(""); }
-  function submitSeat() {
+  async function submitSeat() {
     if (!seatR) return;
     const res = sentarReserva(seatR.id, seatIds.length ? seatIds : undefined);
     if (!res.ok) { setSeatErr(res.error); return; }
     if (seatR.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: seatR.id, estado: "sentada" }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: seatR.id, estado: "sentada" });
+      if (!remote.ok) {
+        setSeatErr(remote.error);
+        reload();
+        return;
+      }
     }
     setSeatR(null); reload(); showToast("Cliente sentado");
   }
@@ -499,56 +547,63 @@ export default function ReservasPage() {
   function openDesplazar(r: ReservaLocal) {
     setDesplazarR(r); setDespHora(r.hora); setDespFecha(r.fecha); setDespErr("");
   }
-  function submitDesplazar() {
+  async function submitDesplazar() {
     if (!desplazarR || !despHora) return;
     const res = desplazarReserva(desplazarR.id, despHora, despFecha !== desplazarR.fecha ? despFecha : undefined);
     if (!res.ok) { setDespErr(res.error); return; }
     if (desplazarR.origen) {
-      void fetch("/api/reservas/actualizar", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "editar",
-          id: desplazarR.id,
-          fecha: despFecha,
-          hora: despHora,
-        }),
+      const remote = await postReservaMutation("/api/reservas/actualizar", {
+        action: "editar",
+        id: desplazarR.id,
+        fecha: despFecha,
+        hora: despHora,
       });
+      if (!remote.ok) {
+        setDespErr(remote.error);
+        reload();
+        return;
+      }
     }
     setDesplazarR(null); reload(); showToast("Reserva desplazada");
   }
 
   function openChange(r: ReservaLocal) { setChangeR(r); setChangeIds([]); setChangeErr(""); }
-  function submitChange() {
+  async function submitChange() {
     if (!changeR) return;
     if (!changeIds.length) { setChangeErr("Selecciona al menos una mesa."); return; }
     const res = cambiarMesas(changeR.id, changeIds);
     if (!res.ok) { setChangeErr(res.error); return; }
     if (changeR.origen) {
-      void fetch("/api/reservas/actualizar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cambiar-mesa",
-          id: changeR.id,
-          mesaIds: changeIds.map((id) => Number(id.replace("T", ""))),
-        }),
+      const remote = await postReservaMutation("/api/reservas/actualizar", {
+        action: "cambiar-mesa",
+        id: changeR.id,
+        mesaIds: changeIds.map((id) => Number(id.replace("T", ""))),
       });
+      if (!remote.ok) {
+        setChangeErr(remote.error);
+        reload();
+        return;
+      }
     }
     setChangeR(null); reload(); showToast("Mesa actualizada");
   }
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────
   async function submitNueva() {
+    if (nSavingRef.current) return;
     setNError("");
     if (!nFecha || !nHora) { setNError("Fecha y hora son obligatorias."); return; }
     if (nPersonas < 1)     { setNError("Indica el número de personas."); return; }
     if (!nTelefono.trim()) { setNError("El teléfono es obligatorio para sincronizar la reserva."); return; }
 
+    nSavingRef.current = true;
+    setNSaving(true);
     try {
       const response = await fetch("/api/reservas/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotencyKey: nRequestKey,
           fecha: nFecha,
           hora: nHora,
           servicio: nServicio,
@@ -571,11 +626,17 @@ export default function ReservasPage() {
       reload();
     } catch {
       setNError("No se pudo crear la reserva.");
+    } finally {
+      nSavingRef.current = false;
+      setNSaving(false);
     }
   }
   function cerrarNueva() {
+    nSavingRef.current = false;
+    setNSaving(false);
     setShowNueva(false); setNError(""); setNExito(null);
     setNNombre(""); setNTelefono(""); setNEmail(""); setNNotas(""); setNMesaIds([]);
+    setNRequestKey(createRequestKey());
     const servicio = autoServicio();
     const fechaInicial = hoy();
     setNFecha(fechaInicial); setNHora(defaultHoraPlano(fechaInicial, servicio)); setNServicio(servicio); setNPersonas(2); setNCanal("telefono");
@@ -583,13 +644,17 @@ export default function ReservasPage() {
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
   async function submitWI() {
+    if (wSavingRef.current) return;
     setWError("");
     if (wPersonas < 1) { setWError("Indica el número de personas."); return; }
+    wSavingRef.current = true;
+    setWSaving(true);
     try {
       const response = await fetch("/api/reservas/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotencyKey: wRequestKey,
           fecha: hoy(),
           hora: new Date().toTimeString().slice(0, 5),
           servicio: autoServicio(),
@@ -610,11 +675,17 @@ export default function ReservasPage() {
       reload();
     } catch {
       setWError("No se pudo registrar el Walk-In.");
+    } finally {
+      wSavingRef.current = false;
+      setWSaving(false);
     }
   }
   function cerrarWI() {
+    wSavingRef.current = false;
+    setWSaving(false);
     setShowWI(false); setWError(""); setWExito(null);
     setWNombre(""); setWTelefono(""); setWNotas(""); setWPersonas(2); setWMesaIds([]); setWCanal("presencial");
+    setWRequestKey(createRequestKey());
   }
 
   // ── Bloquear mesa desde el modal del plano ─────────────────────────────────
@@ -622,10 +693,13 @@ export default function ReservasPage() {
     setBlockHora(horaPanel);
     setBlockDuracion(90);
     setBlockError("");
+    setBlockRequestKey(createRequestKey());
     setBlockInline(true);
   }
   async function submitBlockMesa() {
     if (!mesaSel) return;
+    if (blockSavingRef.current) return;
+    blockSavingRef.current = true;
     setBlockSaving(true);
     setBlockError("");
     try {
@@ -633,6 +707,7 @@ export default function ReservasPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotencyKey: blockRequestKey,
           bloqueo: true,
           fecha,
           hora: blockHora || horaPanel,
@@ -659,6 +734,7 @@ export default function ReservasPage() {
     } catch {
       setBlockError("No se pudo bloquear la mesa.");
     } finally {
+      blockSavingRef.current = false;
       setBlockSaving(false);
     }
   }
@@ -696,12 +772,16 @@ export default function ReservasPage() {
 
   async function submitInlineWalkIn() {
     if (!wiInlineMesa) return;
+    if (wiInlineSavingRef.current) return;
     setWiInlineError("");
+    wiInlineSavingRef.current = true;
+    setWiInlineSaving(true);
     try {
       const response = await fetch("/api/reservas/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotencyKey: wiInlineRequestKey,
           fecha: hoy(),
           hora: new Date().toTimeString().slice(0, 5),
           servicio: autoServicio(),
@@ -719,12 +799,15 @@ export default function ReservasPage() {
         return;
       }
       const mesaNumero = wiInlineMesa.numero;
-      setWiInlineMesa(null);
+      cerrarInlineWalkIn();
       setMesaSel(null);
       reload();
       showToast(`T${mesaNumero} — Walk-In registrado`);
     } catch {
       setWiInlineError("No se pudo registrar el Walk-In.");
+    } finally {
+      wiInlineSavingRef.current = false;
+      setWiInlineSaving(false);
     }
   }
 
@@ -771,11 +854,11 @@ export default function ReservasPage() {
               <Clock className="h-4 w-4" />
               {esperaActiva.length > 0 ? `Espera (${esperaActiva.length})` : "Lista de espera"}
             </button>
-            <button onClick={() => setShowWI(true)}
+            <button onClick={openWI}
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600">
               Walk-In
             </button>
-            <button onClick={() => setShowNueva(true)}
+            <button onClick={openNueva}
               className="flex items-center gap-1.5 rounded-xl bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
               <Plus className="h-4 w-4" /> Nueva
             </button>
@@ -921,7 +1004,7 @@ export default function ReservasPage() {
         ) : filtradas.length === 0 ? (
           <div className="py-16 text-center no-print">
             <p className="text-gray-500">No hay reservas para este filtro.</p>
-            <button onClick={() => setShowNueva(true)}
+            <button onClick={openNueva}
               className="mt-4 rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
               + Nueva Reserva
             </button>
@@ -992,7 +1075,7 @@ export default function ReservasPage() {
                     {showActions && (
                       <div className="flex flex-wrap gap-1.5 no-print">
                         {isBlock && isAct && (
-                          <button onClick={() => handleEstado(r, "cancelada")}
+                          <button onClick={() => void handleEstado(r, "cancelada")}
                             className="rounded-lg bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-600">
                             Desbloquear
                           </button>
@@ -1000,13 +1083,13 @@ export default function ReservasPage() {
                         {!isBlock && isAct && (
                           <>
                             {r.estado === "pendiente" && (
-                              <button onClick={() => handleEstado(r, "confirmada")}
+                              <button onClick={() => void handleEstado(r, "confirmada")}
                                 className="rounded-lg bg-emerald-800 px-2.5 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-700">
                                 Confirmar
                               </button>
                             )}
                             {(r.estado === "confirmada" || r.estado === "pendiente") && (
-                              <button onClick={() => handleEstado(r, "llegada")}
+                              <button onClick={() => void handleEstado(r, "llegada")}
                                 className="rounded-lg bg-purple-700 px-2.5 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-600">
                                 Llegada
                               </button>
@@ -1018,7 +1101,7 @@ export default function ReservasPage() {
                               </button>
                             )}
                             {(r.estado === "sentada" || r.estado === "walkin") && (
-                              <button onClick={() => handleLiberar(r)}
+                              <button onClick={() => void handleLiberar(r)}
                                 className="rounded-lg bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-300">
                                 Liberar
                               </button>
@@ -1040,14 +1123,14 @@ export default function ReservasPage() {
                               </button>
                             )}
                             {r.estado !== "no-show" && (
-                              <button onClick={() => handleEstado(r, "no-show")}
+                              <button onClick={() => void handleEstado(r, "no-show")}
                                 className="rounded-lg bg-yellow-900 px-2.5 py-1 text-xs font-semibold text-yellow-300 hover:bg-yellow-800">
                                 No Show
                               </button>
                             )}
                             {cancelId === r.id ? (
                               <>
-                                <button onClick={() => handleEstado(r, "cancelada")}
+                                <button onClick={() => void handleEstado(r, "cancelada")}
                                   className="rounded-lg bg-red-700 px-2.5 py-1 text-xs font-bold text-white">¿Seguro?</button>
                                 <button onClick={() => setCancelId(null)}
                                   className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-600">No</button>
@@ -1165,9 +1248,6 @@ export default function ReservasPage() {
         </>)}
       </div>
 
-      {/* Resumen de mesas hechas por servicio (esquina) */}
-      <ResumenServicios reservas={reservas} />
-
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
@@ -1237,7 +1317,7 @@ export default function ReservasPage() {
             )}
             {fecha === hoy() && mesaSel.status !== "occupied" &&
               !(mesaSel.status === "reserved" && mesaSel.reserva && isTableBlockReservation(mesaSel.reserva)) && (
-              <button onClick={() => { setWiInlineMesa(mesaSel); setWiInlinePersonas(mesaSel.capacidad); setWiInlineNombre(""); setWiInlineError(""); }}
+              <button onClick={() => openInlineWalkIn(mesaSel)}
                 className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600">
                 + Walk-In directo{(mesaSel.agenda?.length ?? 0) > 0 ? " (mesa con reserva)" : ""}
               </button>
@@ -1293,13 +1373,13 @@ export default function ReservasPage() {
             {primaryReserva && (
               <>
                 {mesaBlock ? (
-                  <button onClick={() => { handleEstado(primaryReserva, "cancelada"); setMesaSel(null); }}
+                  <button onClick={() => { void handleEstado(primaryReserva, "cancelada"); setMesaSel(null); }}
                     className="w-full rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
                     Desbloquear {joined ? "mesas" : "mesa"}
                   </button>
                 ) : primaryOcc ? (
                   <>
-                    <button onClick={() => { handleLiberar(primaryReserva); setMesaSel(null); }}
+                    <button onClick={() => { void handleLiberar(primaryReserva); setMesaSel(null); }}
                       className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
                       ✓ Liberar {joined ? "mesas" : "mesa"}
                     </button>
@@ -1332,7 +1412,7 @@ export default function ReservasPage() {
       </Modal>
 
       {/* Walk-in desde plano */}
-      <Modal open={!!wiInlineMesa} title={`Walk-In — T${wiInlineMesa?.numero}`} onClose={() => setWiInlineMesa(null)}>
+      <Modal open={!!wiInlineMesa} title={`Walk-In — T${wiInlineMesa?.numero}`} onClose={cerrarInlineWalkIn}>
         {wiInlineMesa && (
           <div className="space-y-4">
             {wiInlineError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiInlineError}</p>}
@@ -1348,8 +1428,12 @@ export default function ReservasPage() {
             <Field label="Nombre (opcional)">
               <input className={inp} value={wiInlineNombre} onChange={(e) => setWiInlineNombre(e.target.value)} placeholder="Walk-In" />
             </Field>
-            <button onClick={() => void submitInlineWalkIn()} className="w-full rounded-xl bg-emerald-700 py-3.5 font-black text-white hover:bg-emerald-600">
-              Ocupar T{wiInlineMesa.numero} ahora
+            <button
+              onClick={() => void submitInlineWalkIn()}
+              disabled={wiInlineSaving}
+              className="w-full rounded-xl bg-emerald-700 py-3.5 font-black text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {wiInlineSaving ? "Ocupando…" : `Ocupar T${wiInlineMesa.numero} ahora`}
             </button>
           </div>
         )}
@@ -1373,7 +1457,7 @@ export default function ReservasPage() {
                 compact
               />
             </Field>
-            <button onClick={submitDesplazar}
+            <button onClick={() => void submitDesplazar()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               Confirmar desplazamiento
             </button>
@@ -1474,9 +1558,9 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={nMesaIds}
                 onToggle={(id) => setNMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </Field>
-            <button onClick={() => submitNueva()}
-              className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-              Confirmar reserva
+            <button onClick={() => void submitNueva()} disabled={nSaving}
+              className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700 disabled:cursor-not-allowed disabled:opacity-60">
+              {nSaving ? "Guardando…" : "Confirmar reserva"}
             </button>
           </div>
         )}
@@ -1535,9 +1619,9 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={wMesaIds}
                 onToggle={(id) => setWMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </Field>
-            <button onClick={() => submitWI()}
-              className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600">
-              Asignar mesa ahora
+            <button onClick={() => void submitWI()} disabled={wSaving}
+              className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60">
+              {wSaving ? "Asignando…" : "Asignar mesa ahora"}
             </button>
           </div>
         )}
@@ -1556,9 +1640,9 @@ export default function ReservasPage() {
                     <p className="text-xs text-gray-400">{e.personas} pax · {e.servicio} · {e.notas}</p>
                   </div>
                   <div className="flex gap-1.5">
-                    <button onClick={() => handleEsperaEstado(e.id, "sentado")}
+                    <button onClick={() => void handleEsperaEstado(e.id, "sentado")}
                       className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white">Sentar</button>
-                    <button onClick={() => handleEsperaEstado(e.id, "cancelado")}
+                    <button onClick={() => void handleEsperaEstado(e.id, "cancelado")}
                       className="rounded-lg bg-gray-200 px-2 py-1 text-xs text-gray-600">✕</button>
                   </div>
                 </div>
@@ -1587,7 +1671,7 @@ export default function ReservasPage() {
           <Field label="Notas">
             <input value={eNotas} onChange={(e) => setENotas(e.target.value)} className={inp} placeholder="Alergias, preferencias…" />
           </Field>
-          <button onClick={submitEspera}
+          <button onClick={() => void submitEspera()}
             className="w-full rounded-xl bg-amber-500 py-3 font-bold text-white hover:bg-amber-400">
             Añadir a lista de espera
           </button>
@@ -1605,7 +1689,7 @@ export default function ReservasPage() {
               <MesaPicker mesas={MESAS_SEED} selected={seatIds}
                 onToggle={(id) => setSeatIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
-            <button onClick={() => submitSeat()}
+            <button onClick={() => void submitSeat()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               {seatIds.length ? `Sentar en ${mesaLabel(seatIds)}` : "Sentar (auto)"}
             </button>
@@ -1639,7 +1723,7 @@ export default function ReservasPage() {
                 No hay otra mesa disponible en este momento.
               </p>
             )}
-            <button onClick={() => submitChange()}
+            <button onClick={() => void submitChange()}
               disabled={!changeIds.length || capacidad < changeR.personas}
               className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
               Guardar cambio de {isJoinedReservation(changeR) ? "mesas" : "mesa"}

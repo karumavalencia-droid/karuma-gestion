@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
-import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
@@ -15,6 +14,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { postReservaMutation } from "@/lib/reservas/client-mutations";
 import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -95,7 +95,7 @@ function isRealReservation(reserva?: ReservaLocal | null): reserva is ReservaLoc
   return !!reserva && !isTableBlockReservation(reserva);
 }
 function mesaPartyLabel(mesa: MesaConEstado, reserva?: ReservaLocal | null): string {
-  return isRealReservation(reserva) ? `${reserva.personas}p` : `${mesa.capacidad}p`;
+  return isRealReservation(reserva) ? `${getReservationGuests(reserva)}p` : `${mesa.capacidad}p`;
 }
 function joinedTablesLabel(reserva?: ReservaLocal | null): string | null {
   if (!isRealReservation(reserva) || reserva.mesaIds.length <= 1) return null;
@@ -109,7 +109,7 @@ function reservationTablesLabel(reserva?: ReservaLocal | null, mesa?: MesaConEst
   return mesa ? `T${mesa.numero}` : "Mesa";
 }
 function agendaItemTitle(a: ReservaLocal): string {
-  return isTableBlockReservation(a) ? `${a.hora} Bloqueo mesa` : `${a.hora} ${a.nombre} ${a.personas}p`;
+  return isTableBlockReservation(a) ? `${a.hora} Bloqueo mesa` : `${a.hora} ${a.nombre} ${getReservationGuests(a)}p`;
 }
 function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
   const activas = reservas.filter(
@@ -441,13 +441,15 @@ export default function MesaViewPage() {
   }
 
   // ── Liberar ──────────────────────────────────────────────────────────────────
-  function handleLiberar(r: ReservaLocal) {
+  async function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
     if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, estado: "finished" }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "finished" });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     setSel(null); reload(); showToast("Mesa liberada");
   }
@@ -459,24 +461,26 @@ export default function MesaViewPage() {
     if (r.origen) {
       // Esperar la respuesta antes de recargar: si no, la sincronización lee el
       // estado antiguo de Supabase y revierte el cambio local.
-      try {
-        await fetch("/api/reservas/actualizar-estado", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: r.id, estado: "confirmada" }),
-        });
-      } catch { /* sin red: el local ya está actualizado */ }
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "confirmada" });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     setSel(null); reload(); showToast("Reserva devuelta a confirmada");
   }
 
   // ── Cancelar ─────────────────────────────────────────────────────────────────
-  function handleCancelar(r: ReservaLocal) {
+  async function handleCancelar(r: ReservaLocal) {
     updateEstado(r.id, "cancelada");
     if (r.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, estado: "cancelada" }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "cancelada" });
+      if (!remote.ok) {
+        reload();
+        showToast(remote.error);
+        return;
+      }
     }
     setCancelReservaId(null); setSel(null); reload(); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
   }
@@ -489,7 +493,7 @@ export default function MesaViewPage() {
     setEditError("");
     setEditing(true);
   }
-  function submitEdit(r: ReservaLocal) {
+  async function submitEdit(r: ReservaLocal) {
     setEditError("");
     const mesaCambiada = editMesaIds.length > 0 &&
       (editMesaIds.length !== r.mesaIds.length || editMesaIds.some((id) => !r.mesaIds.includes(id)));
@@ -500,13 +504,15 @@ export default function MesaViewPage() {
     });
     if (!res.ok) { setEditError(res.error); return; }
     if (r.origen) {
-      void fetch("/api/reservas/actualizar", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "editar", id: r.id, personas: editPersonas, hora: editHora,
-          ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
-        }),
+      const remote = await postReservaMutation("/api/reservas/actualizar", {
+        action: "editar", id: r.id, personas: editPersonas, hora: editHora,
+        ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
       });
+      if (!remote.ok) {
+        setEditError(remote.error);
+        reload();
+        return;
+      }
     }
     setEditing(false); setSel(null); reload(); showToast("Reserva actualizada");
   }
@@ -515,15 +521,17 @@ export default function MesaViewPage() {
   function openSeat(r: ReservaLocal) {
     setSeatReserva(r); setSeatMesaIds(r.mesaIds.length ? r.mesaIds : []); setSeatError("");
   }
-  function submitSeat() {
+  async function submitSeat() {
     if (!seatReserva) return;
     const res = sentarReserva(seatReserva.id, seatMesaIds.length ? seatMesaIds : undefined);
     if (!res.ok) { setSeatError(res.error); return; }
     if (seatReserva.origen) {
-      void fetch("/api/reservas/actualizar-estado", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: seatReserva.id, estado: "sentada" }),
-      });
+      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: seatReserva.id, estado: "sentada" });
+      if (!remote.ok) {
+        setSeatError(remote.error);
+        reload();
+        return;
+      }
     }
     setSeatReserva(null); setSel(null); reload(); showToast("Mesa ocupada");
   }
@@ -534,20 +542,21 @@ export default function MesaViewPage() {
     setMoveMesaIds([]);
     setMoveError("");
   }
-  function submitMove() {
+  async function submitMove() {
     if (!moveReserva) return;
     const res = cambiarMesas(moveReserva.id, moveMesaIds);
     if (!res.ok) { setMoveError(res.error); return; }
     if (moveReserva.origen) {
-      void fetch("/api/reservas/actualizar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cambiar-mesa",
-          id: moveReserva.id,
-          mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
-        }),
+      const remote = await postReservaMutation("/api/reservas/actualizar", {
+        action: "cambiar-mesa",
+        id: moveReserva.id,
+        mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
       });
+      if (!remote.ok) {
+        setMoveError(remote.error);
+        reload();
+        return;
+      }
     }
     const destino = mesaLabel(moveMesaIds);
     setMoveReserva(null); setSel(null); reload(); showToast(`Cliente trasladado a ${destino}`);
@@ -941,7 +950,7 @@ export default function MesaViewPage() {
                   <div className="mesa-card-detail mt-2 space-y-1">
                     <p className="mesa-card-detail-name truncate text-base font-bold text-white">{r.nombre}</p>
                     <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-100">
-                      <Users className="h-4 w-4" />{r.personas}
+                      <Users className="h-4 w-4" />{getReservationGuests(r)}
                       <Clock className="ml-1.5 h-4 w-4" />{r.estado === "walkin" ? `${r.hora} · ${duracion(r.seatedAt)}` : duracion(r.seatedAt)}
                     </div>
                   </div>
@@ -955,7 +964,7 @@ export default function MesaViewPage() {
                 {m.status === "reserved" && r && !isTableBlockReservation(r) && (
                   <div className="mesa-card-detail mt-2 space-y-0.5">
                     <p className="mesa-card-detail-name truncate text-base font-bold text-emerald-700">{r.nombre}</p>
-                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} · {r.personas}p</p>
+                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} · {getReservationGuests(r)}p</p>
                   </div>
                 )}
                 {m.status === "available" && (
@@ -967,7 +976,7 @@ export default function MesaViewPage() {
                         <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map(agendaItemTitle).join(" · ")}>
                           {isTableBlockReservation(proxima)
                             ? `Bloqueada · ${proxima.hora}`
-                            : `Reservada · ${proxima.hora} · ${proxima.personas}p`}
+                            : `Reservada · ${proxima.hora} · ${getReservationGuests(proxima)}p`}
                           {!isTableBlockReservation(proxima) && proxima.mesaIds.length > 1 ? ` · ${proxima.mesaIds.length} mesas` : ""}
                           {futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
                         </p>
@@ -1087,7 +1096,7 @@ export default function MesaViewPage() {
                       onToggle={(id) => setEditMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
                   </div>
                 </div>
-                <button onClick={() => submitEdit(focusR)}
+                <button onClick={() => void submitEdit(focusR)}
                   className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                   Guardar cambios
                 </button>
@@ -1130,7 +1139,7 @@ export default function MesaViewPage() {
                   </button>
                 ) : focusOcc ? (
                   <>
-                    <button onClick={() => handleLiberar(focusR)}
+                    <button onClick={() => void handleLiberar(focusR)}
                       className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
                       ✓ Liberar {joined ? "mesas" : "mesa"}
                     </button>
@@ -1227,7 +1236,7 @@ export default function MesaViewPage() {
               <span className="font-semibold">{cancelBlock ? "Bloqueo mesa" : cancelR.nombre}</span> · {cancelR.hora} · {cancelBlock ? duracionBloqueoLabel(cancelR.duracionMin) : `${cancelR.personas} pax`}
             </p>
             <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
-            <button onClick={() => handleCancelar(cancelR)}
+            <button onClick={() => void handleCancelar(cancelR)}
               className={`w-full rounded-xl py-3 font-bold text-white ${cancelBlock ? "bg-rose-700 hover:bg-rose-600" : "bg-red-600 hover:bg-red-500"}`}>
               {cancelBlock ? "Sí, desbloquear" : "Sí, cancelar"}
             </button>
@@ -1328,7 +1337,7 @@ export default function MesaViewPage() {
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
                 <textarea className={inp} rows={2} value={wiNotas} onChange={(e) => setWiNotas(e.target.value)} />
               </div>
-              <button onClick={submitWalkIn}
+              <button onClick={() => void submitWalkIn()}
                 className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600">
                 {wiGeneral
                   ? wiSelectedId ? `Ocupar ${wiSelectedId} ahora` : "Ocupar mesa ahora"
@@ -1400,7 +1409,7 @@ export default function MesaViewPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
             <textarea className={inp} rows={2} value={nNotas} onChange={(e) => setNNotas(e.target.value)} />
           </div>
-          <button onClick={submitNueva}
+          <button onClick={() => void submitNueva()}
             className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
             Crear reserva
           </button>
@@ -1461,7 +1470,7 @@ export default function MesaViewPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Motivo</label>
             <textarea className={inp} rows={2} value={bNotas} onChange={(e) => setBNotas(e.target.value)} placeholder="Ej. mesa rota, reservado interno, mantenimiento" />
           </div>
-          <button onClick={submitBlock}
+          <button onClick={() => void submitBlock()}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
             <Lock className="h-4 w-4" /> Bloquear mesa
           </button>
@@ -1486,7 +1495,7 @@ export default function MesaViewPage() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Mesa(s) — vacío = auto</p>
               <MesaPicker mesas={mesasList} selectedIds={seatMesaIds} onToggle={(id) => setSeatMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
-            <button onClick={submitSeat}
+            <button onClick={() => void submitSeat()}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
               {seatMesaIds.length ? `Sentar en ${mesaLabel(seatMesaIds)}` : "Sentar (auto-asignar)"}
             </button>
@@ -1543,7 +1552,7 @@ export default function MesaViewPage() {
                 </p>
               )}
 
-              <button onClick={submitMove}
+              <button onClick={() => void submitMove()}
                 disabled={!moveMesaIds.length || capacidad < moveReserva.personas}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
                 <ArrowRightLeft className="h-4 w-4" />
@@ -1584,7 +1593,7 @@ export default function MesaViewPage() {
                   </p>
                   <div className="space-y-1.5">
                     {candidatas.map((c) => (
-                      <button key={c.id} onClick={() => submitSwap(c)}
+                      <button key={c.id} onClick={() => void submitSwap(c)}
                         className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all hover:border-sky-300 hover:bg-sky-50">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="font-black text-gray-900">{c.hora}</span>
@@ -1605,8 +1614,6 @@ export default function MesaViewPage() {
         })()}
       </Modal>
 
-      {/* Resumen de mesas hechas por servicio (esquina) */}
-      <ResumenServicios reservas={reservas} />
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import nodemailer from "nodemailer";
+
 type ReservationConfirmationInput = {
   to: string;
   nombre: string;
@@ -240,16 +242,61 @@ async function sendEmailViaResend({
   return { sent: true };
 }
 
+async function sendEmailViaGmailSmtp({
+  to,
+  subject,
+  text,
+  html,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<EmailSendResult> {
+  const user = process.env.RESERVAS_GMAIL_USER?.trim();
+  const appPassword = process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim();
+  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO?.trim() || user;
+  const normalizedTo = to.trim().toLowerCase();
+
+  if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
+  if (!user || !appPassword) return { sent: false, reason: "missing_config" };
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass: appPassword },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: `Karuma Sushi & Grill <${user}>`,
+      to: normalizedTo,
+      replyTo: replyTo || user,
+      subject,
+      text,
+      html,
+    });
+  } catch (error) {
+    return {
+      sent: false,
+      reason: "request_failed",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  return { sent: true };
+}
+
 export async function sendReservationConfirmationEmail(
   input: ReservationConfirmationInput,
 ): Promise<EmailSendResult> {
   const email = buildConfirmationEmail(input);
-  return sendEmailViaResend({
+  return sendEmailViaGmailSmtp({
     to: input.to,
     subject: email.subject,
     text: email.text,
     html: email.html,
-    idempotencyKey: `reservation-confirmation-${input.reservaId}`,
   });
 }
 

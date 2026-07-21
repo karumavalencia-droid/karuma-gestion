@@ -122,10 +122,12 @@ Add these for **Production** + **Preview** + **Development**:
 | `RESEND_API_KEY` | `re_...` | Secret |
 | `RESERVAS_EMAIL_FROM` | `Karuma Sushi & Grill <reservas@your-domain.com>` | Secret |
 | `RESERVAS_EMAIL_REPLY_TO` | `reservas@your-domain.com` | Secret |
+| `RESERVAS_GMAIL_USER` | `reservas@your-domain.com` | Secret |
+| `RESERVAS_GMAIL_APP_PASSWORD` | `xxxx xxxx xxxx xxxx` | Secret |
 
 After adding → Redeploy from Vercel dashboard (Deployments → ... → Redeploy).
 
-Reservation confirmation emails are sent from `/api/reservas/crear` after the reservation is saved. Review request emails are sent from `/api/cron/reservas-review-emails`. Both use the Resend variables above. If the Resend variables are missing, the reservation still succeeds and the API returns `emailSent: false`.
+Reservation confirmation emails are sent from `/api/reservas/crear` after the reservation is saved. They now use Gmail SMTP via `RESERVAS_GMAIL_USER` and `RESERVAS_GMAIL_APP_PASSWORD`, with `RESERVAS_EMAIL_REPLY_TO` defaulting to the same Gmail address if omitted. Review request emails are sent from `/api/cron/reservas-review-emails` and still use the Resend variables above. If the Gmail variables are missing, the reservation still succeeds and the API returns `emailSent: false`.
 
 ---
 
