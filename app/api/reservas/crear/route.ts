@@ -4,6 +4,7 @@ import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad"
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
 import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+import { isValidOnlinePartySize } from "@/lib/reservas/config";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (!config.reservas_online_activas) {
       return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
     }
-    if (personasReserva > config.max_personas_online) {
+    if (!isValidOnlinePartySize(personasReserva)) {
       return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
     }
   }
@@ -75,8 +76,9 @@ export async function POST(req: NextRequest) {
     ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
     : personasReserva <= 2 ? config.duracion_1_2_min : (personasReserva <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
 
-  // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
-  let mesaIds: number[];
+  // Online allocation happens atomically in the database after the customer
+  // upsert. Staff flows keep their existing manual/automatic assignment.
+  let mesaIds: number[] = [];
   if (forceMesaIds && forceMesaIds.length > 0) {
     const existentes = (reservasExistentes ?? []) as Reserva[];
     let ocupadas: Set<number>;
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
     mesaIds = forceMesaIds;
-  } else {
+  } else if (origen !== "online") {
     const assigned = asignarMesa(
       mesas as Mesa[],
       (reservasExistentes ?? []) as Reserva[],
@@ -154,26 +156,50 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: reserva, error: errReserva } = await supabase
-    .from("reservas")
-    .insert({
-      cliente_id: clienteId,
-      fecha,
-      hora_inicio: hora,
-      duracion_min: duracion,
-      servicio: servicio as "comida" | "cena",
-      personas: isTableBlock ? 0 : personasReserva,
-      mesa_ids: mesaIds,
-      estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
-      seated_at: isWalkIn ? new Date().toISOString() : null,
-      notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
-      origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
-    })
-    .select("id")
-    .single();
+  let reservaId: string;
+  if (origen === "online" && !isTableBlock) {
+    const { data, error } = await supabase.rpc("create_online_reservation_atomic", {
+      p_cliente_id: clienteId,
+      p_fecha: fecha,
+      p_hora_inicio: hora,
+      p_servicio: servicio,
+      p_personas: personasReserva,
+      p_duracion_min: duracion,
+      p_notas: notas ?? null,
+    });
+    const result = data as { reservation_id?: string; mesa_ids?: number[] } | null;
+    if (error || !result?.reservation_id || !result.mesa_ids) {
+      const noAvailability = error?.message?.includes("NO_TABLE_AVAILABILITY");
+      return NextResponse.json(
+        { error: noAvailability ? "No hay disponibilidad para ese horario" : "Error al crear reserva" },
+        { status: noAvailability ? 409 : 500 },
+      );
+    }
+    reservaId = result.reservation_id;
+    mesaIds = result.mesa_ids;
+  } else {
+    const { data: reserva, error: errReserva } = await supabase
+      .from("reservas")
+      .insert({
+        cliente_id: clienteId,
+        fecha,
+        hora_inicio: hora,
+        duracion_min: duracion,
+        servicio: servicio as "comida" | "cena",
+        personas: isTableBlock ? 0 : personasReserva,
+        mesa_ids: mesaIds,
+        estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
+        seated_at: isWalkIn ? new Date().toISOString() : null,
+        notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
+        origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
+      })
+      .select("id")
+      .single();
 
-  if (errReserva || !reserva) {
-    return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
+    if (errReserva || !reserva) {
+      return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
+    }
+    reservaId = reserva.id;
   }
 
   const emailResult = !isTableBlock && emailCliente
@@ -184,7 +210,7 @@ export async function POST(req: NextRequest) {
         hora,
         servicio,
         personas: personasReserva,
-        reservaId: reserva.id,
+        reservaId,
         mesaIds,
         telefonoRestaurante: config.telefono,
       }).catch((error: unknown) => ({
@@ -196,7 +222,7 @@ export async function POST(req: NextRequest) {
 
   if (!isTableBlock && !emailResult.sent) {
     console.warn("Reservation confirmation email not sent", {
-      reservaId: reserva.id,
+      reservaId,
       reason: emailResult.reason,
       error: emailResult.error,
     });
@@ -204,7 +230,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    reservaId: reserva.id,
+    reservaId,
     mesaIds,
     emailSent: emailResult.sent,
     emailError: emailResult.sent ? null : emailResult.reason,

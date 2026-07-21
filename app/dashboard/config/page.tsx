@@ -6,10 +6,11 @@ import type { ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 import { RESERVAS_CONFIG_KEY } from "@/lib/reservas/local-store";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { Trash2, Plus } from "lucide-react";
+import { MAX_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
 const DEFAULT_CONFIG: ReservasConfig = {
   reservas_online_activas: true,
-  max_personas_online: 4,
+  max_personas_online: MAX_ONLINE_PARTY_SIZE,
   intervalo_min: 15,
   turno_gap_min: 30,
   duracion_1_2_min: 90,
@@ -171,7 +172,7 @@ export default function ConfigReservasPage() {
               onChange={(v) => set("reservas_online_activas", v)}
             />
             <Field label="Máx. personas online">
-              <input type="number" min={1} max={20} value={config.max_personas_online}
+              <input type="number" min={MAX_ONLINE_PARTY_SIZE} max={MAX_ONLINE_PARTY_SIZE} value={config.max_personas_online}
                 onChange={(e) => set("max_personas_online", Number(e.target.value))} className={inputCls} />
             </Field>
             <Field label="Intervalo (min)">

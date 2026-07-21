@@ -10,6 +10,7 @@ export interface Mesa {
   activa: boolean;
   pos_x: number | null;
   pos_y: number | null;
+  adjacent_mesa_ids?: number[] | null;
 }
 
 export interface ClienteReserva {

@@ -140,6 +140,7 @@ export type DbMesa = {
   activa: boolean;
   pos_x: number | null;
   pos_y: number | null;
+  adjacent_mesa_ids: number[];
   ancho: number | null;
   alto: number | null;
   forma: string | null;
@@ -880,6 +881,21 @@ export type Database = {
           p_note?: string;
         };
         Returns: DbInventoryItem;
+      };
+      create_online_reservation_atomic: {
+        Args: {
+          p_cliente_id: string | null;
+          p_fecha: string;
+          p_hora_inicio: string;
+          p_servicio: string;
+          p_personas: number;
+          p_duracion_min: number;
+          p_notas?: string | null;
+        };
+        Returns: {
+          reservation_id: string;
+          mesa_ids: number[];
+        };
       };
     };
     Enums: Record<string, never>;
