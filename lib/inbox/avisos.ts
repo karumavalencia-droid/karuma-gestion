@@ -21,6 +21,9 @@ export type EstadoAvisos = "activados" | "desactivados" | "bloqueados" | "no-sop
  * - Nunca en la primera lectura (`anterior === null`): al abrir la app ya se ve
  *   el número en la campana; avisar ahí sería ruido.
  * - Nunca con la pestaña a la vista: si estás mirando el Inbox, ya lo ves.
+ * - Solo dentro del horario de atención: un aviso a las 4 de la mañana no lo
+ *   va a atender nadie. El semáforo de retraso sí se sigue viendo siempre,
+ *   porque eso es información en pantalla y no una interrupción.
  */
 export function debeAvisar(input: {
   anterior: number | null;
@@ -28,8 +31,10 @@ export function debeAvisar(input: {
   visible: boolean;
   permiso: string;
   preferencia: boolean;
+  enHorario: boolean;
 }): boolean {
   if (!input.preferencia) return false;
+  if (!input.enHorario) return false;
   if (input.permiso !== "granted") return false;
   if (input.visible) return false;
   if (input.anterior === null) return false;

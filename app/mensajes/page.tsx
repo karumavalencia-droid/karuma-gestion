@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ThreadItem } from "@/components/inbox/ThreadItem";
@@ -30,7 +31,21 @@ type Respuesta = {
 };
 
 export default function MensajesPage() {
-  const [filtro, setFiltro] = useState("pendientes");
+  // useSearchParams obliga a un límite de Suspense en las páginas estáticas.
+  return (
+    <Suspense fallback={<p className="py-10 text-center text-sm text-gray-500">Cargando…</p>}>
+      <Bandeja />
+    </Suspense>
+  );
+}
+
+function Bandeja() {
+  const params = useSearchParams();
+  // La campana enlaza con ?platform=instagram: el filtro debe reflejarlo.
+  const filtroInicial = params.get("platform") ?? params.get("filtro") ?? "pendientes";
+  const [filtro, setFiltro] = useState(
+    FILTROS.some((f) => f.clave === filtroInicial) ? filtroInicial : "pendientes",
+  );
   const [threads, setThreads] = useState<(ThreadResumen & { extracto?: string | null })[]>([]);
   const [contadores, setContadores] = useState<Contadores | null>(null);
   const [cargando, setCargando] = useState(true);
