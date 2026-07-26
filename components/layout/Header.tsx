@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, Bell, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { debeAvisar, lanzarAviso, preferenciaActiva } from "@/lib/inbox/avisos";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -107,6 +108,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
  */
 function useSinResponder(role: string): number {
   const [total, setTotal] = useState(0);
+  const anterior = useRef<number | null>(null);
   const puedeVer = role === "owner" || role === "manager";
 
   useEffect(() => {
@@ -117,8 +119,25 @@ function useSinResponder(role: string): number {
       try {
         const res = await fetch("/api/inbox/unread", { cache: "no-store" });
         if (!res.ok) return;
-        const cuerpo = (await res.json()) as { total?: number };
-        if (vivo) setTotal(cuerpo.total ?? 0);
+        const cuerpo = (await res.json()) as { total?: number; urgentes?: number };
+        if (!vivo) return;
+
+        const actual = cuerpo.total ?? 0;
+        setTotal(actual);
+
+        // Aviso del navegador si ha entrado algo nuevo con la pestaña de fondo.
+        if (
+          debeAvisar({
+            anterior: anterior.current,
+            actual,
+            visible: document.visibilityState === "visible",
+            permiso: typeof Notification !== "undefined" ? Notification.permission : "default",
+            preferencia: preferenciaActiva(),
+          })
+        ) {
+          lanzarAviso(actual - (anterior.current ?? 0), cuerpo.urgentes ?? 0);
+        }
+        anterior.current = actual;
       } catch {
         /* sin red: se reintenta en el siguiente ciclo */
       }
