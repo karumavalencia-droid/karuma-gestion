@@ -13,6 +13,10 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/register",
   "/api/auth/session",
   "/api/auth/logout",
+  // Id del despliegue activo: lo consulta cualquier pestaña, también la de
+  // login, para avisar de que hay una versión nueva. No expone nada nuevo (ese
+  // id ya viaja en la query ?dpl= de los assets).
+  "/api/version",
 ]);
 
 // Módulos confidenciales: SOLO la sesión de Admin (usuario + contraseña + SMS).

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/layout/Providers";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { NuevaVersion } from "@/components/pwa/NuevaVersion";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body>
         <PwaRegister />
+        <NuevaVersion />
         <Providers>{children}</Providers>
       </body>
     </html>
