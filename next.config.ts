@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   // funcionando en local.
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  // Desfase de despliegues (skew): una pestaña abierta durante un deploy seguía
+  // pidiendo assets y payloads RSC del build anterior y acababa pintando un 404
+  // (p. ej. /documentos el 26/07). Con deploymentId, Next marca esas peticiones
+  // con el id del despliegue y el cliente recarga en vez de romperse.
+  // Requiere activar "Skew Protection" en los ajustes del proyecto de Vercel.
+  deploymentId: process.env.VERCEL_DEPLOYMENT_ID,
 };
 
 export default nextConfig;
