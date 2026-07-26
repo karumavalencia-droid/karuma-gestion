@@ -13,7 +13,8 @@
     "test:portal": "node --import tsx --test tests/schedule-portal.test.ts tests/schedule-me-api.test.ts",
     "test:reservas": "node --import tsx --test tests/reservas-local-store.test.ts tests/reservas-table-combinations.test.ts",
     "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts",
-    "seed:turnos": "node --import tsx scripts/seed-turnos.ts"
+    "seed:turnos": "node --import tsx scripts/seed-turnos.ts",
+    "test:inbox": "node --import tsx --test tests/inbox-rules.test.ts tests/inbox-adapters.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

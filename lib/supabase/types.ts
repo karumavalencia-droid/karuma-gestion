@@ -644,6 +644,141 @@ export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
   notas?: string | null;
 };
 
+// ─── Inbox: mensajes y reseñas (migración 038) ───────────────────────────────
+
+export type DbInboxPlatform =
+  | "instagram"
+  | "google"
+  | "tripadvisor"
+  | "facebook"
+  | "whatsapp"
+  | "tiktok"
+  | "email"
+  | "booking"
+  | "thefork"
+  | "manual";
+
+export type DbInboxKind = "dm" | "comment" | "mention" | "story_reply" | "review" | "question";
+export type DbInboxDirection = "in" | "out";
+export type DbInboxStatus = "nuevo" | "en_curso" | "respondido" | "cerrado" | "ignorado";
+export type DbInboxPriority = "baja" | "normal" | "alta" | "urgente";
+
+export type DbInboxAccount = {
+  id: string;
+  platform: DbInboxPlatform;
+  external_account_id: string;
+  display_name: string | null;
+  access_token_enc: string | null;
+  refresh_token_enc: string | null;
+  token_expires_at: string | null;
+  meta: Record<string, unknown>;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbInboxThread = {
+  id: string;
+  account_id: string | null;
+  platform: DbInboxPlatform;
+  kind: DbInboxKind;
+  external_thread_id: string;
+  customer_external_id: string | null;
+  customer_name: string | null;
+  customer_username: string | null;
+  customer_avatar_url: string | null;
+  language: string | null;
+  rating: number | null;
+  sentiment: number | null;
+  intents: string[];
+  is_complaint: boolean;
+  status: DbInboxStatus;
+  priority: DbInboxPriority;
+  unread: boolean;
+  first_inbound_at: string | null;
+  last_inbound_at: string | null;
+  last_message_at: string | null;
+  replied: boolean;
+  replied_at: string | null;
+  replied_by: string | null;
+  assigned_to: string | null;
+  permalink: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbInboxThreadInsert = Partial<DbInboxThread> & {
+  platform: DbInboxPlatform;
+  kind: DbInboxKind;
+  external_thread_id: string;
+};
+
+export type DbInboxMessage = {
+  id: string;
+  thread_id: string;
+  platform: DbInboxPlatform;
+  direction: DbInboxDirection;
+  external_id: string | null;
+  author_name: string | null;
+  author_username: string | null;
+  body: string | null;
+  attachments: unknown[];
+  raw: unknown;
+  sent_at: string | null;
+  received_at: string;
+  created_at: string;
+};
+
+export type DbInboxMessageInsert = Partial<DbInboxMessage> & {
+  thread_id: string;
+  platform: DbInboxPlatform;
+  direction: DbInboxDirection;
+};
+
+export type DbInboxAiSuggestion = {
+  id: string;
+  thread_id: string;
+  message_id: string | null;
+  model: string;
+  language: string | null;
+  reply_text: string;
+  analysis: Record<string, unknown>;
+  used: boolean;
+  created_at: string;
+};
+
+export type DbInboxAiSuggestionInsert = Partial<DbInboxAiSuggestion> & {
+  thread_id: string;
+  model: string;
+  reply_text: string;
+};
+
+export type DbInboxWebhookEvent = {
+  id: string;
+  platform: DbInboxPlatform;
+  signature_ok: boolean;
+  payload: unknown;
+  processed_at: string | null;
+  error: string | null;
+  received_at: string;
+};
+
+export type DbInboxWebhookEventInsert = Partial<DbInboxWebhookEvent> & {
+  platform: DbInboxPlatform;
+  signature_ok: boolean;
+  payload: unknown;
+};
+
+export type DbInboxSettings = {
+  id: boolean;
+  horario: Record<string, [string, string]>;
+  sla_aviso_min: number;
+  sla_urgente_min: number;
+  palabras_prioridad: string[];
+  ia_activa: boolean;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -873,6 +1008,45 @@ export type Database = {
         Row: DbDocumento;
         Insert: DbDocumentoInsert;
         Update: Partial<DbDocumentoInsert>;
+        Relationships: [];
+      };
+      inbox_accounts: {
+        Row: DbInboxAccount;
+        Insert: Partial<DbInboxAccount> & {
+          platform: DbInboxPlatform;
+          external_account_id: string;
+        };
+        Update: Partial<DbInboxAccount>;
+        Relationships: [];
+      };
+      inbox_threads: {
+        Row: DbInboxThread;
+        Insert: DbInboxThreadInsert;
+        Update: Partial<DbInboxThread>;
+        Relationships: [];
+      };
+      inbox_messages: {
+        Row: DbInboxMessage;
+        Insert: DbInboxMessageInsert;
+        Update: Partial<DbInboxMessage>;
+        Relationships: [];
+      };
+      inbox_ai_suggestions: {
+        Row: DbInboxAiSuggestion;
+        Insert: DbInboxAiSuggestionInsert;
+        Update: Partial<DbInboxAiSuggestion>;
+        Relationships: [];
+      };
+      inbox_webhook_events: {
+        Row: DbInboxWebhookEvent;
+        Insert: DbInboxWebhookEventInsert;
+        Update: Partial<DbInboxWebhookEvent>;
+        Relationships: [];
+      };
+      inbox_settings: {
+        Row: DbInboxSettings;
+        Insert: Partial<DbInboxSettings>;
+        Update: Partial<DbInboxSettings>;
         Relationships: [];
       };
     };
