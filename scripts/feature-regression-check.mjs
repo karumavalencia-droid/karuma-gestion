@@ -77,6 +77,7 @@ const INTENTIONALLY_UNLINKED = {
   "/facturas/init": "setup de Facturas",
 
   // Detalle / rutas dinámicas
+  "/mensajes/:id": "conversación (enlace desde /mensajes)",
   "/staff/:id": "detalle de empleado (enlace desde /staff)",
   "/ceo/change-requests/:id": "detalle de solicitud (enlace desde /ceo)",
 

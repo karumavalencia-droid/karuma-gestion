@@ -50,6 +50,7 @@ export const translations = {
       googleReviews: "Google Reviews",
       deliveryCenter: "Delivery Center",
       marketing: "Marketing",
+      mensajes: "Mensajes y Reseñas",
       delivery: "Delivery",
       cocina: "Cocina",
       configuracion: "Configuración",
@@ -410,6 +411,7 @@ export const translations = {
       googleReviews: "Google 评论",
       deliveryCenter: "外卖中心",
       marketing: "增长计划",
+      mensajes: "消息与评论",
       delivery: "外卖增长",
       cocina: "厨房",
       configuracion: "设置",
@@ -771,6 +773,7 @@ export const ROUTE_PAGE_TITLE: Record<string, string> = {
 /** Route path → nav translation key */
 export const ROUTE_NAV_KEY: Record<string, keyof TranslationTree["nav"]> = {
   "/dashboard": "dashboard",
+  "/mensajes": "mensajes",
   "/attendance": "attendance",
   "/dashboard/cominport": "cominport",
   "/dashboard/jet-extramar": "jetExtramar",
