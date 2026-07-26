@@ -1,0 +1,134 @@
+[
+  {
+    "nombre": "Grupo 3",
+    "cantidad": 54.45,
+    "precio_unitario": 937.67,
+    "total_linea": 51056.1315
+  },
+  {
+    "nombre": "Base excl. IVA",
+    "cantidad": 7.8,
+    "precio_unitario": 564.95,
+    "total_linea": 4406.610000000001
+  },
+  {
+    "nombre": "Base Imponible 1",
+    "cantidad": 24.81,
+    "precio_unitario": 142.94,
+    "total_linea": 3546.3414
+  },
+  {
+    "nombre": "CAFE CAPS SINGULAR AMERICAS 100U",
+    "cantidad": 1.0,
+    "precio_unitario": 81.19,
+    "total_linea": 81.19
+  },
+  {
+    "nombre": "CAFE CAPS SINGULAR DESC 100U",
+    "cantidad": 1.0,
+    "precio_unitario": 81.19,
+    "total_linea": 81.19
+  },
+  {
+    "nombre": "AMSTEL ORO 0.0 1/3 RET",
+    "cantidad": 1.0,
+    "precio_unitario": 40.1,
+    "total_linea": 40.1
+  },
+  {
+    "nombre": "AMSTEL RADLER 1/3 RET",
+    "cantidad": 1.0,
+    "precio_unitario": 39.18,
+    "total_linea": 39.18
+  },
+  {
+    "nombre": "AMSTEL 1/3 RET",
+    "cantidad": 3.0,
+    "precio_unitario": 34.96,
+    "total_linea": 104.88
+  },
+  {
+    "nombre": "FF/LANJARON CG 1/3 NR VD 24U",
+    "cantidad": 1.0,
+    "precio_unitario": 27.15,
+    "total_linea": 27.15
+  },
+  {
+    "nombre": "VB CASAGRANDE 6U",
+    "cantidad": 1.0,
+    "precio_unitario": 20.97,
+    "total_linea": 20.97
+  },
+  {
+    "nombre": "VT CASAGRANDE 6U",
+    "cantidad": 1.0,
+    "precio_unitario": 20.97,
+    "total_linea": 20.97
+  },
+  {
+    "nombre": "LANJARON 1/2 PET 24UD HOST",
+    "cantidad": 5.0,
+    "precio_unitario": 17.51,
+    "total_linea": 87.55000000000001
+  },
+  {
+    "nombre": "AZUCAR SOBRE SINGULAR 1000U 6G",
+    "cantidad": 1.0,
+    "precio_unitario": 17.28,
+    "total_linea": 17.28
+  },
+  {
+    "nombre": "Peaje Transporte y Distribución",
+    "cantidad": 0.05,
+    "precio_unitario": 15.67,
+    "total_linea": 0.7835000000000001
+  },
+  {
+    "nombre": "LANJARON 1,250 PET 15 U.",
+    "cantidad": 2.0,
+    "precio_unitario": 15.56,
+    "total_linea": 31.12
+  },
+  {
+    "nombre": "SALMÓN 8/9",
+    "cantidad": 65.66,
+    "precio_unitario": 7.8,
+    "total_linea": 512.1479999999999
+  },
+  {
+    "nombre": "SALMÓN +9",
+    "cantidad": 77.5,
+    "precio_unitario": 7.5,
+    "total_linea": 581.25
+  },
+  {
+    "nombre": "B.Imp.",
+    "cantidad": 5.5385,
+    "precio_unitario": 4.9587,
+    "total_linea": 27.46375995
+  },
+  {
+    "nombre": "P.Unitario",
+    "cantidad": 1.3636,
+    "precio_unitario": 3.5962,
+    "total_linea": 4.90377832
+  },
+  {
+    "nombre": "Importe",
+    "cantidad": 4.5,
+    "precio_unitario": 3.5,
+    "total_linea": 15.75
+  },
+  {
+    "nombre": "ENVASE AMSTEL 1/3 X 24",
+    "cantidad": 5.0,
+    "precio_unitario": 2.4,
+    "total_linea": 12.0
+  },
+  {
+    "nombre": "Cuota IVA",
+    "cantidad": 0.2418,
+    "precio_unitario": 0.2582,
+    "total_linea": 0.06243275999999999
+  }
+]

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff } from "lucide-react";
+import { AlertTriangle, CalendarCheck, Receipt, Timer, Users, UserCheck, UserX, TableProperties, Clock, TrendingUp, WifiOff, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { StatCard } from "@/components/ui/StatCard";
 import { getDashboardStats, type StatsLocal } from "@/lib/reservas/local-store";
@@ -32,32 +32,51 @@ export default function DashboardPage() {
   const [sales, setSales] = useState<SalesResponse | null>(null);
   const [facturas, setFacturas] = useState<FacturasResponse | null>(null);
   const [attendance, setAttendance] = useState<AttendanceResponse | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataWarnings, setDataWarnings] = useState<string[]>([]);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const thisMonth = todayStr.slice(0, 7);
 
-  useEffect(() => {
-    // Sync online bookings then compute stats
-    syncAndLoadReservas(todayStr)
-      .then(() => setStats(getDashboardStats(todayStr)))
-      .catch(() => setStats(getDashboardStats(todayStr)));
-
-    fetch("/api/sales/daily?limit=31")
-      .then((r) => r.json())
-      .then((d: SalesResponse) => setSales(d))
-      .catch(() => null);
-
-    fetch("/api/facturas", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: FacturasResponse) => setFacturas(d))
-      .catch(() => null);
-
-    fetch("/api/attendance/admin", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: AttendanceResponse | null) => setAttendance(d))
-      .catch(() => null);
+  const loadDashboard = useCallback(async () => {
+    setDataWarnings([]);
+    const warnings: string[] = [];
+    await Promise.all([
+      syncAndLoadReservas(todayStr)
+        .then(() => setStats(getDashboardStats(todayStr)))
+        .catch(() => {
+          setStats(getDashboardStats(todayStr));
+          warnings.push("reservas");
+        }),
+      fetch("/api/sales/daily", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: SalesResponse | null) => {
+          if (d && Array.isArray(d.records)) setSales(d);
+          else warnings.push("ventas");
+        })
+        .catch(() => warnings.push("ventas")),
+      fetch("/api/facturas", { cache: "no-store" })
+        .then((r) => {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
+        .then((d: FacturasResponse) => setFacturas(d))
+        .catch(() => warnings.push("facturas")),
+      fetch("/api/attendance/admin", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: AttendanceResponse | null) => {
+          if (d) setAttendance(d);
+          else warnings.push("personal");
+        })
+        .catch(() => warnings.push("personal")),
+    ]);
+    setDataWarnings([...new Set(warnings)]);
   }, [todayStr]);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
 
   // Refresh every 30s
   useEffect(() => {
@@ -69,11 +88,12 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [todayStr]);
 
-  const todayRec = sales?.records.find((r) => r.date === todayStr);
-  const yesterdayRec = sales?.records.find((r) => r.date === yesterdayStr);
-  const monthTotal = sales?.records
+  const salesRecords = sales?.records ?? [];
+  const todayRec = salesRecords.find((r) => r.date === todayStr);
+  const yesterdayRec = salesRecords.find((r) => r.date === yesterdayStr);
+  const monthTotal = salesRecords
     .filter((r) => r.date.startsWith(thisMonth))
-    .reduce((s, r) => s + r.grossSales, 0) ?? 0;
+    .reduce((s, r) => s + r.grossSales, 0);
 
   const salesConfigured = sales?.configured === true;
 
@@ -107,9 +127,38 @@ export default function DashboardPage() {
     ? attendance.rows.reduce((s, r) => s + (r.workedMinutes || 0), 0) / 60
     : null;
 
+  async function refreshDashboard() {
+    setRefreshing(true);
+    try {
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">{t("dashboard.overview")}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">{t("dashboard.overview")}</p>
+        <button
+          type="button"
+          onClick={refreshDashboard}
+          disabled={refreshing}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-karuma-300 hover:text-karuma-700 disabled:cursor-wait disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Actualizando…" : "Actualizar datos"}
+        </button>
+      </div>
+
+      {dataWarnings.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Algunas fuentes no respondieron. Los datos disponibles siguen visibles; pulsa Actualizar datos para reintentar.
+          </p>
+        </div>
+      )}
 
       {/* Ventas */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

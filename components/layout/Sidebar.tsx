@@ -5,36 +5,69 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  Bot,
+  Calculator,
   CalendarCheck,
   CalendarDays,
   ChefHat,
   ChevronDown,
+  Crown,
+  Database,
+  Flame,
+  FolderLock,
   LayoutDashboard,
   Megaphone,
+  MessageSquare,
+  Package,
   PackageSearch,
+  PieChart,
+  Settings,
   ShoppingBasket,
   Snowflake,
+  Sparkles,
+  Star,
+  Target,
   Timer,
   Truck,
   Users,
   UserCheck,
+  Wallet,
   X,
 } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
+// Módulos confidenciales: la entrada solo se muestra al rol owner
+// (el middleware bloquea además el acceso directo por URL).
+const OWNER_ONLY_ROUTES = new Set<ErpNavRoute>(["/finanzas", "/documentos"]);
+
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
+  "/ceo": Crown,
+  "/ai-gerente": Sparkles,
+  "/datos": Database,
+  "/objetivo": Target,
+  "/profit": PieChart,
+  "/finanzas": Wallet,
+  "/documentos": FolderLock,
   "/attendance": UserCheck,
   "/staff": Users,
   "/schedule": CalendarDays,
   "/marketing": Megaphone,
+  "/reviews": Star,
   "/delivery": Truck,
   "/facturas": ShoppingBasket,
+  "/food-cost": Calculator,
   "/recetas": ChefHat,
+  "/cocina": Flame,
   "/dashboard/reservas": CalendarCheck,
+  "/announcements": MessageSquare,
+  "/coach": Bot,
+  "/dashboard/stock": Package,
+  "/configuracion": Settings,
 };
 
 const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
@@ -60,6 +93,11 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner" && !user.employeeId;
+  const visibleRoutes = ERP_NAV_ROUTES.filter(
+    (route) => isOwner || !OWNER_ONLY_ROUTES.has(route),
+  );
   const isMesaView = pathname === "/dashboard/mesa-view";
   const supplierRouteActive = SUPPLIER_LINKS.some(
     ({ href }) => pathname === href || pathname.startsWith(`${href}/`),
@@ -108,7 +146,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {ERP_NAV_ROUTES.map((route) => {
+          {visibleRoutes.map((route) => {
             const isActive =
               route === "/dashboard"
                 ? pathname === "/dashboard"

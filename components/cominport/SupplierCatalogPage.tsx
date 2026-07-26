@@ -6,14 +6,20 @@ import {
   Filter,
   Heart,
   History,
+  ListOrdered,
   PackageSearch,
   Search,
   ShoppingCart,
+  type LucideIcon,
 } from "lucide-react";
 import { Cart } from "@/components/cominport/Cart";
 import { Favorites } from "@/components/cominport/Favorites";
 import { OrderHistory } from "@/components/cominport/OrderHistory";
 import { ProductCard } from "@/components/cominport/ProductCard";
+import {
+  getCominportInvoiceMeta,
+  rankCominportProducts,
+} from "@/src/data/cominportInvoiceRanking";
 import type {
   CominportCartItem,
   CominportOrder,
@@ -21,13 +27,15 @@ import type {
   CominportStockAlert,
 } from "@/src/data/cominportProducts";
 
-type Tab = "catalogo" | "favoritos" | "historial" | "carrito";
+type Tab = "catalogo" | "ranking" | "favoritos" | "historial" | "carrito";
 const CATALOG_PAGE_SIZE = 48;
 
 interface SupplierCatalogPageProps {
   supplierName: string;
   storagePrefix: string;
   whatsappStorageKey: string;
+  /** Número usado si no hay ninguno guardado en este navegador. */
+  defaultWhatsappNumber?: string;
   products: CominportProduct[];
   stockAlerts: CominportStockAlert[];
 }
@@ -64,8 +72,13 @@ function buildWhatsappMessage(
 ): string {
   const products = items
     .map(
-      (item) =>
-        `Código: ${item.codigo}\nProducto: ${item.nombre}\nCantidad: ${item.cantidad}`,
+      (item) => {
+        const invoiceMeta = getCominportInvoiceMeta(item.codigo);
+
+        return `Código: ${item.codigo}\nProducto: ${item.nombre}\nUnidad: ${
+          invoiceMeta?.unidadPedido ?? "unidad"
+        }\nCantidad: ${item.cantidad}`;
+      },
     )
     .join("\n\n");
 
@@ -89,6 +102,7 @@ export function SupplierCatalogPage({
   supplierName,
   storagePrefix,
   whatsappStorageKey,
+  defaultWhatsappNumber = "",
   products,
   stockAlerts,
 }: SupplierCatalogPageProps) {
@@ -116,11 +130,19 @@ export function SupplierCatalogPage({
     setOrders(readStoredArray<CominportOrder>(historyStorageKey));
 
     try {
-      setWhatsappNumber(window.localStorage.getItem(whatsappStorageKey) ?? "");
+      setWhatsappNumber(
+        window.localStorage.getItem(whatsappStorageKey) || defaultWhatsappNumber,
+      );
     } catch {
-      setWhatsappNumber("");
+      setWhatsappNumber(defaultWhatsappNumber);
     }
-  }, [favoritesStorageKey, historyStorageKey, products, whatsappStorageKey]);
+  }, [
+    defaultWhatsappNumber,
+    favoritesStorageKey,
+    historyStorageKey,
+    products,
+    whatsappStorageKey,
+  ]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -156,6 +178,14 @@ export function SupplierCatalogPage({
   const visibleProducts = useMemo(
     () => filteredProducts.slice(0, visibleCount),
     [filteredProducts, visibleCount],
+  );
+
+  const invoiceRankedProducts = useMemo(
+    () =>
+      rankCominportProducts(products).filter((product) =>
+        Boolean(getCominportInvoiceMeta(product.codigo)),
+      ),
+    [products],
   );
 
   const favoriteProducts = useMemo(() => {
@@ -307,6 +337,36 @@ export function SupplierCatalogPage({
     onSaveWhatsappNumber: saveWhatsappNumber,
     onSend: sendWhatsappOrder,
   };
+  const hasInvoiceRanking = invoiceRankedProducts.length > 0;
+  const mobileTabs: Array<{
+    tab: Tab;
+    label: string;
+    Icon: LucideIcon;
+    count: number;
+  }> = [
+    { tab: "catalogo", label: "Catálogo", Icon: PackageSearch, count: filteredProducts.length },
+    ...(hasInvoiceRanking
+      ? [
+          {
+            tab: "ranking" as const,
+            label: "Ranking",
+            Icon: ListOrdered,
+            count: invoiceRankedProducts.length,
+          },
+        ]
+      : []),
+    { tab: "favoritos", label: "Favoritos", Icon: Heart, count: favoriteCodes.length },
+    { tab: "historial", label: "Historial", Icon: History, count: orders.length },
+    { tab: "carrito", label: "Carrito", Icon: ShoppingCart, count: totalQuantity },
+  ];
+  const desktopTabs: Array<{ tab: Tab; label: string; count: number }> = [
+    { tab: "catalogo", label: "Catálogo", count: filteredProducts.length },
+    ...(hasInvoiceRanking
+      ? [{ tab: "ranking" as const, label: "Ranking facturas", count: invoiceRankedProducts.length }]
+      : []),
+    { tab: "favoritos", label: "Lista habitual", count: favoriteCodes.length },
+    { tab: "historial", label: "Historial", count: orders.length },
+  ];
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -405,15 +465,12 @@ export function SupplierCatalogPage({
         </div>
       </section>
 
-      <nav className="grid grid-cols-4 gap-1 rounded-xl bg-gray-200 p-1 lg:hidden dark:bg-gray-800">
-        {(
-          [
-            ["catalogo", "Catálogo", PackageSearch, filteredProducts.length],
-            ["favoritos", "Favoritos", Heart, favoriteCodes.length],
-            ["historial", "Historial", History, orders.length],
-            ["carrito", "Carrito", ShoppingCart, totalQuantity],
-          ] as const
-        ).map(([tab, label, Icon, count]) => (
+      <nav
+        className={`grid gap-1 rounded-xl bg-gray-200 p-1 lg:hidden dark:bg-gray-800 ${
+          hasInvoiceRanking ? "grid-cols-5" : "grid-cols-4"
+        }`}
+      >
+        {mobileTabs.map(({ tab, label, Icon, count }) => (
           <button
             key={tab}
             type="button"
@@ -439,14 +496,12 @@ export function SupplierCatalogPage({
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-5">
         <div className="min-w-0">
-          <nav className="mb-4 hidden gap-1 rounded-xl bg-gray-200 p-1 lg:grid lg:grid-cols-3 dark:bg-gray-800">
-            {(
-              [
-                ["catalogo", "Catálogo", filteredProducts.length],
-                ["favoritos", "Lista habitual", favoriteCodes.length],
-                ["historial", "Historial", orders.length],
-              ] as const
-            ).map(([tab, label, count]) => (
+          <nav
+            className={`mb-4 hidden gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-800 lg:grid ${
+              hasInvoiceRanking ? "lg:grid-cols-4" : "lg:grid-cols-3"
+            }`}
+          >
+            {desktopTabs.map(({ tab, label, count }) => (
               <button
                 key={tab}
                 type="button"
@@ -520,6 +575,65 @@ export function SupplierCatalogPage({
                 )}
               </div>
             )}
+          </div>
+
+          <div className={activeTab === "ranking" ? "block" : "hidden"}>
+            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  Ranking facturas
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {invoiceRankedProducts.length} productos pedidos en facturas Cominport.
+                </p>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {invoiceRankedProducts.map((product, index) => {
+                  const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+                  if (!invoiceMeta) return null;
+
+                  return (
+                    <article
+                      key={product.codigo}
+                      className="grid gap-3 px-4 py-3 sm:grid-cols-[64px_minmax(0,1fr)_180px_116px] sm:items-center"
+                    >
+                      <div className="flex items-center gap-2 sm:block">
+                        <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg bg-karuma-50 px-2 text-sm font-bold text-karuma-700 dark:bg-karuma-950/40 dark:text-karuma-300">
+                          #{index + 1}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-500 sm:mt-1 sm:block dark:text-gray-400">
+                          {product.codigo}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                          {product.nombre}
+                        </h3>
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          {product.formato}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs sm:block sm:space-y-1">
+                        <p className="font-medium text-karuma-700 dark:text-karuma-300">
+                          {invoiceMeta.unidadPedido}
+                        </p>
+                        <p className="text-gray-500 dark:text-gray-400">
+                          {invoiceMeta.pedidosFactura} veces · {invoiceMeta.cantidadFactura} uds.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addProduct(product)}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-karuma-600 px-3 py-2 text-sm font-medium text-white hover:bg-karuma-700"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        Añadir
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           </div>
 
           <div className={activeTab === "favoritos" ? "block" : "hidden"}>

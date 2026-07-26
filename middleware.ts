@@ -7,23 +7,52 @@ import {
 
 const PUBLIC_PATHS = new Set([
   "/api/auth/login",
+  "/api/auth/login/otp/request",
+  "/api/auth/login/otp/verify",
+  "/api/auth/register",
   "/api/auth/session",
   "/api/auth/logout",
 ]);
 
+// Módulos confidenciales: solo el rol owner (finanzas reales y documentos).
+const OWNER_ONLY_PREFIXES = [
+  "/finanzas",
+  "/documentos",
+  "/api/gastos",
+  "/api/documentos",
+  "/api/finanzas",
+];
+
 // Portal del empleado: rutas permitidas para cuentas con employeeId.
-const EMPLOYEE_PAGES = new Set(["/my-attendance", "/my-schedule"]);
-const EMPLOYEE_API_PREFIXES = ["/api/attendance/me", "/api/schedule/me"];
+const EMPLOYEE_PAGES = new Set([
+  "/my-attendance",
+  "/my-schedule",
+  "/announcements",
+  "/coach",
+  "/ceo",
+]);
+const EMPLOYEE_API_PREFIXES = [
+  "/api/attendance/me",
+  "/api/attendance/colleagues",
+  "/api/schedule/me",
+  "/api/announcements/me",
+  "/api/coach/",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
     PUBLIC_PATHS.has(pathname) ||
+    // Endpoints de login (OTP, admin 2FA, registro): siempre públicos.
+    pathname.startsWith("/api/auth/login") ||
+    pathname === "/api/auth/register" ||
     pathname === "/reservas" ||
     pathname.startsWith("/reservas/") ||
     pathname.startsWith("/api/reservas/") ||
-    pathname.startsWith("/api/cron/")
+    pathname.startsWith("/api/cron/") ||
+    pathname === "/api/stock/import-template" ||
+    pathname === "/api/stock/from-invoices"
   ) {
     return NextResponse.next();
   }
@@ -52,7 +81,31 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    if (!user.employeeId && EMPLOYEE_PAGES.has(pathname)) {
+    // Módulos confidenciales: solo owner (y nunca cuentas de empleado).
+    if (
+      OWNER_ONLY_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      ) &&
+      (user.role !== "owner" || user.employeeId)
+    ) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Solo el propietario puede acceder a este módulo" },
+          { status: 403 },
+        );
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Los anuncios (tablero de traspaso) y Karuma Coach también son visibles
+    // para cuentas de gestión.
+    if (
+      !user.employeeId &&
+      EMPLOYEE_PAGES.has(pathname) &&
+      pathname !== "/announcements" &&
+      pathname !== "/coach" &&
+      pathname !== "/ceo"
+    ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     if (

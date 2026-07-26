@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
+import { ResumenServicios } from "@/components/reservas/ResumenServicios";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { TimeSlotPicker } from "@/components/reservas/TimeSlotPicker";
 import {
@@ -14,8 +15,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
-import { postReservaMutation } from "@/lib/reservas/client-mutations";
-import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
+import { setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getMesasConEstado,
@@ -32,8 +32,11 @@ import {
   intercambiarReservas,
   slotsPlano,
   defaultHoraPlano,
+  servicioActual,
   duracionReserva,
   loadReservas,
+  storeCreatedReservation,
+  asignarMesa,
   MESAS_SEED,
   type MesaConEstado,
   type MesaLocal,
@@ -65,7 +68,7 @@ const ESTADO_CORTO: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
-function autoServicio(): ServicioLocal { return new Date().getHours() >= 15 ? "cena" : "comida"; }
+function autoServicio(): ServicioLocal { return servicioActual(); }
 function fechaLarga(f: string): string {
   const s = new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   return s.charAt(0).toUpperCase() + s.slice(1);  // "Domingo, 22 de junio"
@@ -91,26 +94,6 @@ function duracionBloqueoLabel(minutos?: number) {
 function canMoveLocalReservation(reserva: ReservaLocal): boolean {
   return !isTableBlockReservation(reserva) && canMoveReservation(reserva.estado) && reserva.mesaIds.length > 0;
 }
-function isRealReservation(reserva?: ReservaLocal | null): reserva is ReservaLocal {
-  return !!reserva && !isTableBlockReservation(reserva);
-}
-function mesaPartyLabel(mesa: MesaConEstado, reserva?: ReservaLocal | null): string {
-  return isRealReservation(reserva) ? `${getReservationGuests(reserva)}p` : `${mesa.capacidad}p`;
-}
-function joinedTablesLabel(reserva?: ReservaLocal | null): string | null {
-  if (!isRealReservation(reserva) || reserva.mesaIds.length <= 1) return null;
-  return `${reserva.mesaIds.length} mesas`;
-}
-function isJoinedReservation(reserva?: ReservaLocal | null): boolean {
-  return !!reserva && reserva.mesaIds.length > 1;
-}
-function reservationTablesLabel(reserva?: ReservaLocal | null, mesa?: MesaConEstado | null): string {
-  if (reserva?.mesaIds.length) return mesaLabel(reserva.mesaIds);
-  return mesa ? `T${mesa.numero}` : "Mesa";
-}
-function agendaItemTitle(a: ReservaLocal): string {
-  return isTableBlockReservation(a) ? `${a.hora} Bloqueo mesa` : `${a.hora} ${a.nombre} ${getReservationGuests(a)}p`;
-}
 function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
   const activas = reservas.filter(
     (r) => isActiveReservation(r.estado) && getReservationService(r) === servicio && !isTableBlockReservation(r),
@@ -119,6 +102,28 @@ function getMealStats(reservas: ReservaLocal[], servicio: ServicioLocal) {
     mesas: countReservedTables(activas),
     pax: activas.reduce((sum, r) => sum + getReservationGuests(r), 0),
   };
+}
+function suggestWalkInMesas(personas: number): string[] {
+  const hora = new Date().toTimeString().slice(0, 5);
+  const servicio = autoServicio();
+  const fecha = hoy();
+  const mesas = MESAS_SEED;
+  const result: string[] = [];
+  let capacidadTotal = 0;
+  let personasRestantes = personas;
+
+  while (personasRestantes > 0) {
+    const sugerida = asignarMesa(personasRestantes, fecha, hora, servicio);
+    if (!sugerida || sugerida.length === 0) break;
+    const mesaId = sugerida[0];
+    if (result.includes(mesaId)) break;
+    result.push(mesaId);
+    const capacidad = mesas.find((m) => m.id === mesaId)?.capacidad ?? 0;
+    capacidadTotal += capacidad;
+    personasRestantes = Math.max(0, personas - capacidadTotal);
+  }
+
+  return result;
 }
 // ─── Modal shell ──────────────────────────────────────────────────────────────
 
@@ -162,7 +167,7 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 
 export default function MesaViewPage() {
   const [fecha, setFecha]       = useState(getSharedFecha);
-  const [servicio, setServicio] = useState<ServicioLocal>(() => getSharedServicio() ?? autoServicio());
+  const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
   const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [reservas, setReservas]   = useState<ReservaLocal[]>([]);
   const [mesas, setMesas]       = useState<MesaConEstado[]>([]);
@@ -181,8 +186,8 @@ export default function MesaViewPage() {
   const [wiNotas, setWiNotas]       = useState("");
   const [wiError, setWiError]       = useState("");
   const [wiOk, setWiOk]             = useState(false);
-  const [wiGeneral, setWiGeneral]   = useState(false); // true = opened from top bar, needs mesa picker
-  const [wiSelectedId, setWiSelectedId] = useState<string>(""); // mesa selected in general mode
+  const [wiGeneral, setWiGeneral]   = useState(false); // true = opened from top bar (sin mesa de partida)
+  const [wiMesaIds, setWiMesaIds]   = useState<string[]>([]); // mesas del walk-in (varias para grupos grandes)
 
   // Nueva Reserva modal
   const [showNueva, setShowNueva]     = useState(false);
@@ -241,6 +246,12 @@ export default function MesaViewPage() {
     });
   }, [fecha, servicio, horaPlano]);
 
+  const refreshLocal = useCallback(() => {
+    const all = loadReservas().filter((r) => r.fecha === fecha);
+    setReservas(all);
+    setMesas(getMesasConEstado(fecha, servicio, horaPlano));
+  }, [fecha, servicio, horaPlano]);
+
   useEffect(() => { reload(); }, [reload]);
 
   // Al cambiar fecha o servicio, recolocar el visor del plano en su hora por defecto
@@ -250,9 +261,11 @@ export default function MesaViewPage() {
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
-    const ch = sb.channel("mesa_view_sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => reload())
-      .subscribe();
+    const ch = sb.channel("mesa_view_sync");
+    for (const table of ["reservas", "mesas", "table_sessions"] as const) {
+      ch.on("postgres_changes", { event: "*", schema: "public", table }, () => reload());
+    }
+    ch.subscribe();
     return () => { void ch.unsubscribe(); };
   }, [reload]);
 
@@ -261,6 +274,13 @@ export default function MesaViewPage() {
     const id = setInterval(() => { setTick((t) => t + 1); reload(); }, 60_000);
     return () => clearInterval(id);
   }, [reload]);
+
+  // Auto-suggest tables when person count changes in general walk-in
+  useEffect(() => {
+    if (wiGeneral && wiMesa && Object.keys(wiMesa).length === 0) {
+      setWiMesaIds(suggestWalkInMesas(wiPersonas));
+    }
+  }, [wiPersonas, wiGeneral, wiMesa]);
 
   void tick;
 
@@ -287,15 +307,14 @@ export default function MesaViewPage() {
   // ── Walk-In ──────────────────────────────────────────────────────────────────
   function openWalkIn(m: MesaConEstado) {
     setWiMesa(m); setWiPersonas(m.capacidad); setWiNombre(""); setWiTelefono("");
-    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(false); setWiSelectedId("");
+    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(false); setWiMesaIds([m.id]);
   }
   function openWalkInGeneral() {
     setWiMesa({} as MesaConEstado); setWiPersonas(2); setWiNombre(""); setWiTelefono("");
-    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiSelectedId("");
+    setWiNotas(""); setWiError(""); setWiOk(false); setWiGeneral(true); setWiMesaIds(suggestWalkInMesas(2));
   }
   async function submitWalkIn() {
-    const mesaId = wiGeneral ? wiSelectedId : wiMesa?.id;
-    if (!mesaId) { setWiError("Selecciona una mesa"); return; }
+    if (!wiMesaIds.length) { setWiError("Selecciona al menos una mesa"); return; }
     setWiError("");
     try {
       const response = await fetch("/api/reservas/crear", {
@@ -310,21 +329,35 @@ export default function MesaViewPage() {
           telefono: wiTelefono.trim(),
           notas: wiNotas,
           origen: "walkin",
-          forceMesaIds: [Number(mesaId.replace("T", ""))],
+          forceMesaIds: wiMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as {
+        ok?: boolean;
+        error?: string;
+        reservaId?: string;
+        mesaIds?: number[];
+        emailSent?: boolean;
+      };
       if (!response.ok || !json.ok) {
         setWiError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
-      const mesaNum = mesaId.replace("T", "");
-      setWiOk(true); reload(); showToast(`T${mesaNum} — Walk-In registrado`);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wiPersonas,
+          mesaIds: (json.mesaIds ?? wiMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: wiNombre || "Walk-In", telefono: wiTelefono.trim(), notas: wiNotas, origen: "walkin",
+        });
+        refreshLocal();
+      }
+      setWiOk(true); void reload(); showToast(`${mesaLabel(wiMesaIds)} — Walk-In registrado`);
     } catch {
       setWiError("No se pudo registrar el Walk-In.");
     }
   }
-  function closeWalkIn() { setWiMesa(null); setWiOk(false); setWiError(""); setWiGeneral(false); setWiSelectedId(""); }
+  function closeWalkIn() { setWiMesa(null); setWiOk(false); setWiError(""); setWiGeneral(false); setWiMesaIds([]); }
 
   // ── Nueva Reserva ────────────────────────────────────────────────────────────
   function openNueva() {
@@ -377,12 +410,26 @@ export default function MesaViewPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
       }
-      setShowNueva(false); reload(); showToast("Reserva creada");
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha, hora: nHora, servicio: nServicio, personas: nPersonas,
+          mesaIds: (json.mesaIds ?? []).map((id) => `T${id}`), nombre: nNombre.trim(),
+          telefono: nTelefono.trim(), email: nEmail.trim() || null, notas: nNotas.trim(), origen: "manual",
+        });
+        refreshLocal();
+      }
+      setShowNueva(false);
+      void reload();
+      showToast(
+        nEmail.trim() && !json.emailSent
+          ? "Reserva creada, pero no se pudo enviar la confirmación"
+          : "Reserva creada",
+      );
     } catch {
       setNError("No se pudo crear la reserva.");
     }
@@ -426,14 +473,23 @@ export default function MesaViewPage() {
           forceMesaIds: bMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setBError(json.error ?? "No se pudo bloquear la mesa.");
         return;
       }
       const destino = mesaLabel(bMesaIds);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: bFecha, hora: bHora, servicio: bServicio, personas: 0,
+          mesaIds: (json.mesaIds ?? bMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: "Bloqueo mesa", notas: bNotas.trim(), origen: "manual",
+          duracionMin: bDuracion, bloqueo: true,
+        });
+        refreshLocal();
+      }
       setShowBlock(false);
-      reload();
+      void reload();
       showToast(`${destino} bloqueada`);
     } catch {
       setBError("No se pudo bloquear la mesa.");
@@ -441,17 +497,16 @@ export default function MesaViewPage() {
   }
 
   // ── Liberar ──────────────────────────────────────────────────────────────────
-  async function handleLiberar(r: ReservaLocal) {
+  function handleLiberar(r: ReservaLocal) {
     liberarMesa(r.id);
+    refreshLocal();
     if (r.origen) {
-      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "finished" });
-      if (!remote.ok) {
-        reload();
-        showToast(remote.error);
-        return;
-      }
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, estado: "finished" }),
+      }).then(() => reload());
     }
-    setSel(null); reload(); showToast("Mesa liberada");
+    setSel(null); showToast("Mesa liberada");
   }
 
   // ── Des-sentar (volver a confirmada) ─────────────────────────────────────────
@@ -461,28 +516,27 @@ export default function MesaViewPage() {
     if (r.origen) {
       // Esperar la respuesta antes de recargar: si no, la sincronización lee el
       // estado antiguo de Supabase y revierte el cambio local.
-      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "confirmada" });
-      if (!remote.ok) {
-        reload();
-        showToast(remote.error);
-        return;
-      }
+      try {
+        await fetch("/api/reservas/actualizar-estado", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: r.id, estado: "confirmada" }),
+        });
+      } catch { /* sin red: el local ya está actualizado */ }
     }
-    setSel(null); reload(); showToast("Reserva devuelta a confirmada");
+    setSel(null); refreshLocal(); void reload(); showToast("Reserva devuelta a confirmada");
   }
 
   // ── Cancelar ─────────────────────────────────────────────────────────────────
-  async function handleCancelar(r: ReservaLocal) {
+  function handleCancelar(r: ReservaLocal) {
     updateEstado(r.id, "cancelada");
+    refreshLocal();
     if (r.origen) {
-      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: r.id, estado: "cancelada" });
-      if (!remote.ok) {
-        reload();
-        showToast(remote.error);
-        return;
-      }
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, estado: "cancelada" }),
+      }).then(() => reload());
     }
-    setCancelReservaId(null); setSel(null); reload(); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
+    setCancelReservaId(null); setSel(null); showToast(isTableBlockReservation(r) ? "Mesa desbloqueada" : "Reserva cancelada");
   }
 
   // ── Editar (personas + hora + mesa) ───────────────────────────────────────────
@@ -493,7 +547,7 @@ export default function MesaViewPage() {
     setEditError("");
     setEditing(true);
   }
-  async function submitEdit(r: ReservaLocal) {
+  function submitEdit(r: ReservaLocal) {
     setEditError("");
     const mesaCambiada = editMesaIds.length > 0 &&
       (editMesaIds.length !== r.mesaIds.length || editMesaIds.some((id) => !r.mesaIds.includes(id)));
@@ -503,37 +557,35 @@ export default function MesaViewPage() {
       ...(mesaCambiada ? { mesaIds: editMesaIds } : {}),
     });
     if (!res.ok) { setEditError(res.error); return; }
+    refreshLocal();
     if (r.origen) {
-      const remote = await postReservaMutation("/api/reservas/actualizar", {
-        action: "editar", id: r.id, personas: editPersonas, hora: editHora,
-        ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
-      });
-      if (!remote.ok) {
-        setEditError(remote.error);
-        reload();
-        return;
-      }
+      void fetch("/api/reservas/actualizar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "editar", id: r.id, personas: editPersonas, hora: editHora,
+          ...(mesaCambiada ? { mesaIds: editMesaIds.map((id) => Number(id.replace("T", ""))) } : {}),
+        }),
+      }).then(() => reload());
     }
-    setEditing(false); setSel(null); reload(); showToast("Reserva actualizada");
+    setEditing(false); setSel(null); showToast("Reserva actualizada");
   }
 
   // ── Sentar ───────────────────────────────────────────────────────────────────
   function openSeat(r: ReservaLocal) {
     setSeatReserva(r); setSeatMesaIds(r.mesaIds.length ? r.mesaIds : []); setSeatError("");
   }
-  async function submitSeat() {
+  function submitSeat() {
     if (!seatReserva) return;
     const res = sentarReserva(seatReserva.id, seatMesaIds.length ? seatMesaIds : undefined);
     if (!res.ok) { setSeatError(res.error); return; }
+    refreshLocal();
     if (seatReserva.origen) {
-      const remote = await postReservaMutation("/api/reservas/actualizar-estado", { id: seatReserva.id, estado: "sentada" });
-      if (!remote.ok) {
-        setSeatError(remote.error);
-        reload();
-        return;
-      }
+      void fetch("/api/reservas/actualizar-estado", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: seatReserva.id, estado: "sentada" }),
+      }).then(() => reload());
     }
-    setSeatReserva(null); setSel(null); reload(); showToast("Mesa ocupada");
+    setSeatReserva(null); setSel(null); showToast("Mesa ocupada");
   }
 
   // ── Cambiar mesa ─────────────────────────────────────────────────────────────
@@ -542,24 +594,24 @@ export default function MesaViewPage() {
     setMoveMesaIds([]);
     setMoveError("");
   }
-  async function submitMove() {
+  function submitMove() {
     if (!moveReserva) return;
     const res = cambiarMesas(moveReserva.id, moveMesaIds);
     if (!res.ok) { setMoveError(res.error); return; }
+    refreshLocal();
     if (moveReserva.origen) {
-      const remote = await postReservaMutation("/api/reservas/actualizar", {
-        action: "cambiar-mesa",
-        id: moveReserva.id,
-        mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
-      });
-      if (!remote.ok) {
-        setMoveError(remote.error);
-        reload();
-        return;
-      }
+      void fetch("/api/reservas/actualizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cambiar-mesa",
+          id: moveReserva.id,
+          mesaIds: moveMesaIds.map((id) => Number(id.replace("T", ""))),
+        }),
+      }).then(() => reload());
     }
     const destino = mesaLabel(moveMesaIds);
-    setMoveReserva(null); setSel(null); reload(); showToast(`Cliente trasladado a ${destino}`);
+    setMoveReserva(null); setSel(null); showToast(`Cliente trasladado a ${destino}`);
   }
 
   // ── Intercambiar mesa entre dos reservas ─────────────────────────────────────
@@ -616,6 +668,12 @@ export default function MesaViewPage() {
   }
 
   const mesasList: MesaLocal[] = MESAS_SEED;
+
+  // Plazas de las mesas elegidas para el walk-in; el selector de mesas aparece
+  // en modo general, cuando el grupo supera el límite de plazas seleccionadas
+  // y mientras haya varias mesas (para poder quitar una elegida por error)
+  const wiPlazas = wiMesaIds.reduce((t, id) => t + (mesasList.find((m) => m.id === id)?.capacidad ?? 0), 0);
+  const wiShowPicker = wiGeneral || wiPersonas > wiPlazas || wiMesaIds.length > 1;
 
   return (
     <div className="mesa-page min-h-full bg-[#f7f3ec] p-4 text-gray-900 md:p-6">
@@ -915,8 +973,6 @@ export default function MesaViewPage() {
             const visualStatus = proxima ? "reserved" : m.status;
             const st = isBlocked ? BLOCKED_STYLE : STATUS_STYLE[visualStatus];
             const occupied = m.status === "occupied";
-            const partyLabel = mesaPartyLabel(m, shownReserva);
-            const joinedLabel = joinedTablesLabel(shownReserva);
             const otras = agenda.filter((x) => x.id !== r?.id); // otros turnos de la mesa ese día
             return (
               <button key={m.id} onClick={() => handleMesaClick(m)}
@@ -930,15 +986,7 @@ export default function MesaViewPage() {
                   </span>
                 </span>
                 <p className={`mesa-card-number text-2xl font-black ${occupied ? "text-white" : "text-gray-900"}`}>T{m.numero}</p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <p className={`text-sm font-semibold ${occupied ? "text-emerald-100" : isRealReservation(shownReserva) ? "text-emerald-700" : "text-gray-400"}`}>
-                    {partyLabel}
-                  </p>
-                  {joinedLabel && (
-                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${occupied ? "bg-white/20 text-white" : "bg-emerald-200 text-emerald-900"}`}>
-                      {joinedLabel}
-                    </span>
-                  )}
+                <div className="flex items-center gap-1.5">
                   {agenda.length > 1 && (
                     <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-gray-900"}`}
                       title={`${agenda.length} reservas hoy`}>
@@ -950,7 +998,7 @@ export default function MesaViewPage() {
                   <div className="mesa-card-detail mt-2 space-y-1">
                     <p className="mesa-card-detail-name truncate text-base font-bold text-white">{r.nombre}</p>
                     <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-100">
-                      <Users className="h-4 w-4" />{getReservationGuests(r)}
+                      <Users className="h-4 w-4" />{r.personas}
                       <Clock className="ml-1.5 h-4 w-4" />{r.estado === "walkin" ? `${r.hora} · ${duracion(r.seatedAt)}` : duracion(r.seatedAt)}
                     </div>
                   </div>
@@ -964,7 +1012,7 @@ export default function MesaViewPage() {
                 {m.status === "reserved" && r && !isTableBlockReservation(r) && (
                   <div className="mesa-card-detail mt-2 space-y-0.5">
                     <p className="mesa-card-detail-name truncate text-base font-bold text-emerald-700">{r.nombre}</p>
-                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} · {getReservationGuests(r)}p</p>
+                    <p className="mesa-card-detail-meta text-sm font-semibold text-emerald-600">{r.hora} {r.personas && `· ${r.personas}p`}</p>
                   </div>
                 )}
                 {m.status === "available" && (
@@ -973,12 +1021,8 @@ export default function MesaViewPage() {
                         <p className={`mesa-card-detail-name truncate text-base font-bold ${isTableBlockReservation(proxima) ? "text-rose-800" : "text-emerald-900"}`}>
                           {isTableBlockReservation(proxima) ? "Bloqueo mesa" : proxima.nombre}
                         </p>
-                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map(agendaItemTitle).join(" · ")}>
-                          {isTableBlockReservation(proxima)
-                            ? `Bloqueada · ${proxima.hora}`
-                            : `Reservada · ${proxima.hora} · ${getReservationGuests(proxima)}p`}
-                          {!isTableBlockReservation(proxima) && proxima.mesaIds.length > 1 ? ` · ${proxima.mesaIds.length} mesas` : ""}
-                          {futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
+                        <p className={`mesa-card-detail-meta truncate text-sm font-semibold ${isTableBlockReservation(proxima) ? "text-rose-700" : "text-emerald-700"}`} title={agenda.map((a) => `${a.hora} ${a.nombre}`).join(" · ")}>
+                          {isTableBlockReservation(proxima) ? "Bloqueada" : "Reservada"} · {proxima.hora}{!isTableBlockReservation(proxima) && proxima.personas ? ` · ${proxima.personas}p` : ""}{futuras.length > 1 ? ` +${futuras.length - 1}` : ""}
                         </p>
                       </div>
                     : <p className="mesa-card-detail mesa-card-detail-meta mt-2 text-sm text-gray-400">{fecha === hoy() ? "+ Walk-In · Reservar" : "+ Reservar · Bloquear"}</p>
@@ -1018,20 +1062,12 @@ export default function MesaViewPage() {
           const focusOcc = !!focusR && (focusR.estado === "sentada" || focusR.estado === "walkin");
           const focusBlock = !!focusR && isTableBlockReservation(focusR);
           const focusCanMove = !!focusR && canMoveLocalReservation(focusR);
-          const focusTables = reservationTablesLabel(focusR, sel);
-          const joined = isJoinedReservation(focusR);
           return (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-black text-gray-900">{focusTables}</h2>
-                <p className="text-sm text-gray-500">
-                  {focusR
-                    ? focusBlock
-                      ? `${duracionBloqueoLabel(focusR.duracionMin)} · operación conjunta`
-                      : `${focusR.personas} personas · ${joined ? "operación conjunta" : sel.zona}`
-                    : `${sel.capacidad} personas · ${sel.zona}`}
-                </p>
+                <h2 className="text-2xl font-black text-gray-900">T{sel.numero}</h2>
+                <p className="text-sm text-gray-500">{sel.capacidad} personas · {sel.zona}</p>
               </div>
               <button onClick={() => { setSel(null); setEditing(false); setEditError(""); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X className="h-5 w-5" />
@@ -1055,8 +1091,7 @@ export default function MesaViewPage() {
                           <span className="truncate text-gray-600">{a.nombre}</span>
                         </div>
                         <span className="shrink-0 text-xs text-gray-400">
-                          {isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`}
-                          {a.mesaIds.length > 1 ? ` · ${mesaLabel(a.mesaIds)}` : ""} · {ESTADO_CORTO[a.estado] ?? a.estado}
+                          {isTableBlockReservation(a) ? "Bloqueo" : `${a.personas}p`} · {ESTADO_CORTO[a.estado] ?? a.estado}
                         </span>
                       </button>
                     );
@@ -1096,7 +1131,7 @@ export default function MesaViewPage() {
                       onToggle={(id) => setEditMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
                   </div>
                 </div>
-                <button onClick={() => void submitEdit(focusR)}
+                <button onClick={() => submitEdit(focusR)}
                   className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
                   Guardar cambios
                 </button>
@@ -1115,7 +1150,6 @@ export default function MesaViewPage() {
                     <span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusBlock ? "Tipo" : "Cliente"}</span>
                     <span className="font-semibold">{focusBlock ? "Bloqueo mesa" : focusR.nombre}</span>
                   </div>
-                  <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>Mesas</span><span className="font-semibold">{mesaLabel(focusR.mesaIds)}</span></div>
                   <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : focusBlock ? "text-rose-600" : "text-gray-500"}>{focusR.estado === "walkin" ? "Sentado a las" : "Hora"}</span><span className="font-semibold">{focusR.hora}</span></div>
                   {focusBlock ? (
                     <div className="flex justify-between"><span className="text-rose-600">Duración</span><span className="font-semibold">{duracionBloqueoLabel(focusR.duracionMin)}</span></div>
@@ -1135,13 +1169,13 @@ export default function MesaViewPage() {
                 {focusBlock ? (
                   <button onClick={() => setCancelReservaId(focusR.id)}
                     className="w-full rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
-                    Desbloquear {joined ? "mesas" : "mesa"}
+                    Desbloquear mesa
                   </button>
                 ) : focusOcc ? (
                   <>
-                    <button onClick={() => void handleLiberar(focusR)}
+                    <button onClick={() => handleLiberar(focusR)}
                       className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
-                      ✓ Liberar {joined ? "mesas" : "mesa"}
+                      ✓ Liberar mesa
                     </button>
                     {focusR.estado === "sentada" && (
                       <button onClick={() => void handleDesSentar(focusR)}
@@ -1153,14 +1187,14 @@ export default function MesaViewPage() {
                 ) : (
                   <button onClick={() => { openSeat(focusR); setSel(null); }}
                     className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-                    → Sentar / Ocupar {joined ? "mesas" : "mesa"}
+                    → Sentar / Ocupar mesa
                   </button>
                 )}
                 {focusCanMove && (
                   <button onClick={() => { openMove(focusR); setSel(null); }}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
                     <ArrowRightLeft className="h-4 w-4" />
-                    Cambiar {joined ? "mesas" : "mesa"}
+                    Cambiar mesa
                   </button>
                 )}
                 {esReservaIntercambiable(focusR) && (
@@ -1201,7 +1235,7 @@ export default function MesaViewPage() {
             )}
 
             {/* Crear otra reserva en esta mesa (libre en el momento mostrado) */}
-            {!editing && sel.status === "available" && !focusR && (
+            {!editing && sel.status === "available" && (
               <div className="space-y-2">
                 {!focusR && fecha === hoy() && (
                   <button onClick={() => { openWalkIn(sel); setSel(null); }}
@@ -1236,7 +1270,7 @@ export default function MesaViewPage() {
               <span className="font-semibold">{cancelBlock ? "Bloqueo mesa" : cancelR.nombre}</span> · {cancelR.hora} · {cancelBlock ? duracionBloqueoLabel(cancelR.duracionMin) : `${cancelR.personas} pax`}
             </p>
             <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
-            <button onClick={() => void handleCancelar(cancelR)}
+            <button onClick={() => handleCancelar(cancelR)}
               className={`w-full rounded-xl py-3 font-bold text-white ${cancelBlock ? "bg-rose-700 hover:bg-rose-600" : "bg-red-600 hover:bg-red-500"}`}>
               {cancelBlock ? "Sí, desbloquear" : "Sí, cancelar"}
             </button>
@@ -1255,8 +1289,8 @@ export default function MesaViewPage() {
           wiOk ? (
             <div className="space-y-4 text-center">
               <div className="rounded-xl bg-emerald-700 p-6 text-white">
-                <p className="text-5xl font-black">{wiGeneral ? wiSelectedId : `T${wiMesa.numero}`}</p>
-                <p className="mt-2 font-bold text-emerald-100">Mesa ocupada · Walk-In</p>
+                <p className="text-5xl font-black">{mesaLabel(wiMesaIds)}</p>
+                <p className="mt-2 font-bold text-emerald-100">{wiMesaIds.length > 1 ? "Mesas ocupadas" : "Mesa ocupada"} · Walk-In</p>
                 <p className="text-sm text-emerald-100">{wiPersonas} personas</p>
               </div>
               <button onClick={closeWalkIn} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white">Cerrar</button>
@@ -1266,28 +1300,34 @@ export default function MesaViewPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">
-                    {wiGeneral ? "Walk-In" : `T${wiMesa.numero} — Walk-In`}
+                    {wiMesaIds.length ? `${mesaLabel(wiMesaIds)} — Walk-In` : "Walk-In"}
                   </h2>
                   <p className="text-sm text-gray-500">
-                    {wiGeneral ? "Selecciona mesa y registra entrada directa" : `${wiMesa.capacidad} pax máx · Interior`}
+                    {wiMesaIds.length
+                      ? `${wiPlazas} plazas · toca otra mesa para añadirla al grupo`
+                      : "Selecciona una o varias mesas y registra entrada directa"}
                   </p>
                 </div>
                 <button onClick={closeWalkIn} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               {wiError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{wiError}</p>}
-              {!wiGeneral && (() => {
-                const proxima = (wiMesa.agenda ?? []).find((r) => !isTableBlockReservation(r) && r.estado !== "sentada" && r.estado !== "walkin");
-                return proxima ? (
-                  <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                    ⚠️ Esta mesa tiene reserva a las {proxima.hora} ({proxima.nombre}). El walk-in la ocupará ahora.
-                  </p>
-                ) : null;
-              })()}
-              {wiGeneral && (
+              {wiMesaIds
+                .map((id) => mesas.find((x) => x.id === id))
+                .filter((mc): mc is MesaConEstado => !!mc)
+                .map((mc) => {
+                  const proxima = (mc.agenda ?? []).find((r) => !isTableBlockReservation(r) && r.estado !== "sentada" && r.estado !== "walkin");
+                  return proxima ? (
+                    <p key={mc.id} className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                      ⚠️ T{mc.numero} tiene reserva a las {proxima.hora} ({proxima.nombre}). El walk-in la ocupará ahora.
+                    </p>
+                  ) : null;
+                })}
+              {wiShowPicker && (
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Mesa *</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Mesas *</label>
                   <div className="grid grid-cols-5 gap-1.5">
                     {mesasList.filter((m) => {
+                      if (wiMesaIds.includes(m.id)) return true;
                       const mc = mesas.find((x) => x.id === m.id);
                       if (!mc) return true;
                       if (mc.status === "occupied") return false;
@@ -1297,9 +1337,12 @@ export default function MesaViewPage() {
                       const mc = mesas.find((x) => x.id === m.id);
                       const proxima = (mc?.agenda ?? []).find((r) => !isTableBlockReservation(r));
                       return (
-                      <button key={m.id} onClick={() => setWiSelectedId(m.id)}
+                      <button key={m.id}
+                        onClick={() => setWiMesaIds((p) => p.includes(m.id)
+                          ? p.filter((x) => x !== m.id)
+                          : [...p, m.id].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))))}
                         className={`rounded-lg border-2 px-2 py-1.5 text-center transition-colors ${
-                          wiSelectedId === m.id
+                          wiMesaIds.includes(m.id)
                             ? "border-emerald-700 bg-emerald-100 text-emerald-900 font-bold"
                             : proxima
                             ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-500"
@@ -1337,11 +1380,9 @@ export default function MesaViewPage() {
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
                 <textarea className={inp} rows={2} value={wiNotas} onChange={(e) => setWiNotas(e.target.value)} />
               </div>
-              <button onClick={() => void submitWalkIn()}
+              <button onClick={submitWalkIn}
                 className="w-full rounded-xl bg-emerald-700 py-3.5 text-base font-black text-white hover:bg-emerald-600">
-                {wiGeneral
-                  ? wiSelectedId ? `Ocupar ${wiSelectedId} ahora` : "Ocupar mesa ahora"
-                  : `Ocupar T${wiMesa.numero} ahora`}
+                {wiMesaIds.length ? `Ocupar ${mesaLabel(wiMesaIds)} ahora` : "Ocupar mesa ahora"}
               </button>
             </div>
           )
@@ -1409,7 +1450,7 @@ export default function MesaViewPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
             <textarea className={inp} rows={2} value={nNotas} onChange={(e) => setNNotas(e.target.value)} />
           </div>
-          <button onClick={() => void submitNueva()}
+          <button onClick={submitNueva}
             className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
             Crear reserva
           </button>
@@ -1470,7 +1511,7 @@ export default function MesaViewPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Motivo</label>
             <textarea className={inp} rows={2} value={bNotas} onChange={(e) => setBNotas(e.target.value)} placeholder="Ej. mesa rota, reservado interno, mantenimiento" />
           </div>
-          <button onClick={() => void submitBlock()}
+          <button onClick={submitBlock}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-700 py-3 font-bold text-white hover:bg-rose-600">
             <Lock className="h-4 w-4" /> Bloquear mesa
           </button>
@@ -1483,10 +1524,8 @@ export default function MesaViewPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-black text-gray-900">
-                  Sentar {isJoinedReservation(seatReserva) ? "mesas" : "reserva"}
-                </h2>
-                <p className="text-sm text-gray-500">{seatReserva.nombre} · {seatReserva.personas} personas · {mesaLabel(seatReserva.mesaIds)}</p>
+                <h2 className="text-lg font-black text-gray-900">Sentar reserva</h2>
+                <p className="text-sm text-gray-500">{seatReserva.nombre} · {seatReserva.personas} personas</p>
               </div>
               <button onClick={() => setSeatReserva(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
             </div>
@@ -1495,9 +1534,9 @@ export default function MesaViewPage() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Mesa(s) — vacío = auto</p>
               <MesaPicker mesas={mesasList} selectedIds={seatMesaIds} onToggle={(id) => setSeatMesaIds((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])} />
             </div>
-            <button onClick={() => void submitSeat()}
+            <button onClick={submitSeat}
               className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-              {seatMesaIds.length ? `Sentar en ${mesaLabel(seatMesaIds)}` : "Sentar (auto-asignar)"}
+              {seatMesaIds.length ? `Sentar en ${seatMesaIds.join(", ")}` : "Sentar (auto-asignar)"}
             </button>
           </div>
         )}
@@ -1515,7 +1554,7 @@ export default function MesaViewPage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-gray-900">Cambiar {isJoinedReservation(moveReserva) ? "mesas" : "mesa"}</h2>
+                  <h2 className="text-lg font-black text-gray-900">Cambiar de mesa</h2>
                   <p className="text-sm text-gray-500">
                     {moveReserva.nombre} · {moveReserva.personas} personas
                   </p>
@@ -1552,11 +1591,11 @@ export default function MesaViewPage() {
                 </p>
               )}
 
-              <button onClick={() => void submitMove()}
+              <button onClick={submitMove}
                 disabled={!moveMesaIds.length || capacidad < moveReserva.personas}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-300">
                 <ArrowRightLeft className="h-4 w-4" />
-                Confirmar cambio de {isJoinedReservation(moveReserva) ? "mesas" : "mesa"}
+                Confirmar cambio
               </button>
             </div>
           );
@@ -1593,7 +1632,7 @@ export default function MesaViewPage() {
                   </p>
                   <div className="space-y-1.5">
                     {candidatas.map((c) => (
-                      <button key={c.id} onClick={() => void submitSwap(c)}
+                      <button key={c.id} onClick={() => submitSwap(c)}
                         className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all hover:border-sky-300 hover:bg-sky-50">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="font-black text-gray-900">{c.hora}</span>
@@ -1614,6 +1653,8 @@ export default function MesaViewPage() {
         })()}
       </Modal>
 
+      {/* Resumen de mesas hechas por servicio (esquina) */}
+      <ResumenServicios reservas={reservas} />
     </div>
   );
 }

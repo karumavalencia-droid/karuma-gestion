@@ -1,0 +1,200 @@
+[
+  {
+    "nombre": "LANJARON 1/2 PET 24UD HOST",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "AMSTEL 1/3 RET",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "AMSTEL RADLER 1/3 RET",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "FF/LANJARON CG 1/3 NR VD 24U",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "ENVASE AMSTEL 1/3 X 24",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "CAFE CAPS SINGULAR AMERICAS 100U",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "CAFE CAPS SINGULAR DESC 100U",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "AZUCAR SOBRE SINGULAR 1000U 6G",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "010840 LT 3 + 4 AMSTEL",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "020067 LT 3 + 4 LANJARON 0,50",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "AMSTEL ORO 0.0 1/3 RET",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "ZANAHORIA 500 G",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "LECHE ENTERA P6",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "CACAO PURO 0%",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "LOTE 3 BAYETAS MICRO",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "SERVILLETA 2 CAPAS",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "HUEVOS FRESCOS",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "ZUMO 100% NARANJA",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "NARANJA 12% Z.S/GAS",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "NARANJA 5 KG.",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "NARANJA S/A 1L",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  },
+  {
+    "nombre": "PAPEL VEGETAL 30H",
+    "categoria": "Compra",
+    "unidad": "ud",
+    "stock": 0,
+    "stockMinimo": 1,
+    "precio": 0,
+    "proveedor": "Kosushi"
+  }
+]

@@ -3,13 +3,9 @@ import { createHash } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
-import {
-  buildTableBlockNotes,
-  isActiveReservation,
-  isTableBlockReservation,
-  normalizeReservationStatus,
-} from "@/lib/reservas/helpers";
+import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+import { isValidOnlinePartySize } from "@/lib/reservas/config";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -19,7 +15,6 @@ function reservationIdFromIdempotencyKey(key: unknown): string | null {
   if (typeof key !== "string") return null;
   const cleanKey = key.trim();
   if (!cleanKey) return null;
-
   const bytes = Buffer.from(createHash("sha256").update(`karuma-reserva:${cleanKey}`).digest("hex").slice(0, 32), "hex");
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
@@ -34,8 +29,7 @@ export async function POST(req: NextRequest) {
     origen = "online",
     forceMesaIds,  // number[] | undefined — skip auto-assign if provided
     bloqueo = false,
-    duracionMin,
-    idempotencyKey,
+    duracionMin, idempotencyKey,
   } = body as {
     nombre: string; telefono: string; email?: string; personas: number;
     fecha: string; hora: string; servicio: string; notas?: string;
@@ -71,20 +65,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
   }
 
-  let reusedReserva:
-    | { id: string; mesa_ids: number[]; cliente_id: string | null; confirmation_email_sent_at: string | null }
-    | null = null;
-
+  let reusedReserva: { id: string; mesa_ids: number[]; confirmation_email_sent_at: string | null } | null = null;
   if (idempotentReservaId) {
-    const { data: reservaExistente } = await supabase
-      .from("reservas")
-      .select("id, mesa_ids, cliente_id, confirmation_email_sent_at")
-      .eq("id", idempotentReservaId)
-      .maybeSingle();
-
-    if (reservaExistente) {
-      reusedReserva = reservaExistente;
-    }
+    const { data } = await supabase.from("reservas").select("id, mesa_ids, confirmation_email_sent_at").eq("id", idempotentReservaId).maybeSingle();
+    if (data) reusedReserva = data;
   }
 
   const [{ data: mesas }, { data: reservasExistentes }, { data: configData }] = await Promise.all([
@@ -103,17 +87,18 @@ export async function POST(req: NextRequest) {
     if (!config.reservas_online_activas) {
       return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
     }
-    if (personasReserva > config.max_personas_online) {
+    if (!isValidOnlinePartySize(personasReserva)) {
       return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
     }
   }
 
   const duracion = isTableBlock
     ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
-    : personasReserva <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
+    : personasReserva <= 2 ? config.duracion_1_2_min : (personasReserva <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
 
-  // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
-  let mesaIds: number[];
+  // Online allocation happens atomically in the database after the customer
+  // upsert. Staff flows keep their existing manual/automatic assignment.
+  let mesaIds: number[] = reusedReserva?.mesa_ids ?? [];
   if (reusedReserva) {
     mesaIds = reusedReserva.mesa_ids ?? [];
   } else if (forceMesaIds && forceMesaIds.length > 0) {
@@ -141,7 +126,7 @@ export async function POST(req: NextRequest) {
       );
     }
     mesaIds = forceMesaIds;
-  } else {
+  } else if (origen !== "online") {
     const assigned = asignarMesa(
       mesas as Mesa[],
       (reservasExistentes ?? []) as Reserva[],
@@ -160,10 +145,8 @@ export async function POST(req: NextRequest) {
   const nombreReserva = typeof nombre === "string" ? nombre.trim() : "";
   const nombreCliente = nombreReserva || (isTableBlock ? "Bloqueo mesa" : isWalkIn ? "Walk-In" : "Sin nombre");
 
-  // Upsert cliente por teléfono (optional for walk-in). Las visitas se suman
-  // solo después de insertar la reserva para que los reintentos no dupliquen.
+  // Upsert cliente por teléfono (optional for walk-in)
   let clienteId: string | null = null;
-  let clienteVisitas = 0;
   if (!isTableBlock && telefonoCliente && !reusedReserva) {
     const { data: clienteExistente } = await supabase
       .from("clientes_reservas")
@@ -173,67 +156,51 @@ export async function POST(req: NextRequest) {
 
     if (clienteExistente) {
       clienteId = clienteExistente.id;
-      clienteVisitas = Number(clienteExistente.visitas) || 0;
+      await supabase
+        .from("clientes_reservas")
+        .update({
+          ...(nombreReserva ? { nombre: nombreReserva } : {}),
+          ...(emailCliente ? { email: emailCliente } : {}),
+          visitas: clienteExistente.visitas + 1,
+          ultima_visita: fecha,
+        })
+        .eq("id", clienteId);
     } else {
       const { data: nuevoCliente, error } = await supabase
         .from("clientes_reservas")
         .insert({ nombre: nombreCliente, telefono: telefonoCliente, email: emailCliente || null, visitas: 0 })
-        .select("id, visitas")
+        .select("id")
         .single();
       if (error || !nuevoCliente) {
-        const { data: clienteCreado } = await supabase
-          .from("clientes_reservas")
-          .select("id, visitas")
-          .eq("telefono", telefonoCliente)
-          .maybeSingle();
-
-        if (!clienteCreado) {
-          return NextResponse.json({ error: "Error al crear cliente" }, { status: 500 });
-        }
-        clienteId = clienteCreado.id;
-        clienteVisitas = Number(clienteCreado.visitas) || 0;
-      } else {
-        clienteId = nuevoCliente.id;
-        clienteVisitas = Number(nuevoCliente.visitas) || 0;
+        return NextResponse.json({ error: "Error al crear cliente" }, { status: 500 });
       }
+      clienteId = nuevoCliente.id;
     }
-  }
-
-  if (!isTableBlock && clienteId && !reusedReserva) {
-    const duplicada = ((reservasExistentes ?? []) as Reserva[]).find(
-      (r) =>
-        r.cliente_id === clienteId &&
-        r.fecha === fecha &&
-        r.hora_inicio.slice(0, 5) === hora &&
-        r.servicio === servicio &&
-        r.personas === personasReserva &&
-        isActiveReservation(r.estado),
-    );
-
-    if (duplicada) {
-      return NextResponse.json({
-        ok: true,
-        reservaId: duplicada.id,
-        mesaIds: duplicada.mesa_ids,
-        emailSent: false,
-        duplicate: true,
-      });
-    }
-  }
-
-  if (reusedReserva?.confirmation_email_sent_at) {
-    return NextResponse.json({
-      ok: true,
-      reservaId: reusedReserva.id,
-      mesaIds,
-      emailSent: true,
-      duplicate: true,
-    });
   }
 
   let reservaId = reusedReserva?.id ?? "";
-  if (!reusedReserva) {
-    const { data: nuevaReserva, error: errReserva } = await supabase
+  if (!reusedReserva && origen === "online" && !isTableBlock) {
+    const { data, error } = await supabase.rpc("create_online_reservation_atomic", {
+      p_cliente_id: clienteId,
+      p_fecha: fecha,
+      p_hora_inicio: hora,
+      p_servicio: servicio,
+      p_personas: personasReserva,
+      p_duracion_min: duracion,
+      p_notas: notas ?? null,
+    });
+    const result = data as { reservation_id?: string; mesa_ids?: number[] } | null;
+    if (error || !result?.reservation_id || !result.mesa_ids) {
+      const noAvailability = error?.message?.includes("NO_TABLE_AVAILABILITY");
+      return NextResponse.json(
+        { error: noAvailability ? "No hay disponibilidad para ese horario" : "Error al crear reserva" },
+        { status: noAvailability ? 409 : 500 },
+      );
+    }
+    reservaId = result.reservation_id;
+    mesaIds = result.mesa_ids;
+  } else if (!reusedReserva) {
+    const { data: reserva, error: errReserva } = await supabase
       .from("reservas")
       .insert({
         ...(idempotentReservaId ? { id: idempotentReservaId } : {}),
@@ -245,29 +212,25 @@ export async function POST(req: NextRequest) {
         personas: isTableBlock ? 0 : personasReserva,
         mesa_ids: mesaIds,
         estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
+        seated_at: isWalkIn ? new Date().toISOString() : null,
         notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
         origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
       })
       .select("id")
       .single();
 
-    if (errReserva || !nuevaReserva) {
+    if (errReserva || !reserva) {
       return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
     }
-
-    reservaId = nuevaReserva.id;
+    reservaId = reserva.id;
   }
 
   if (!isTableBlock && clienteId && !reusedReserva) {
-    await supabase
-      .from("clientes_reservas")
-      .update({
-        ...(nombreReserva ? { nombre: nombreReserva } : {}),
-        ...(emailCliente ? { email: emailCliente } : {}),
-        visitas: clienteVisitas + 1,
-        ultima_visita: fecha,
-      })
-      .eq("id", clienteId);
+    await supabase.from("clientes_reservas").update({ ...(nombreReserva ? { nombre: nombreReserva } : {}), ...(emailCliente ? { email: emailCliente } : {}), visitas: 1, ultima_visita: fecha }).eq("id", clienteId);
+  }
+
+  if (reusedReserva?.confirmation_email_sent_at) {
+    return NextResponse.json({ ok: true, reservaId, mesaIds, emailSent: true, duplicate: true });
   }
 
   const emailResult = !isTableBlock && emailCliente
@@ -288,7 +251,7 @@ export async function POST(req: NextRequest) {
       }))
     : { sent: false as const, reason: "invalid_recipient" as const };
 
-  if (!isTableBlock && !emailResult.sent && emailResult.reason !== "missing_config") {
+  if (!isTableBlock && !emailResult.sent) {
     console.warn("Reservation confirmation email not sent", {
       reservaId,
       reason: emailResult.reason,
@@ -297,11 +260,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (!isTableBlock && emailResult.sent) {
-    await supabase
-      .from("reservas")
-      .update({ confirmation_email_sent_at: new Date().toISOString() })
-      .eq("id", reservaId);
+    await supabase.from("reservas").update({ confirmation_email_sent_at: new Date().toISOString() }).eq("id", reservaId);
   }
 
-  return NextResponse.json({ ok: true, reservaId, mesaIds, emailSent: emailResult.sent });
+  return NextResponse.json({
+    ok: true,
+    reservaId,
+    mesaIds,
+    emailSent: emailResult.sent,
+    emailError: emailResult.sent ? null : emailResult.reason,
+  });
 }

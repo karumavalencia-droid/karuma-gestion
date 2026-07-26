@@ -2,8 +2,14 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
 import { findAccount } from "@/lib/auth/accounts";
+import { requestOtp } from "@/lib/auth/otp-service";
 import type { Role } from "@/lib/auth/permissions";
-import { authenticateBuiltInAdmin } from "@/lib/auth/server-accounts";
+import {
+  adminSessionUser,
+  getAdminPhone,
+  maskPhone,
+  verifyAdminCredentials,
+} from "@/lib/auth/server-accounts";
 import {
   createSessionToken,
   SESSION_COOKIE_NAME,
@@ -55,8 +61,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
   }
 
-  const builtInAdmin = await authenticateBuiltInAdmin(username, password);
-  if (builtInAdmin) return createLoginResponse(builtInAdmin);
+  if (await verifyAdminCredentials(username, password)) {
+    const adminPhone = getAdminPhone();
+
+    if (!adminPhone) {
+      // Producción exige 2FA por SMS; sin teléfono configurado no hay admin.
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "Cuenta admin sin teléfono configurado (KARUMA_ADMIN_PHONE)" },
+          { status: 503 },
+        );
+      }
+      // Solo en desarrollo: acceso directo con contraseña.
+      return createLoginResponse(adminSessionUser());
+    }
+
+    const otp = await requestOtp(adminPhone);
+    if (!otp.success) {
+      return NextResponse.json(
+        { error: otp.error || "No se pudo enviar el código SMS" },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({
+      requiresOtp: true,
+      expiresIn: otp.expiresIn,
+      phoneHint: maskPhone(adminPhone),
+    });
+  }
 
   if (/^\d{4}$/.test(username) && username === password.trim()) {
     const employeeId = findEmployeeIdByAttendancePin(username);

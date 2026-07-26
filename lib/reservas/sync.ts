@@ -50,8 +50,11 @@ function mapSbRow(r: SbRow): ReservaLocal {
     creadoEn: r.created_at as string,
     origen,
     reviewEmailSentAt: (r.review_email_sent_at as string | null) ?? null,
-    // Para un walk-in, created_at es el momento en que se le sentó.
-    seatedAt: r.estado === "Sentado" || r.estado === "WalkIn" ? (r.created_at as string) : undefined,
+    // La duración en mesa siempre parte del momento real en que se sentó.
+    // `created_at` es la creación de la reserva y puede ser horas o días anterior.
+    seatedAt: r.estado === "Sentado" || r.estado === "WalkIn"
+      ? (r.seated_at as string | undefined)
+      : undefined,
   };
 }
 
@@ -79,9 +82,19 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
             changed = true;
           } else if (existing.origen || mapped.origen) {
             // Keep Supabase-backed reservations fresh across devices.
-            // El seatedAt local (marcado al pulsar "Sentar") es más preciso que
-            // el aproximado de Supabase (created_at); no lo machacamos.
-            localMap.set(mapped.id, { ...existing, ...mapped, seatedAt: existing.seatedAt ?? mapped.seatedAt });
+            // Supabase conserva el momento real de entrada entre dispositivos.
+            // Mientras se propaga una actualización, mantenemos el valor local
+            // como respaldo; al des-sentar se elimina siempre.
+            const occupied = mapped.estado === "sentada" || mapped.estado === "walkin";
+            localMap.set(mapped.id, {
+              ...existing,
+              ...mapped,
+              seatedAt: occupied ? (mapped.seatedAt ?? existing.seatedAt) : undefined,
+            });
+            changed = true;
+          } else if (!existing.personas && mapped.personas) {
+            // Migración: si la reserva local no tiene personas pero Supabase sí, actualizar
+            localMap.set(mapped.id, { ...existing, personas: mapped.personas });
             changed = true;
           }
           // In all other cases local state wins (non-terminal Supabase never overwrites local)

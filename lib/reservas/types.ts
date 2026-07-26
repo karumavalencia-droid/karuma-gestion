@@ -10,6 +10,7 @@ export interface Mesa {
   activa: boolean;
   pos_x: number | null;
   pos_y: number | null;
+  adjacent_mesa_ids?: number[] | null;
 }
 
 export interface ClienteReserva {
@@ -51,6 +52,7 @@ export interface ReservasConfig {
   turno_gap_min: number;
   duracion_1_2_min: number;
   duracion_3_4_min: number;
+  duracion_5_6_min: number;
   dias_max_antelacion: number;
   capacidad_online_pct: number;
   comida_inicio: string;

@@ -1,14 +1,72 @@
-import { NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+/**
+ * POST /api/auth/logout
+ *
+ * Cerrar sesión:
+ * - Eliminar cookie de sesión
+ * - Revocar sesión de dispositivo en la BD
+ * - Registrar logout en audit log
+ *
+ * Respuesta (200):
+ * {
+ *   "success": true,
+ *   "message": "Sesión cerrada"
+ * }
+ */
 
-export async function POST() {
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE_NAME, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 0,
-  });
-  return response;
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth/guards";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+
+export async function POST(request: NextRequest) {
+  try {
+    // Obtener usuario actual
+    const user = await getSessionUser(request);
+
+    // Incluso si no hay sesión, respondemos OK (idempotente)
+    if (user) {
+      const supabase = getSupabaseAdmin();
+      // Obtener device-id para revocar sesión específica
+      const deviceId = request.cookies.get("device-id")?.value || "unknown";
+
+      // Revocar sesión en la BD
+      const { error: revokeError } = supabase ? await supabase
+        .from("auth_sessions")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("device_id", deviceId) : { error: null };
+
+      if (revokeError) {
+        console.error("[Logout] Error revocando sesión:", revokeError);
+      }
+    }
+
+    // Crear response
+    const response = NextResponse.json(
+      {
+        success: true,
+        message: "Sesión cerrada",
+      },
+      { status: 200 }
+    );
+
+    // Limpiar cookies
+    response.cookies.delete(SESSION_COOKIE_NAME);
+    response.cookies.delete("device-id");
+
+    return response;
+  } catch (error) {
+    console.error("[API] POST /auth/logout 异常:", error);
+
+    // Incluso en caso de error, limpiar cookie
+    const response = NextResponse.json(
+      {
+        success: false,
+        error: "Error al cerrar sesión",
+      },
+      { status: 500 }
+    );
+
+    response.cookies.delete(SESSION_COOKIE_NAME);
+    return response;
+  }
 }

@@ -140,6 +140,7 @@ export type DbMesa = {
   activa: boolean;
   pos_x: number | null;
   pos_y: number | null;
+  adjacent_mesa_ids: number[];
   ancho: number | null;
   alto: number | null;
   forma: string | null;
@@ -170,6 +171,7 @@ export type DbReserva = {
   personas: number;
   mesa_ids: number[];
   estado: "Confirmada" | "Sentado" | "Finalizada" | "Cancelada" | "NoShow" | "WalkIn";
+  seated_at: string | null;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
   confirmation_email_sent_at: string | null;
@@ -186,6 +188,7 @@ export type DbReservasConfig = {
   turno_gap_min: number;
   duracion_1_2_min: number;
   duracion_3_4_min: number;
+  duracion_5_6_min: number;
   dias_max_antelacion: number;
   capacidad_online_pct: number;
   comida_inicio: string;
@@ -231,7 +234,415 @@ export type DbListaEsperaInsert = {
   created_at?: string;
 };
 
+export type DbAnnouncement = {
+  id: string;
+  employee_key: string;
+  employee_name: string;
+  department: string;
+  title: string;
+  description: string;
+  priority: "low" | "normal" | "high";
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbAnnouncementInsert = {
+  id?: string;
+  employee_key: string;
+  employee_name: string;
+  department: string;
+  title: string;
+  description: string;
+  priority?: "low" | "normal" | "high";
+  completed?: boolean;
+};
+
+export type DbAnnouncementUpdate = Partial<Omit<DbAnnouncementInsert, "id" | "employee_key" | "employee_name" | "department">>;
+
+export type DbAnnouncementRead = {
+  announcement_id: string;
+  employee_key: string;
+  read_at: string;
+};
+
+export type DbInventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  current_quantity: number;
+  minimum_quantity: number;
+  unit_cost: number;
+  supplier_name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbInventoryMovement = {
+  id: string;
+  item_id: string;
+  movement_type: "entrada" | "salida" | "ajuste";
+  quantity: number;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+// ── Ventas diarias (026_sales.sql) ───────────────────────────────────────────
+
+export type DbSalesDaily = {
+  id: string;
+  location_id: string;
+  business_date: string;
+  gross_sales: number | null;
+  net_sales: number;
+  customers: number | null;
+  orders: number | null;
+  average_ticket: number | null;
+  drink_sales: number | null;
+  delivery_sales: number | null;
+  cash_sales: number | null;
+  card_sales: number | null;
+  source: string;
+  external_id: string | null;
+  notes: string | null;
+  synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbSalesDailyInsert = {
+  id?: string;
+  location_id: string;
+  business_date: string;
+  gross_sales?: number | null;
+  net_sales?: number;
+  customers?: number | null;
+  orders?: number | null;
+  average_ticket?: number | null;
+  drink_sales?: number | null;
+  delivery_sales?: number | null;
+  cash_sales?: number | null;
+  card_sales?: number | null;
+  source?: string;
+  external_id?: string | null;
+  notes?: string | null;
+  synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbSalesImportLog = {
+  id: string;
+  source: string;
+  file_name: string | null;
+  total_rows: number;
+  inserted_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type DbSalesImportLogInsert = {
+  id?: string;
+  source: string;
+  file_name?: string | null;
+  total_rows?: number;
+  inserted_rows?: number;
+  updated_rows?: number;
+  skipped_rows?: number;
+  status: string;
+  error_message?: string | null;
+  created_at?: string;
+};
+
+export type DbCeoConversation = {
+  id: string;
+  user_email: string;
+  user_name: string;
+  role: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoConversationInsert = {
+  id?: string;
+  user_email: string;
+  user_name: string;
+  role: string;
+  title?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbCeoMessage = {
+  id: string;
+  conversation_id: string;
+  sender: "user" | "assistant" | "tool" | "system";
+  content: string;
+  created_at: string;
+};
+
+export type DbCeoMessageInsert = {
+  id?: string;
+  conversation_id: string;
+  sender: "user" | "assistant" | "tool" | "system";
+  content: string;
+  created_at?: string;
+};
+
+export type DbCeoAction = {
+  id: string;
+  conversation_id: string;
+  label: string;
+  status: "pending" | "confirmed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoActionInsert = {
+  id?: string;
+  conversation_id: string;
+  label: string;
+  status?: "pending" | "confirmed" | "cancelled";
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbCeoDraft = {
+  id: string;
+  conversation_id: string;
+  draft_type: "purchase_note" | "staff_message" | "review_reply" | "ops_note";
+  title: string;
+  content: string;
+  status: "draft" | "reviewed" | "archived";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbCeoDraftInsert = {
+  id?: string;
+  conversation_id: string;
+  draft_type: "purchase_note" | "staff_message" | "review_reply" | "ops_note";
+  title: string;
+  content: string;
+  status?: "draft" | "reviewed" | "archived";
+  created_at?: string;
+  updated_at?: string;
+};
+
+// ── Identity System v1.0 ───────────────────────────────────────────────────
+
+export type DbAuthAccount = {
+  id: string;
+  auth_user_id: string;
+  phone: string | null;
+  display_name: string;
+  role_id: string;
+  status: 'active' | 'disabled' | 'suspended';
+  password_changed_at: string | null;
+  last_login_at: string | null;
+  last_login_ip: string | null;
+  mfa_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbAuthAccountInsert = {
+  auth_user_id: string;
+  phone?: string | null;
+  display_name: string;
+  role_id?: string;
+  status?: 'active' | 'disabled' | 'suspended';
+  mfa_enabled?: boolean;
+};
+
+export type DbAuthAccountUpdate = Partial<Omit<DbAuthAccount, "id" | "auth_user_id" | "created_at" | "updated_at">>;
+
+export type DbAuthOtpSession = {
+  id: string;
+  phone: string;
+  code: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  verified_at: string | null;
+  account_id: string | null;
+  created_at: string;
+};
+
+export type DbAuthOtpSessionInsert = {
+  phone: string;
+  code: string;
+  attempts?: number;
+  max_attempts?: number;
+  expires_at: string;
+  verified_at?: string | null;
+  account_id?: string | null;
+};
+
+export type DbAuthLoginLog = {
+  id: string;
+  account_id: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address: string | null;
+  user_agent: string | null;
+  device_info: Record<string, unknown> | null;
+  failure_reason: string | null;
+  created_at: string;
+};
+
+export type DbAuthLoginLogInsert = {
+  account_id?: string | null;
+  login_method: 'password' | 'otp' | 'google' | 'apple';
+  status: 'success' | 'failed';
+  ip_address?: string | null;
+  user_agent?: string | null;
+  device_info?: Record<string, unknown> | null;
+  failure_reason?: string | null;
+};
+
+export type DbAuthSession = {
+  id: string;
+  account_id: string;
+  device_id: string;
+  device_name: string | null;
+  device_type: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name: string | null;
+  browser_version: string | null;
+  os: string | null;
+  ip_address: string | null;
+  last_active_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type DbAuthSessionInsert = {
+  account_id: string;
+  device_id: string;
+  device_name?: string | null;
+  device_type?: 'mobile' | 'desktop' | 'tablet' | null;
+  browser_name?: string | null;
+  browser_version?: string | null;
+  os?: string | null;
+  ip_address?: string | null;
+  last_active_at?: string;
+  expires_at: string;
+  revoked_at?: string | null;
+};
+
+export type DbAppConfig = {
+  id: number;
+  permissions_enabled: boolean;
+  otp_max_attempts: number;
+  otp_validity_minutes: number;
+  session_duration_days: number;
+  owner_phone: string | null;
+  updated_at: string;
+};
+
+export type DbAppConfigInsert = Partial<Omit<DbAppConfig, 'id' | 'updated_at'>>;
+
+// ── CEO Morning Brief ────────────────────────────────────────────────────────
+
+export type DbCeoMorningBrief = {
+  id: string;
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
+  created_at: string;
+};
+
+export type DbCeoMorningBriefInsert = {
+  brief_date: string;
+  data: unknown;
+  text: string;
+  generated_at: string;
+};
+
 // ── Database ─────────────────────────────────────────────────────────────────
+
+import type {
+  DbCoachConversation,
+  DbCoachConversationInsert,
+  DbCoachIncidentReport,
+  DbCoachIncidentReportInsert,
+  DbCoachKnowledgeEntry,
+  DbCoachKnowledgeEntryInsert,
+  DbCoachMessage,
+  DbCoachMessageInsert,
+} from "../coach/types";
+import type {
+  DbCeoChangeRequest,
+  DbCeoChangeRequestInsert,
+} from "../ceo/change-center";
+
+// ── Finanzas privadas (solo owner) ──────────────────────────────────────────
+
+export type DbGastoCategoria =
+  | "alquiler"
+  | "personal"
+  | "seguros_sociales"
+  | "proveedores"
+  | "suministros"
+  | "impuestos"
+  | "marketing"
+  | "comisiones"
+  | "otros";
+
+export type DbGasto = {
+  id: string;
+  fecha: string;
+  categoria: DbGastoCategoria;
+  concepto: string;
+  importe: number;
+  empresa: "kosushi" | "spicy";
+  fuente: string;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbGastoInsert = Omit<DbGasto, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  notas?: string | null;
+  fuente?: string;
+};
+
+export type DbDocumentoCategoria =
+  | "bancos"
+  | "contratos"
+  | "nominas"
+  | "impuestos"
+  | "seguros"
+  | "licencias"
+  | "otros";
+
+export type DbDocumento = {
+  id: string;
+  nombre: string;
+  categoria: DbDocumentoCategoria;
+  storage_path: string;
+  mime_type: string | null;
+  tamano_bytes: number | null;
+  notas: string | null;
+  created_at: string;
+};
+
+export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
+  id?: string;
+  mime_type?: string | null;
+  tamano_bytes?: number | null;
+  notas?: string | null;
+};
 
 export type Database = {
   public: {
@@ -326,9 +737,172 @@ export type Database = {
         Update: Partial<DbListaEsperaInsert>;
         Relationships: [];
       };
+      announcements: {
+        Row: DbAnnouncement;
+        Insert: DbAnnouncementInsert;
+        Update: DbAnnouncementUpdate;
+        Relationships: [];
+      };
+      announcement_reads: {
+        Row: DbAnnouncementRead;
+        Insert: DbAnnouncementRead;
+        Update: Partial<DbAnnouncementRead>;
+        Relationships: [];
+      };
+      inventory_items: {
+        Row: DbInventoryItem;
+        Insert: Omit<DbInventoryItem, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<DbInventoryItem, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      inventory_movements: {
+        Row: DbInventoryMovement;
+        Insert: Omit<DbInventoryMovement, "id" | "created_at">;
+        Update: never;
+        Relationships: [];
+      };
+      sales_daily: {
+        Row: DbSalesDaily;
+        Insert: DbSalesDailyInsert;
+        Update: Partial<DbSalesDailyInsert>;
+        Relationships: [];
+      };
+      sales_import_log: {
+        Row: DbSalesImportLog;
+        Insert: DbSalesImportLogInsert;
+        Update: Partial<DbSalesImportLogInsert>;
+        Relationships: [];
+      };
+      ceo_conversations: {
+        Row: DbCeoConversation;
+        Insert: DbCeoConversationInsert;
+        Update: Partial<DbCeoConversationInsert>;
+        Relationships: [];
+      };
+      ceo_messages: {
+        Row: DbCeoMessage;
+        Insert: DbCeoMessageInsert;
+        Update: Partial<DbCeoMessageInsert>;
+        Relationships: [];
+      };
+      ceo_actions: {
+        Row: DbCeoAction;
+        Insert: DbCeoActionInsert;
+        Update: Partial<DbCeoActionInsert>;
+        Relationships: [];
+      };
+      ceo_drafts: {
+        Row: DbCeoDraft;
+        Insert: DbCeoDraftInsert;
+        Update: Partial<DbCeoDraftInsert>;
+        Relationships: [];
+      };
+      ceo_change_requests: {
+        Row: DbCeoChangeRequest;
+        Insert: DbCeoChangeRequestInsert;
+        Update: Partial<DbCeoChangeRequestInsert>;
+        Relationships: [];
+      };
+      coach_conversations: {
+        Row: DbCoachConversation;
+        Insert: DbCoachConversationInsert;
+        Update: Partial<DbCoachConversationInsert>;
+        Relationships: [];
+      };
+      coach_messages: {
+        Row: DbCoachMessage;
+        Insert: DbCoachMessageInsert;
+        Update: Partial<DbCoachMessageInsert>;
+        Relationships: [];
+      };
+      coach_incident_reports: {
+        Row: DbCoachIncidentReport;
+        Insert: DbCoachIncidentReportInsert;
+        Update: Partial<DbCoachIncidentReportInsert>;
+        Relationships: [];
+      };
+      coach_knowledge_entries: {
+        Row: DbCoachKnowledgeEntry;
+        Insert: DbCoachKnowledgeEntryInsert;
+        Update: Partial<DbCoachKnowledgeEntryInsert>;
+        Relationships: [];
+      };
+      ceo_morning_briefs: {
+        Row: DbCeoMorningBrief;
+        Insert: DbCeoMorningBriefInsert;
+        Update: Partial<DbCeoMorningBriefInsert>;
+        Relationships: [];
+      };
+      auth_accounts: {
+        Row: DbAuthAccount;
+        Insert: DbAuthAccountInsert;
+        Update: DbAuthAccountUpdate;
+        Relationships: [];
+      };
+      auth_otp_sessions: {
+        Row: DbAuthOtpSession;
+        Insert: DbAuthOtpSessionInsert;
+        Update: Partial<DbAuthOtpSessionInsert>;
+        Relationships: [];
+      };
+      auth_login_logs: {
+        Row: DbAuthLoginLog;
+        Insert: DbAuthLoginLogInsert;
+        Update: Partial<DbAuthLoginLogInsert>;
+        Relationships: [];
+      };
+      auth_sessions: {
+        Row: DbAuthSession;
+        Insert: DbAuthSessionInsert;
+        Update: Partial<DbAuthSessionInsert>;
+        Relationships: [];
+      };
+      app_config: {
+        Row: DbAppConfig;
+        Insert: DbAppConfigInsert;
+        Update: DbAppConfigInsert;
+        Relationships: [];
+      };
+      gastos: {
+        Row: DbGasto;
+        Insert: DbGastoInsert;
+        Update: Partial<DbGastoInsert>;
+        Relationships: [];
+      };
+      documentos: {
+        Row: DbDocumento;
+        Insert: DbDocumentoInsert;
+        Update: Partial<DbDocumentoInsert>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      apply_inventory_movement: {
+        Args: {
+          p_item_id: string;
+          p_movement_type: "entrada" | "salida" | "ajuste";
+          p_quantity: number;
+          p_note?: string;
+        };
+        Returns: DbInventoryItem;
+      };
+      create_online_reservation_atomic: {
+        Args: {
+          p_cliente_id: string | null;
+          p_fecha: string;
+          p_hora_inicio: string;
+          p_servicio: string;
+          p_personas: number;
+          p_duracion_min: number;
+          p_notas?: string | null;
+        };
+        Returns: {
+          reservation_id: string;
+          mesa_ids: number[];
+        };
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

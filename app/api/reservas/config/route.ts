@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { MAX_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   const supabase = getSupabaseAdmin();
@@ -7,22 +11,20 @@ export async function GET() {
     // Return safe defaults so public page always works
     return NextResponse.json({
       reservas_online_activas: true,
-      max_personas_online: 4,
+      max_personas_online: MAX_ONLINE_PARTY_SIZE,
       dias_max_antelacion: 7,
       turno_gap_min: 30,
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",
-      comida_fin: "15:30",
+      comida_fin: "16:15",
       cena_inicio: "20:00",
       cena_fin: "23:00",
     });
   }
 
-  // turno_gap_min se omite a propósito: la migración que añade esa columna aún no
-  // está aplicada en producción. Si se incluye en el SELECT, la consulta falla y la
-  // config cae a valores por defecto (horario incorrecto). La página pública no usa
-  // ese campo, así que pedimos solo las columnas que existen seguro.
+  // The public page only needs these fields; allocation-only timing settings stay
+  // server-side in the availability and creation routes.
   const { data } = await supabase
     .from("reservas_config")
     .select(
@@ -34,13 +36,13 @@ export async function GET() {
   return NextResponse.json(
     data ?? {
       reservas_online_activas: true,
-      max_personas_online: 4,
+      max_personas_online: MAX_ONLINE_PARTY_SIZE,
       dias_max_antelacion: 7,
       turno_gap_min: 30,
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",
-      comida_fin: "15:30",
+      comida_fin: "16:15",
       cena_inicio: "20:00",
       cena_fin: "23:00",
     },

@@ -19,11 +19,6 @@ export function fmtNum(value: number, decimals = 2): number {
   return parseFloat(value.toFixed(decimals));
 }
 
-function mesActual(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function seedPedidos(): PedidoDeliveryCenter[] {
   const hoy = new Date().toISOString().slice(0, 10);
   return pedidosDelivery.map((p) => ({

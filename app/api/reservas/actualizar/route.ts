@@ -22,7 +22,7 @@ type ReservaUpdate = Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">
 type MesaCapacidad = { id: number; capacidad: number };
 
 function duracionPorPersonas(personas: number, config: ReservasConfig): number {
-  return personas <= 2 ? config.duracion_1_2_min : config.duracion_3_4_min;
+  return personas <= 2 ? config.duracion_1_2_min : (personas <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
 }
 
 export async function POST(req: NextRequest) {

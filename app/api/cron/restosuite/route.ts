@@ -1,5 +1,12 @@
+// NOTA (MVP ventas): esta ruta de cron está EN ESPERA de una API/exportación
+// oficial de Restosuite. Restosuite no expone hoy una API pública estable
+// (ver análisis previo); la vía soportada de entrada de datos es la importación
+// manual de CSV (POST /api/sales/import). Mientras RESTOSUITE_API_URL sea un
+// placeholder o falte, esta ruta responde "no configurada" y NO hace ninguna
+// petición externa (nunca llama a pos-provider.example).
 import { NextResponse } from "next/server";
 import { parseRestosuiteCsv } from "@/lib/restosuite/csvImport";
+import { isPlaceholderApiUrl } from "@/lib/sales-sync/config";
 import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
 import { mergeDailySalesRecords } from "@/lib/sales-sync/storage";
 import type { DailySalesRecord } from "@/lib/sales-sync/types";
@@ -41,12 +48,15 @@ export async function GET(request: Request) {
   const apiUrl = process.env.RESTOSUITE_API_URL;
   const apiToken = process.env.RESTOSUITE_API_TOKEN;
   const locationId = process.env.RESTOSUITE_LOCATION_ID || "karuma-valencia";
-  if (!apiUrl || !apiToken) {
+  // No hacer ninguna petición externa mientras la API sea un placeholder.
+  if (!apiUrl || !apiToken || isPlaceholderApiUrl(apiUrl)) {
     return NextResponse.json(
       {
         success: false,
         configured: false,
-        message: "RESTOSUITE_API_URL and RESTOSUITE_API_TOKEN are required",
+        pendingOfficialApi: true,
+        message:
+          "Restosuite no tiene API oficial configurada. Usa la importación manual de CSV (/api/sales/import).",
       },
       { status: 503 },
     );

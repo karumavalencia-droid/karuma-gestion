@@ -11,6 +11,7 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  Users,
   WifiOff,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
@@ -38,6 +39,20 @@ type PersonalAttendancePayload = {
   locationRequired: boolean;
   geofenceConfigured: boolean;
   radiusMeters: number | null;
+};
+
+type ColleagueAttendance = {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  lastType: "in" | "out" | null;
+  lastTime: string | null;
+};
+
+type ColleaguesPayload = {
+  businessDate: string;
+  myDepartment: string;
+  colleagues: ColleagueAttendance[];
 };
 
 const copy = {
@@ -119,6 +134,7 @@ export default function MyAttendancePage() {
   const { locale } = useLanguage();
   const text = copy[locale];
   const [data, setData] = useState<PersonalAttendancePayload | null>(null);
+  const [colleagues, setColleagues] = useState<ColleagueAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -128,12 +144,22 @@ export default function MyAttendancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/attendance/me", { cache: "no-store" });
-      const payload = (await response.json()) as PersonalAttendancePayload & {
+      const [attendanceRes, colleaguesRes] = await Promise.all([
+        fetch("/api/attendance/me", { cache: "no-store" }),
+        fetch("/api/attendance/colleagues", { cache: "no-store" }),
+      ]);
+
+      const payload = (await attendanceRes.json()) as PersonalAttendancePayload & {
         error?: string;
       };
-      if (!response.ok) throw new Error(payload.error ?? text.unavailable);
+      if (!attendanceRes.ok) throw new Error(payload.error ?? text.unavailable);
       setData(payload);
+
+      if (colleaguesRes.ok) {
+        const colleaguesData = (await colleaguesRes.json()) as ColleaguesPayload;
+        setColleagues(colleaguesData.colleagues);
+      }
+
       setError("");
     } catch (loadError) {
       setError(
@@ -201,7 +227,14 @@ export default function MyAttendancePage() {
           result.event.type === "in" ? text.entrance : text.exit
         } ${timeLabel(result.event.occurredAt, locale)}`,
       );
-      await load();
+      setData((current) => current ? {
+        ...current,
+        serverTime: result.event!.occurredAt,
+        nextAction: result.event!.type === "in" ? "out" : "in",
+        lastType: result.event!.type,
+        lastTime: result.event!.occurredAt,
+        events: [...current.events, result.event!],
+      } : current);
     } catch (punchError) {
       if (
         typeof punchError === "object" &&
@@ -335,6 +368,49 @@ export default function MyAttendancePage() {
                     {error}
                   </div>
                 )}
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                      <Users className="h-4 w-4" />
+                      Compañeros ({colleagues.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {colleagues.length === 0 ? (
+                      <p className="py-3 text-center text-sm text-gray-400">
+                        Sin compañeros en el turno hoy
+                      </p>
+                    ) : (
+                      colleagues.map((colleague) => (
+                        <div
+                          key={colleague.employeeId}
+                          className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5 text-sm"
+                        >
+                          <div>
+                            <div className="font-medium text-gray-700">
+                              {colleague.employeeName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {colleague.lastTime
+                                ? `${colleague.lastType === "in" ? text.entrance : text.exit} · ${timeLabel(colleague.lastTime, locale)}`
+                                : "Sin fichar"}
+                            </div>
+                          </div>
+                          <div
+                            className={`flex h-2.5 w-2.5 rounded-full ${
+                              colleague.lastType === "in"
+                                ? "bg-emerald-500"
+                                : colleague.lastType === "out"
+                                  ? "bg-amber-500"
+                                  : "bg-gray-300"
+                            }`}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
 
                 <div>
                   <div className="mb-2 flex items-center justify-between">

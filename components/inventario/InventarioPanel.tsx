@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   Boxes,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -41,7 +42,7 @@ import {
 import { MovimientoInventario, ProductoInventario } from "@/lib/types";
 
 type Tab = "inventario" | "historial";
-type ModalKind = "product" | "movimiento" | "confirm" | null;
+type ModalKind = "product" | "movimiento" | "confirm" | "import" | null;
 
 const estadoVariant = {
   correcto: "success" as const,
@@ -109,6 +110,8 @@ export function InventarioPanel() {
   const [products, setProducts] = useState<ProductoInventario[]>([]);
   const [historial, setHistorial] = useState<MovimientoInventario[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<"checking" | "available" | "local">("checking");
+  const [syncingRemote, setSyncingRemote] = useState(false);
   const [tab, setTab] = useState<Tab>("inventario");
   const [search, setSearch] = useState("");
   const [histSearch, setHistSearch] = useState("");
@@ -125,6 +128,7 @@ export function InventarioPanel() {
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [form, setForm] = useState<ProductoForm>(EMPTY_FORM);
+  const [importJson, setImportJson] = useState("");
 
   useEffect(() => {
     try {
@@ -135,10 +139,64 @@ export function InventarioPanel() {
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/inventory", { cache: "no-store" })
+      .then((response) => {
+        if (!active) return;
+        setRemoteStatus(response.ok ? "available" : "local");
+      })
+      .catch(() => {
+        if (active) setRemoteStatus("local");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === "karuma_inventario_v2") setProducts(loadProductos());
+      if (event.key === "karuma_historial_v2") setHistorial(loadHistorial());
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
   }, []);
+
+  const refreshLocalInventory = useCallback(() => {
+    setProducts(loadProductos());
+    setHistorial(loadHistorial());
+    setLoaded(true);
+    showToast("Inventario actualizado desde este dispositivo");
+  }, [showToast]);
+
+  const syncRemoteInventory = useCallback(async () => {
+    if (remoteStatus !== "available" || products.length === 0) {
+      showToast("La base de datos no está disponible o no hay productos");
+      return;
+    }
+    setSyncingRemote(true);
+    try {
+      const response = await fetch("/api/inventory/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products }),
+      });
+      const result = (await response.json()) as { created?: number; updated?: number; errors?: string[]; error?: string };
+      if (!response.ok && response.status !== 207) throw new Error(result.error ?? "No se pudo sincronizar");
+      showToast(`${result.created ?? 0} nuevos · ${result.updated ?? 0} actualizados${result.errors?.length ? " · revisa los errores" : ""}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "No se pudo sincronizar");
+    } finally {
+      setSyncingRemote(false);
+    }
+  }, [products, remoteStatus, showToast]);
 
   const persist = useCallback(
     (nextProducts: ProductoInventario[], nextHistorial?: MovimientoInventario[]) => {
@@ -328,15 +386,118 @@ export function InventarioPanel() {
 
   const currentMovProduct = movId ? products.find((p) => p.id === movId) : null;
 
+  const openImportModal = useCallback(() => {
+    setImportJson("");
+    setModal("import");
+  }, []);
+
+  const performImport = useCallback(() => {
+    if (!importJson.trim()) {
+      showToast("Pegua datos JSON válidos");
+      return;
+    }
+    try {
+      const imported = JSON.parse(importJson);
+      if (!Array.isArray(imported)) {
+        showToast("Formato inválido: debe ser un array JSON");
+        return;
+      }
+      const newProducts = [...products];
+      let added = 0;
+      imported.forEach((item: unknown) => {
+        if (!item || typeof item !== "object") return;
+        const r = item as Record<string, unknown>;
+        const nombre = String(r.nombre ?? "").trim();
+        const proveedor = String(r.proveedor ?? "").trim();
+        if (!nombre) return;
+        if (newProducts.some((p) => p.nombre === nombre && p.proveedor === proveedor)) return;
+        const parsed = parseForm({
+          nombre,
+          categoria: String(r.categoria ?? ""),
+          stock: String(r.stock ?? 0),
+          stockMinimo: String(r.stockMinimo ?? 0),
+          precio: String(r.precio ?? 0),
+          unidad: String(r.unidad ?? "kg"),
+          proveedor,
+        });
+        if (parsed) {
+          newProducts.push({
+            id: genId(),
+            ...parsed,
+            createdAt: Date.now(),
+          });
+          added++;
+        }
+      });
+      if (added > 0) {
+        persist(newProducts);
+        showToast(`Importados ${added} productos`);
+        setModal(null);
+        setImportJson("");
+      } else {
+        showToast("No se encontraron productos nuevos para importar");
+      }
+    } catch (e) {
+      showToast("Error al importar: " + String(e));
+    }
+  }, [importJson, products, persist, showToast]);
+
   return (
     <div>
       <PageHeader title="Inventario" description="Control de stock y movimientos">
-        <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nuevo producto</span>
-          <span className="sm:hidden">Nuevo</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={refreshLocalInventory}
+            title="Volver a leer los datos guardados en este dispositivo"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Actualizar</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void syncRemoteInventory()}
+            disabled={syncingRemote || remoteStatus !== "available"}
+            title="Enviar una copia del inventario local a la base de datos"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncingRemote ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{syncingRemote ? "Sincronizando…" : "Sincronizar"}</span>
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nuevo producto</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={openImportModal}
+            title="Importar productos desde JSON"
+          >
+            📥 Importar
+          </Button>
+        </div>
       </PageHeader>
+
+      <div className={`mb-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs sm:text-sm ${
+        remoteStatus === "available"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}>
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          {remoteStatus === "available"
+            ? "La base de datos de inventario está disponible. Los cambios locales existentes se conservan hasta completar la sincronización explícita."
+            : remoteStatus === "checking"
+              ? "Comprobando disponibilidad de la base de datos de inventario…"
+              : "Este inventario está guardado localmente en este dispositivo. Exporta un CSV antes de cambiar de equipo; la sincronización multiusuario queda pendiente de conectar a la base de datos."}
+        </p>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
         <StatCard
@@ -837,6 +998,38 @@ export function InventarioPanel() {
           >
             Eliminar
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={modal === "import"}
+        title="Importar productos desde JSON"
+        onClose={() => setModal(null)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg bg-blue-50 p-3">
+            <p className="mb-2 text-xs font-medium text-blue-900">Pasos rápidos:</p>
+            <ol className="space-y-1 text-xs text-blue-800">
+              <li>1. Descarga la plantilla: <a href="/api/stock/import-template" className="underline font-semibold" download>stock-import.json</a></li>
+              <li>2. Abre el archivo y copia todo el contenido</li>
+              <li>3. Pégalo en el campo de abajo</li>
+              <li>4. Haz clic en &quot;Importar&quot;</li>
+            </ol>
+          </div>
+          <textarea
+            value={importJson}
+            onChange={(e) => setImportJson(e.target.value)}
+            placeholder='[{"nombre":"Alga Nori","categoria":"Algas nori","unidad":"hojas","stock":0,"stockMinimo":2,"precio":0,"proveedor":"Cominport"}]'
+            className={`${inputClass} h-40 resize-none font-mono text-xs`}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setModal(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={performImport}>
+              Importar
+            </Button>
+          </div>
         </div>
       </Modal>
 

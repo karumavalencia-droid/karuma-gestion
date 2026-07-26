@@ -83,12 +83,31 @@ function normalizeHeader(header: string): string {
 
 function matchField(header: string): FieldKey | null {
   const norm = normalizeHeader(header);
-  for (const [field, aliases] of Object.entries(COLUMN_ALIASES) as [FieldKey, string[]][]) {
-    if (aliases.some((a) => norm === a || norm.includes(a))) {
-      return field;
-    }
+  const entries = Object.entries(COLUMN_ALIASES) as [FieldKey, string[]][];
+  // 1ª pasada: coincidencia exacta. Evita que "ventas bebida" (alias exacto de
+  // bebidas) caiga en "ventas" solo porque la contiene como subcadena.
+  for (const [field, aliases] of entries) {
+    if (aliases.some((alias) => norm === alias)) return field;
+  }
+  for (const [field, aliases] of entries) {
+    if (aliases.some((alias) => norm.includes(alias))) return field;
   }
   return null;
+}
+
+/**
+ * Mapea cabeceras a campos garantizando que cada campo se asigna a UNA sola
+ * columna (gana la primera). Sin esto, una segunda columna que también case
+ * (p. ej. "Total Ventas" tras "Ventas") sobreescribiría el valor bueno.
+ */
+function buildFieldMap(headerCells: string[]): (FieldKey | null)[] {
+  const claimed = new Set<FieldKey>();
+  return headerCells.map((header) => {
+    const field = matchField(header);
+    if (!field || claimed.has(field)) return null;
+    claimed.add(field);
+    return field;
+  });
 }
 
 function detectDelimiter(line: string): string {
@@ -179,20 +198,34 @@ function parseDate(raw: string): string | null {
   return null;
 }
 
-function rowToRegistro(
+type RowResult =
+  | { ok: true; registro: RegistroRestosuite }
+  | { ok: false; reason: string };
+
+function rowToRegistroResult(
   fieldMap: (FieldKey | null)[],
   cells: string[],
-): RegistroRestosuite | null {
+): RowResult {
   const values: Partial<Record<FieldKey, string>> = {};
   fieldMap.forEach((field, i) => {
     if (field && cells[i] !== undefined) values[field] = cells[i];
   });
 
   const fecha = values.fecha ? parseDate(values.fecha) : null;
-  if (!fecha) return null;
+  if (!fecha) {
+    return {
+      ok: false,
+      reason: values.fecha ? `Fecha no válida: "${values.fecha}"` : "Falta la fecha",
+    };
+  }
 
   const ventas = fmtNum(parseNumber(values.ventas ?? "0"));
-  if (ventas <= 0) return null;
+  if (ventas <= 0) {
+    return {
+      ok: false,
+      reason: `Ventas no válidas o cero: "${values.ventas ?? ""}"`,
+    };
+  }
 
   const clientes = Math.max(0, Math.round(parseNumber(values.clientes ?? "0")));
   const ticketParsed = parseNumber(values.ticketMedio ?? "0");
@@ -204,15 +237,26 @@ function rowToRegistro(
         : 0;
 
   return {
-    id: genId(),
-    fecha,
-    ventas,
-    clientes,
-    ticketMedio,
-    facturas: Math.max(0, Math.round(parseNumber(values.facturas ?? "0"))),
-    ventasBebida: fmtNum(parseNumber(values.bebidas ?? "0")),
-    observaciones: (values.observaciones ?? "").trim() || "Import Restosuite CSV",
+    ok: true,
+    registro: {
+      id: genId(),
+      fecha,
+      ventas,
+      clientes,
+      ticketMedio,
+      facturas: Math.max(0, Math.round(parseNumber(values.facturas ?? "0"))),
+      ventasBebida: fmtNum(parseNumber(values.bebidas ?? "0")),
+      observaciones: (values.observaciones ?? "").trim() || "Import Restosuite CSV",
+    },
   };
+}
+
+function rowToRegistro(
+  fieldMap: (FieldKey | null)[],
+  cells: string[],
+): RegistroRestosuite | null {
+  const result = rowToRegistroResult(fieldMap, cells);
+  return result.ok ? result.registro : null;
 }
 
 export function parseRestosuiteCsv(text: string, fileName: string): ParseCsvResult {
@@ -226,7 +270,7 @@ export function parseRestosuiteCsv(text: string, fileName: string): ParseCsvResu
   }
 
   const headerCells = rows[0];
-  const fieldMap: (FieldKey | null)[] = headerCells.map((h) => matchField(h));
+  const fieldMap: (FieldKey | null)[] = buildFieldMap(headerCells);
   const mappedFields = new Set(fieldMap.filter(Boolean));
 
   const missing: string[] = [];
@@ -265,6 +309,74 @@ export function parseRestosuiteCsv(text: string, fileName: string): ParseCsvResu
       registros,
     },
   };
+}
+
+export interface RowError {
+  line: number;
+  reason: string;
+}
+
+export interface DetailedParseResult {
+  ok: boolean;
+  error?: ImportErrorCode;
+  missingColumns?: string[];
+  fileName: string;
+  totalDataRows: number;
+  registros: RegistroRestosuite[];
+  skipped: RowError[];
+}
+
+/**
+ * Igual que parseRestosuiteCsv pero con diagnóstico por fila: qué filas se
+ * saltaron y por qué. Usado por el servidor (/api/sales/import) para reportar
+ * inserted/updated/skipped/errors. Reutiliza toda la lógica de parseo.
+ */
+export function parseRestosuiteCsvDetailed(
+  text: string,
+  fileName: string,
+): DetailedParseResult {
+  const base: DetailedParseResult = {
+    ok: false,
+    fileName,
+    totalDataRows: 0,
+    registros: [],
+    skipped: [],
+  };
+
+  if (!text.trim()) return { ...base, error: "formato_invalido" };
+
+  const rows = parseCsvRows(text);
+  if (rows.length < 2) return { ...base, error: "sin_datos" };
+
+  const headerCells = rows[0];
+  const fieldMap: (FieldKey | null)[] = buildFieldMap(headerCells);
+  const mappedFields = new Set(fieldMap.filter(Boolean));
+
+  const missing: string[] = [];
+  if (!mappedFields.has("fecha")) missing.push("Fecha");
+  if (!mappedFields.has("ventas")) missing.push("Ventas / Net Sales");
+  if (missing.length > 0) {
+    return { ...base, error: "faltan_columnas", missingColumns: missing };
+  }
+
+  const registros: RegistroRestosuite[] = [];
+  const skipped: RowError[] = [];
+  let totalDataRows = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const cells = rows[i];
+    if (cells.every((c) => !c.trim())) continue; // fila vacía: no cuenta
+    totalDataRows++;
+    const result = rowToRegistroResult(fieldMap, cells);
+    if (result.ok) registros.push(result.registro);
+    else skipped.push({ line: i + 1, reason: result.reason });
+  }
+
+  if (registros.length === 0) {
+    return { ...base, error: "sin_datos", totalDataRows, skipped };
+  }
+
+  return { ok: true, fileName, totalDataRows, registros, skipped };
 }
 
 export function mergeImportToStore(
