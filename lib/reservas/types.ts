@@ -40,7 +40,8 @@ export interface Reserva {
   estado: EstadoReserva;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
-  confirmation_email_sent_at: string | null;
+  confirmation_email_sent_at?: string | null;
+  confirmation_email_send_key?: string | null;
   review_email_sent_at: string | null;
   created_at: string;
 }

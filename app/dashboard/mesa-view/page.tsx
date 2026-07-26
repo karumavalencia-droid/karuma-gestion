@@ -410,7 +410,7 @@ export default function MesaViewPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[]; emailSent?: boolean };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
