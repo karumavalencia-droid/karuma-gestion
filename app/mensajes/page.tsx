@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ThreadItem } from "@/components/inbox/ThreadItem";
 import type { Contadores, ThreadResumen } from "@/components/inbox/tipos";
+import { BotonAvisos } from "@/components/inbox/BotonAvisos";
 import Link from "next/link";
 import { BarChart3, Inbox, RefreshCw } from "lucide-react";
 
@@ -91,6 +92,7 @@ export default function MensajesPage() {
         hideTitle
         description="Instagram, Google y Tripadvisor en una sola bandeja. Ningún cliente sin respuesta."
       >
+        <BotonAvisos />
         <Link
           href="/mensajes/insights"
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
