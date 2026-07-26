@@ -1,4 +1,6 @@
-import nodemailer from "nodemailer";
+import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import path from "node:path";
 
 type ReservationConfirmationInput = {
   to: string;
@@ -36,6 +38,7 @@ type EmailSendResult =
 const RESTAURANT_NAME = "Karuma Sushi & Grill";
 const RESTAURANT_ADDRESS = "C/ de Roger de Llòria, 2, Valencia";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
+const DEFAULT_GMAIL_USER = "karumavalencia@gmail.com";
 
 function escapeHtml(value: string): string {
   return value
@@ -198,6 +201,137 @@ function buildReminderEmail(input: ReservationReminderInput) {
   return { subject, text, html };
 }
 
+type GmailCredentials = {
+  installed?: {
+    client_id?: string;
+    client_secret?: string;
+    redirect_uris?: string[];
+  };
+  web?: {
+    client_id?: string;
+    client_secret?: string;
+    redirect_uris?: string[];
+  };
+};
+
+type GmailToken = {
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
+  expiry_date?: number;
+  scope?: string;
+};
+
+async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    const content = await readFile(filePath, "utf-8");
+    return JSON.parse(content) as T;
+  } catch {
+    return null;
+  }
+}
+
+function resolveGmailFile(envVar: string, fallbackName: string): string {
+  return process.env[envVar]?.trim() || path.join(process.cwd(), fallbackName);
+}
+
+function encodeBase64Url(input: string): string {
+  return Buffer.from(input, "utf-8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function makeMessageId(reservaId: string): string {
+  return `<reservation-confirmation-${reservaId}@karuma.es>`;
+}
+
+export function buildReservationConfirmationSendKey(input: {
+  email: string;
+  fecha: string;
+  hora: string;
+  servicio: string;
+  personas: number;
+  telefono: string;
+  nombre: string;
+}): string {
+  const canonical = [
+    input.email.trim().toLowerCase(),
+    input.fecha,
+    input.hora,
+    input.servicio,
+    String(input.personas),
+    input.telefono.trim(),
+    input.nombre.trim().toLowerCase(),
+  ].join("|");
+  return `reservation-confirmation-${createHash("sha256").update(canonical).digest("hex")}`;
+}
+
+async function getGmailAccessToken(): Promise<string | null> {
+  const credentialsPath = resolveGmailFile("GMAIL_CREDENTIALS_FILE", "credentials.json");
+  const tokenPath = resolveGmailFile("GMAIL_TOKEN_FILE", "token.json");
+  const credentials = await readJsonFile<GmailCredentials>(credentialsPath);
+  const token = await readJsonFile<GmailToken>(tokenPath);
+  const client = credentials?.installed ?? credentials?.web;
+
+  if (!client?.client_id || !client.client_secret || !token?.refresh_token) {
+    return null;
+  }
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: client.client_id,
+      client_secret: client.client_secret,
+      refresh_token: token.refresh_token,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json() as { access_token?: string };
+  return payload.access_token ?? null;
+}
+
+function buildGmailRawMessage(input: {
+  from: string;
+  to: string;
+  replyTo: string;
+  subject: string;
+  text: string;
+  html: string;
+  messageId: string;
+}): string {
+  const boundary = `boundary_${input.messageId.replace(/[<>@]/g, "")}`;
+  const headers = [
+    `From: ${input.from}`,
+    `To: ${input.to}`,
+    `Reply-To: ${input.replyTo}`,
+    `Subject: ${input.subject}`,
+    "MIME-Version: 1.0",
+    `Message-ID: ${input.messageId}`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+  ];
+
+  const body = [
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    input.text,
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    input.html,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+
+  return encodeBase64Url(`${headers.join("\r\n")}\r\n\r\n${body}`);
+}
+
 async function sendEmailViaResend({
   to,
   subject,
@@ -212,21 +346,12 @@ async function sendEmailViaResend({
   idempotencyKey: string;
 }): Promise<EmailSendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  // Reuse the verified sender already configured for invoice emails when a
-  // reservation-specific sender has not been added in Vercel yet.
-  const from = process.env.RESERVAS_EMAIL_FROM?.trim()
-    || process.env.FACTURAS_EMAIL_FROM?.trim();
-  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO;
+  const from = process.env.RESERVAS_EMAIL_FROM?.trim() || process.env.FACTURAS_EMAIL_FROM?.trim();
+  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO?.trim();
   const normalizedTo = to.trim().toLowerCase();
 
   if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
-  if (!apiKey || !from) {
-    const missing = [
-      !apiKey ? "RESEND_API_KEY" : null,
-      !from ? "RESERVAS_EMAIL_FROM/FACTURAS_EMAIL_FROM" : null,
-    ].filter(Boolean).join(", ");
-    return { sent: false, reason: "missing_config", error: `Falta configurar: ${missing}` };
-  }
+  if (!apiKey || !from) return { sent: false, reason: "missing_config" };
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -253,47 +378,55 @@ async function sendEmailViaResend({
   return { sent: true };
 }
 
-async function sendEmailViaGmailSmtp({
+async function sendEmailViaGmail({
   to,
   subject,
   text,
   html,
+  messageId,
 }: {
   to: string;
   subject: string;
   text: string;
   html: string;
+  messageId: string;
 }): Promise<EmailSendResult> {
-  const user = process.env.RESERVAS_GMAIL_USER?.trim();
-  const appPassword = process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim();
-  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO?.trim() || user;
   const normalizedTo = to.trim().toLowerCase();
-
   if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
-  if (!user || !appPassword) return { sent: false, reason: "missing_config" };
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user, pass: appPassword },
+  const from = process.env.GMAIL_USER?.trim() || DEFAULT_GMAIL_USER;
+  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO?.trim() || from;
+  if (!isValidEmail(from) || !isValidEmail(replyTo)) {
+    return { sent: false, reason: "missing_config" };
+  }
+
+  const accessToken = await getGmailAccessToken();
+  if (!accessToken) {
+    return { sent: false, reason: "missing_config" };
+  }
+
+  const raw = buildGmailRawMessage({
+    from,
+    to: normalizedTo,
+    replyTo,
+    subject,
+    text,
+    html,
+    messageId,
   });
 
-  try {
-    await transporter.sendMail({
-      from: `Karuma Sushi & Grill <${user}>`,
-      to: normalizedTo,
-      replyTo: replyTo || user,
-      subject,
-      text,
-      html,
-    });
-  } catch (error) {
-    return {
-      sent: false,
-      reason: "request_failed",
-      error: error instanceof Error ? error.message : String(error),
-    };
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ raw }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text().catch(() => "");
+    return { sent: false, reason: "request_failed", error };
   }
 
   return { sent: true };
@@ -303,11 +436,23 @@ export async function sendReservationConfirmationEmail(
   input: ReservationConfirmationInput,
 ): Promise<EmailSendResult> {
   const email = buildConfirmationEmail(input);
-  return sendEmailViaGmailSmtp({
+
+  if (process.env.RESEND_API_KEY?.trim()) {
+    return sendEmailViaResend({
+      to: input.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+      idempotencyKey: `reservation-confirmation-${input.reservaId}`,
+    });
+  }
+
+  return sendEmailViaGmail({
     to: input.to,
     subject: email.subject,
     text: email.text,
     html: email.html,
+    messageId: makeMessageId(input.reservaId),
   });
 }
 
