@@ -60,6 +60,8 @@ const INTENTIONALLY_UNLINKED = {
   "/my-attendance": "portal empleado (redirección por rol)",
   "/my-schedule": "portal empleado (redirección por rol)",
   "/reservas": "reserva pública (cliente, sin sidebar)",
+  "/reservas/gestionar/:id":
+    "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 
   // Submenús / subnavegación dentro de una página del menú
   "/dashboard/cominport": "submenú Proveedores",
