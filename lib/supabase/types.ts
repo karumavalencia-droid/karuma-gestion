@@ -174,6 +174,7 @@ export type DbReserva = {
   seated_at: string | null;
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
+  confirmation_email_sent_at: string | null;
   review_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -707,8 +708,12 @@ export type Database = {
       };
       reservas: {
         Row: DbReserva;
-        Insert: Omit<DbReserva, "id" | "created_at" | "updated_at" | "review_email_sent_at"> & {
+        Insert: Omit<
+          DbReserva,
+          "id" | "created_at" | "updated_at" | "confirmation_email_sent_at" | "review_email_sent_at"
+        > & {
           id?: string;
+          confirmation_email_sent_at?: string | null;
           review_email_sent_at?: string | null;
         };
         Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
