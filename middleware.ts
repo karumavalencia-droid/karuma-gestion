@@ -38,6 +38,10 @@ const ADMIN_ONLY_PREFIXES = [
   "/api/finanzas",
 ];
 
+// Inbox (mensajes y reseñas): gestión, nunca cuentas de empleado.
+const GESTION_ONLY_PREFIXES = ["/mensajes", "/api/inbox"];
+const ROLES_GESTION = new Set(["owner", "manager"]);
+
 // Portal del empleado: rutas permitidas para cuentas con employeeId.
 const EMPLOYEE_PAGES = new Set([
   "/my-attendance",
@@ -105,6 +109,23 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Solo el administrador puede acceder a este módulo" },
+          { status: 403 },
+        );
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Inbox: owner y encargado. Los endpoints repiten la comprobación con
+    // requireInbox, para no depender de una sola capa.
+    if (
+      GESTION_ONLY_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      ) &&
+      (!ROLES_GESTION.has(user.role) || user.employeeId)
+    ) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Solo propietario y encargado pueden acceder a los mensajes" },
           { status: 403 },
         );
       }
