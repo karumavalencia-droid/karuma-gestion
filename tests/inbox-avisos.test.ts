@@ -9,6 +9,7 @@ const base = {
   visible: false,
   permiso: "granted",
   preferencia: true,
+  enHorario: true,
 };
 
 test("avisa cuando entra un mensaje nuevo con la pestaña de fondo", () => {
@@ -52,4 +53,10 @@ test("el texto avisa de los prioritarios cuando los hay", () => {
   assert.match(textoAviso(2, 1).cuerpo, /1 necesita atención prioritaria/);
   assert.match(textoAviso(3, 2).cuerpo, /2 necesitan atención prioritaria/);
   assert.match(textoAviso(2, 0).cuerpo, /Sin responder/);
+});
+
+test("no avisa fuera del horario de atención", () => {
+  // Un aviso a las 4 de la mañana no lo va a atender nadie. El semáforo de
+  // retraso sí se sigue viendo: eso es información, no una interrupción.
+  assert.equal(debeAvisar({ ...base, enHorario: false }), false);
 });
