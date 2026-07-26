@@ -62,8 +62,9 @@ ERP. Son dos trabajos distintos y conviene no mezclarlos:
 2. **Retema global** a negro/oro + modo oscuro, como tarea aparte que toca todas las
    pantallas a la vez.
 
-Este documento asume (1). Si la decisión es al revés, hay que hacer (2) **antes**,
-no a la vez.
+**Decidido el 2026-07-26: se hace (1).** El Inbox se construye con el estilo actual y
+el retema global queda como trabajo independiente, para no dejar un módulo con una
+identidad distinta a la del resto del ERP.
 
 ---
 
@@ -600,7 +601,8 @@ de añadirlas hay que volver a desplegar.
 | Cuenta de Instagram profesional + app de Meta + App Review | Karuma | Fase 1 completa |
 | Formulario de *Basic API Access* de Google Business Profile | Karuma | Fase 2 completa |
 | Alta en el Tripadvisor Content API | Karuma | Fase 3 |
-| Decidir estilo: actual (rojo) o retema global negro/oro + modo oscuro | Karuma | Toda la UI |
 | Aplicar `038_inbox.sql` en el SQL Editor de Supabase | Karuma | Fase 0 |
+
+~~Decidir el estilo~~ — resuelto el 2026-07-26: estilo actual (ver 0.3).
 
 Las tres primeras se pueden iniciar hoy y avanzan solas mientras se programa la fase 0.
