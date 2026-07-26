@@ -264,7 +264,7 @@ export function buildReservationConfirmationSendKey(input: {
   return `reservation-confirmation-${createHash("sha256").update(canonical).digest("hex")}`;
 }
 
-async function getGmailAccessToken(): Promise<string | null> {
+export async function getGmailAccessToken(): Promise<string | null> {
   const credentialsPath = resolveGmailFile("GMAIL_CREDENTIALS_FILE", "credentials.json");
   const tokenPath = resolveGmailFile("GMAIL_TOKEN_FILE", "token.json");
   const credentials = await readJsonFile<GmailCredentials>(credentialsPath);

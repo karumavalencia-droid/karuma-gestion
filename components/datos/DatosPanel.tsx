@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Bot,
+  CheckCircle2,
   Database,
   Download,
-  Link2,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   TrendingUp,
   Users,
   Wallet,
-  WifiOff,
   Star,
   MessageSquare,
 } from "lucide-react";
@@ -24,15 +24,15 @@ import {
   exportResumenCsv,
   generarAISummary,
   loadConfig,
-  saveConfig,
   scanModules,
   sincronizarDatos,
   type DatosConfig,
   type ModuleInfo,
 } from "@/lib/datos/helpers";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { RestosuiteCsvImporter } from "@/components/restosuite/RestosuiteCsvImporter";
 import { SalesDataStatus } from "@/components/datos/SalesDataStatus";
+import { OperatingAnalyticsPanel } from "@/components/datos/OperatingAnalyticsPanel";
 import { LegacySalesMigrator } from "@/components/sales/LegacySalesMigrator";
 import { useDailySales } from "@/lib/sales-sync/useDailySales";
 import { getRegistrosMes } from "@/lib/objetivo/helpers";
@@ -44,9 +44,6 @@ const sugerenciaStyles = {
   danger: "border-red-200 bg-red-50 text-red-900",
 };
 
-const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-1 focus:ring-karuma-500";
-
 export function DatosPanel() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [config, setConfig] = useState<DatosConfig>({
@@ -57,8 +54,6 @@ export function DatosPanel() {
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState("");
   const [statusVersion, setStatusVersion] = useState(0);
-  const [showApiConfig, setShowApiConfig] = useState(false);
-  const [apiDraft, setApiDraft] = useState({ apiKey: "", apiUrl: "" });
 
   const refresh = useCallback(() => {
     setModules(scanModules());
@@ -106,21 +101,16 @@ export function DatosPanel() {
     showToast("CSV exportado");
   };
 
-  const openApiConfig = () => {
-    setApiDraft({ apiKey: config.apiKey, apiUrl: config.apiUrl });
-    setShowApiConfig(true);
-  };
-
-  const saveApiConfig = () => {
-    const next = { ...config, apiKey: apiDraft.apiKey.trim(), apiUrl: apiDraft.apiUrl.trim() };
-    saveConfig(next);
-    setConfig(next);
-    setShowApiConfig(false);
-    showToast("Configuración API guardada (sin conexión real)");
-  };
-
-  const apiConectada = Boolean(config.apiKey && config.apiUrl);
   const modulosVisibles = modules;
+  const restosuiteRecords = sales.records.filter((record) =>
+    record.source.startsWith("restosuite"),
+  );
+  const firstRestosuiteRecord = restosuiteRecords[0];
+  const lastRestosuiteRecord = restosuiteRecords.at(-1);
+  const restosuiteNetSales = restosuiteRecords.reduce(
+    (total, record) => total + record.netSales,
+    0,
+  );
 
   return (
     <div>
@@ -128,6 +118,8 @@ export function DatosPanel() {
         title="Centro de Datos"
         description="Vista unificada de todos los módulos Karuma ERP"
       />
+
+      <OperatingAnalyticsPanel />
 
       {/* KPIs unificados */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 sm:gap-4">
@@ -299,75 +291,72 @@ export function DatosPanel() {
           )}
         </section>
 
-        {/* Restosuite API Ready */}
+        {/* Estado real de la integración de informes RestoSuite */}
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex items-start justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">
-                API TPV (Restosuite / Palmier Pro)
+                Informes RestoSuite
               </h2>
               <p className="mt-1 text-xs text-gray-500">
-                Preparado para integración futura (sin conexión real). Modo
-                actual: importación manual de CSV.
+                Ventas y formas de pago obtenidas de los informes internos de
+                solo lectura.
               </p>
             </div>
-            <StatusBadge variant={apiConectada ? "info" : "warning"}>
-              {apiConectada ? "Configurado" : "No conectado"}
+            <StatusBadge variant={restosuiteRecords.length > 0 ? "success" : "warning"}>
+              {restosuiteRecords.length > 0 ? "Datos reales" : "Sin datos"}
             </StatusBadge>
           </div>
 
-          <div className="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
-            <WifiOff className="h-5 w-5 shrink-0 text-gray-400" />
-            <div>
-              <p className="text-xs font-medium text-gray-700">Estado API</p>
-              <p className="text-sm text-gray-500">No conectado</p>
-            </div>
-          </div>
+          {restosuiteRecords.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-[11px] text-emerald-700">Días disponibles</p>
+                  <p className="mt-1 text-lg font-bold text-emerald-950">
+                    {restosuiteRecords.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-emerald-700">Importe cobrado</p>
+                  <p className="mt-1 text-lg font-bold text-emerald-950">
+                    {formatCurrency(restosuiteNetSales)}
+                  </p>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <p className="text-[11px] text-emerald-700">Rango</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-950">
+                    {formatDate(firstRestosuiteRecord.date)} –{" "}
+                    {formatDate(lastRestosuiteRecord?.date ?? firstRestosuiteRecord.date)}
+                  </p>
+                </div>
+              </div>
 
-          {!showApiConfig ? (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={openApiConfig}>
-              <Link2 className="h-4 w-4" />
-              Configurar integración
-            </Button>
+              <div className="mt-4 space-y-2 text-xs text-gray-600">
+                <p className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  Ventas, pedidos, clientes, efectivo, tarjeta y delivery
+                </p>
+                <p className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  Descuentos, devoluciones y propinas por día
+                </p>
+                <p className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600" />
+                  Credenciales y sesión guardadas únicamente en el servidor
+                </p>
+              </div>
+            </>
           ) : (
-            <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
+              <Database className="h-5 w-5 shrink-0 text-gray-400" />
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600">
-                  API Key
-                </label>
-                <input
-                  type="password"
-                  value={apiDraft.apiKey}
-                  onChange={(e) => setApiDraft((p) => ({ ...p, apiKey: e.target.value }))}
-                  placeholder="rs_live_xxxxxxxx"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600">
-                  URL API
-                </label>
-                <input
-                  type="url"
-                  value={apiDraft.apiUrl}
-                  onChange={(e) => setApiDraft((p) => ({ ...p, apiUrl: e.target.value }))}
-                  placeholder="https://api.restosuite.com/v1"
-                  className={inputClass}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={saveApiConfig}>
-                  Guardar
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowApiConfig(false)}>
-                  Cancelar
-                </Button>
+                <p className="text-xs font-medium text-gray-700">Sin histórico RestoSuite</p>
+                <p className="text-sm text-gray-500">
+                  Importa un CSV o configura la sincronización del servidor.
+                </p>
               </div>
             </div>
-          )}
-
-          {config.apiUrl && !showApiConfig && (
-            <p className="mt-3 truncate text-xs text-gray-400">URL: {config.apiUrl}</p>
           )}
         </section>
       </div>

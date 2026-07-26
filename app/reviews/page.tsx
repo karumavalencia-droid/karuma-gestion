@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { AlertTriangle, Clock, MessageSquare, Star, MessagesSquare } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
+import { getCategory, type ReviewCategory } from "@/lib/google-reviews/ai-reply";
 
 type ReviewStatus = "pending" | "awaiting" | "published";
+type WorkflowStatus = "todo" | "processing" | "closed";
+type Priority = "high" | "normal" | "low";
 
 type Review = {
   id: number;
@@ -14,6 +17,11 @@ type Review = {
   date: string;
   status: ReviewStatus;
   aiReply: string;
+  category: ReviewCategory;
+  workflowStatus: WorkflowStatus;
+  priority: Priority;
+  assignee: string;
+  dueDate: string;
 };
 
 const REVIEWS_SEED: Review[] = [
@@ -25,6 +33,11 @@ const REVIEWS_SEED: Review[] = [
     date: "2026-06-10",
     status: "pending",
     aiReply: "",
+    category: "5星好评",
+    workflowStatus: "todo",
+    priority: "low",
+    assignee: "",
+    dueDate: "",
   },
   {
     id: 2,
@@ -34,6 +47,11 @@ const REVIEWS_SEED: Review[] = [
     date: "2026-06-09",
     status: "pending",
     aiReply: "",
+    category: "4星好评",
+    workflowStatus: "todo",
+    priority: "low",
+    assignee: "",
+    dueDate: "",
   },
   {
     id: 3,
@@ -43,6 +61,11 @@ const REVIEWS_SEED: Review[] = [
     date: "2026-06-08",
     status: "pending",
     aiReply: "",
+    category: "1-2星差评",
+    workflowStatus: "todo",
+    priority: "high",
+    assignee: "",
+    dueDate: "",
   },
 ];
 
@@ -56,6 +79,18 @@ const STATUS_STYLE: Record<ReviewStatus, string> = {
   pending: "bg-gray-50 text-gray-600 ring-gray-500/20",
   awaiting: "bg-amber-50 text-amber-700 ring-amber-600/20",
   published: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+};
+
+const WORKFLOW_LABEL: Record<WorkflowStatus, string> = {
+  todo: "待处理",
+  processing: "处理中",
+  closed: "已关闭",
+};
+
+const PRIORITY_LABEL: Record<Priority, string> = {
+  high: "高优先级",
+  normal: "普通",
+  low: "低优先级",
 };
 
 function buildAiReply(rating: number, comment: string): string {
@@ -93,11 +128,30 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>(REVIEWS_SEED);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<ReviewCategory | "all">("all");
+  const [workflowFilter, setWorkflowFilter] = useState<WorkflowStatus | "all">("all");
 
   const total = reviews.length;
   const unreplied = reviews.filter((r) => r.status === "pending").length;
   const bad = reviews.filter((r) => r.rating <= 2).length;
   const awaiting = reviews.filter((r) => r.status === "awaiting").length;
+
+  const visibleReviews = reviews.filter((review) => {
+    return (
+      (categoryFilter === "all" || review.category === categoryFilter) &&
+      (workflowFilter === "all" || review.workflowStatus === workflowFilter)
+    );
+  });
+
+  const updateReview = (id: number, patch: Partial<Review>) => {
+    setReviews((prev) =>
+      prev.map((review) =>
+        review.id === id
+          ? { ...review, ...patch, category: getCategory(review.rating, review.comment) }
+          : review,
+      ),
+    );
+  };
 
   const handleGenerate = (id: number) => {
     setReviews((prev) =>
@@ -161,8 +215,40 @@ export default function ReviewsPage() {
         />
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <label className="text-sm font-medium text-gray-700">
+          分类
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as ReviewCategory | "all")}
+            className="ml-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal text-gray-700"
+          >
+            <option value="all">全部分类</option>
+            <option value="5星好评">5星好评</option>
+            <option value="4星好评">4星好评</option>
+            <option value="3星中评">3星中评</option>
+            <option value="1-2星差评">1-2星差评</option>
+            <option value="无文字评论">无文字评论</option>
+          </select>
+        </label>
+        <label className="text-sm font-medium text-gray-700">
+          处理状态
+          <select
+            value={workflowFilter}
+            onChange={(e) => setWorkflowFilter(e.target.value as WorkflowStatus | "all")}
+            className="ml-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal text-gray-700"
+          >
+            <option value="all">全部状态</option>
+            <option value="todo">待处理</option>
+            <option value="processing">处理中</option>
+            <option value="closed">已关闭</option>
+          </select>
+        </label>
+        <span className="ml-auto text-xs text-gray-500">显示 {visibleReviews.length} 条</span>
+      </div>
+
       <div className="space-y-4">
-        {reviews.map((review) => (
+        {visibleReviews.map((review) => (
           <article
             key={review.id}
             className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
@@ -178,6 +264,52 @@ export default function ReviewsPage() {
               >
                 {STATUS_LABEL[review.status]}
               </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2 border-b border-gray-100 py-3 text-xs">
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">{review.category}</span>
+              <select
+                value={review.workflowStatus}
+                onChange={(e) => updateReview(review.id, { workflowStatus: e.target.value as WorkflowStatus })}
+                className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-700"
+                aria-label="处理状态"
+              >
+                {(Object.keys(WORKFLOW_LABEL) as WorkflowStatus[]).map((status) => (
+                  <option key={status} value={status}>{WORKFLOW_LABEL[status]}</option>
+                ))}
+              </select>
+              <select
+                value={review.priority}
+                onChange={(e) => updateReview(review.id, { priority: e.target.value as Priority })}
+                className={`rounded-full border px-2.5 py-1 ${review.priority === "high" ? "border-red-200 bg-red-50 text-red-700" : "border-gray-200 bg-white text-gray-700"}`}
+                aria-label="优先级"
+              >
+                {(Object.keys(PRIORITY_LABEL) as Priority[]).map((priority) => (
+                  <option key={priority} value={priority}>{PRIORITY_LABEL[priority]}</option>
+                ))}
+              </select>
+              <select
+                value={review.assignee}
+                onChange={(e) => updateReview(review.id, { assignee: e.target.value })}
+                className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-700"
+                aria-label="负责人"
+              >
+                <option value="">未分配负责人</option>
+                <option value="店长">店长</option>
+                <option value="前台">前台</option>
+                <option value="厨房">厨房</option>
+                <option value="配送">配送</option>
+              </select>
+              <label className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-600">
+                截止
+                <input
+                  type="date"
+                  value={review.dueDate}
+                  onChange={(e) => updateReview(review.id, { dueDate: e.target.value })}
+                  className="bg-transparent text-gray-700 outline-none"
+                  aria-label="截止日期"
+                />
+              </label>
             </div>
 
             <div className="space-y-4 pt-4">
@@ -273,6 +405,11 @@ export default function ReviewsPage() {
             </div>
           </article>
         ))}
+        {!visibleReviews.length && (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
+            没有符合筛选条件的评论
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">

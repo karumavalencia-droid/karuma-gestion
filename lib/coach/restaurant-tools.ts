@@ -3,7 +3,7 @@
 // existentes). El modelo nunca ejecuta SQL: solo elige qué herramienta llamar.
 // Todas degradan con elegancia si la tabla no existe o no hay datos.
 
-import { isSalesAdmin } from "@/lib/auth/guards";
+import { canViewSales, isSalesAdmin } from "@/lib/auth/guards";
 import type { SessionUser } from "@/lib/auth/session";
 import { KIOSK_EMPLOYEES } from "@/lib/kiosk/employees";
 import { isActiveReservation, isTableBlockReservation } from "@/lib/reservas/helpers";
@@ -209,11 +209,11 @@ export async function runGetTableStatus(args: unknown): Promise<string> {
  * Los empleados reciben "no_access" para que el modelo no revele cifras.
  */
 export async function runGetTodaySales(user: SessionUser): Promise<string> {
-  if (!isSalesAdmin(user)) {
+  if (!canViewSales(user)) {
     return JSON.stringify({
       error: "no_access",
       message:
-        "Las ventas y la facturación son información solo para gerencia. Dile al empleado que lo consulte con el encargado.",
+        "Las ventas y la facturación son información solo para la cuenta personal autorizada. Dile al empleado que lo consulte con el encargado.",
     });
   }
 

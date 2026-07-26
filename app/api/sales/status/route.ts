@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionUser } from "@/lib/auth/guards";
-import { isPosApiConfigured } from "@/lib/sales-sync/config";
+import { canViewSales, getSessionUser } from "@/lib/auth/guards";
+import { getDefaultLocationId, resolveRestosuiteReportConfig } from "@/lib/sales-sync/config";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DbSalesDaily, DbSalesImportLog } from "@/lib/supabase/types";
 
@@ -26,7 +26,7 @@ export type SalesStatusPayload = {
     skipped: number;
     errorMessage: string | null;
   } | null;
-  /** "csv-manual" mientras el TPV no tenga API oficial configurada. */
+  /** "api-auto" cuando está configurada la sesión de informes internos. */
   mode: "csv-manual" | "api-auto";
 };
 
@@ -39,10 +39,19 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
   }
+  if (!canViewSales(user)) {
+    return NextResponse.json({ error: "Sin permisos para ver ventas" }, { status: 403 });
+  }
 
-  const mode: SalesStatusPayload["mode"] = isPosApiConfigured()
-    ? "api-auto"
-    : "csv-manual";
+  const locationId = process.env.RESTOSUITE_LOCATION_ID?.trim() || getDefaultLocationId();
+  const mode: SalesStatusPayload["mode"] = (await (async () => {
+    try {
+      await resolveRestosuiteReportConfig(locationId);
+      return "api-auto" as const;
+    } catch {
+      return "csv-manual" as const;
+    }
+  })());
 
   const base: SalesStatusPayload = {
     configured: isSupabaseConfigured(),

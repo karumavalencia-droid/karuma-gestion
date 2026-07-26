@@ -99,6 +99,10 @@ function duracionBloqueoLabel(minutos?: number) {
   return total < 60 ? `${total} min` : `${Math.floor(total / 60)}h${total % 60 ? ` ${total % 60}m` : ""}`;
 }
 
+function personasLabel(personas: number) {
+  return `${personas} personas`;
+}
+
 // Lee la lista de espera compartida (Supabase). Devuelve null si el API no responde,
 // para que el llamador caiga a la copia de localStorage.
 async function fetchEsperaRemota(fecha: string): Promise<EsperaLocal[] | null> {
@@ -1021,11 +1025,18 @@ export default function ReservasPage() {
                           </span>
                         )}
                       </div>
+                      {!isBlock && (
+                        <p className="text-sm font-semibold text-karuma-600">
+                          {r.hora} · 👥 {personasLabel(r.personas)}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-400">
                         {!isBlock && r.telefono && <span className="mr-3">{r.telefono}</span>}
-                        <span className={`font-bold ${isBlock ? "text-gray-500" : "text-karuma-600"}`}>
-                          {isBlock ? duracionBloqueoLabel(r.duracionMin) : `👥 ${r.personas} pax`}
-                        </span>
+                        {isBlock && (
+                          <span className="font-bold text-gray-500">
+                            {duracionBloqueoLabel(r.duracionMin)}
+                          </span>
+                        )}
                         {mesa !== "—" && <span className="ml-3 font-semibold text-karuma-600">{mesa}</span>}
                       </p>
                       {(() => {
@@ -1202,11 +1213,11 @@ export default function ReservasPage() {
                     {m.reserva
                       ? <>
                           <p className="truncate text-[8px] font-semibold leading-tight">{blocked ? "Bloq" : m.reserva.estado === "walkin" ? `${m.reserva.hora} ${m.reserva.nombre.split(" ")[0]}` : m.reserva.nombre.split(" ")[0]}</p>
-                          {!blocked && <p className="text-[7px] font-bold text-karuma-600">👥 {m.reserva.personas}p</p>}
+                          {!blocked && <p className="text-[7px] font-bold text-karuma-600">👥 {personasLabel(m.reserva.personas)}</p>}
                         </>
                       : futuras.length > 0 && <>
                           <p className={`truncate text-[8px] font-semibold leading-tight ${blocked ? "text-rose-700" : "text-emerald-700"}`}>{blocked ? "Bloq" : futuras[0].hora}</p>
-                          {!blocked && <p className="text-[7px] font-bold text-emerald-700">👥 {futuras[0].personas}p</p>}
+                          {!blocked && <p className="text-[7px] font-bold text-emerald-700">👥 {personasLabel(futuras[0].personas)}</p>}
                         </>}
                   </button>
                 );

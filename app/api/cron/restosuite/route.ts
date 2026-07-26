@@ -1,42 +1,97 @@
-// NOTA (MVP ventas): esta ruta de cron está EN ESPERA de una API/exportación
-// oficial de Restosuite. Restosuite no expone hoy una API pública estable
-// (ver análisis previo); la vía soportada de entrada de datos es la importación
-// manual de CSV (POST /api/sales/import). Mientras RESTOSUITE_API_URL sea un
-// placeholder o falte, esta ruta responde "no configurada" y NO hace ninguna
-// petición externa (nunca llama a pos-provider.example).
 import { NextResponse } from "next/server";
-import { parseRestosuiteCsv } from "@/lib/restosuite/csvImport";
-import { isPlaceholderApiUrl } from "@/lib/sales-sync/config";
-import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
-import { mergeDailySalesRecords } from "@/lib/sales-sync/storage";
-import type { DailySalesRecord } from "@/lib/sales-sync/types";
+import {
+  getDefaultLocationId,
+  resolveRestosuiteReportConfig,
+  RESTOSUITE_REPORT_SOURCE,
+} from "@/lib/sales-sync/config";
+import {
+  replaceDishReorderDays,
+} from "@/lib/dish-reorders/supabaseRepo";
+import {
+  isSalesDbConfigured,
+  logImport,
+  upsertDailySales,
+} from "@/lib/sales-sync/supabaseRepo";
+import {
+  fetchRestosuiteDishReorders,
+  fetchRestosuiteDailySales,
+  RestosuiteAuthError,
+  RestosuiteReportError,
+} from "@/lib/restosuite/reportApi";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-function dateInMadrid(daysFromToday: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + daysFromToday);
-  return new Intl.DateTimeFormat("en-CA", {
+const MAX_RANGE_DAYS = 93;
+const MAX_KDS_RANGE_DAYS = 3;
+
+function businessDateInMadrid(daysFromToday: number): string {
+  const currentBusinessDate = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Madrid",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(date);
+  }).format(new Date());
+  const [year, month, day] = currentBusinessDate.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + daysFromToday));
+  return shifted.toISOString().slice(0, 10);
 }
 
-function buildRestosuiteUrl(baseUrl: string, date: string, locationId: string): string {
-  const expanded = baseUrl
-    .replaceAll("{date}", encodeURIComponent(date))
-    .replaceAll("{locationId}", encodeURIComponent(locationId));
-  const url = new URL(expanded);
-  if (!baseUrl.includes("{date}")) {
-    url.searchParams.set(process.env.RESTOSUITE_DATE_PARAM || "date", date);
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function daysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  return Math.floor((end - start) / 86_400_000) + 1;
+}
+
+function businessDatesBetween(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  for (
+    let timestamp = Date.parse(`${startDate}T00:00:00Z`);
+    timestamp <= Date.parse(`${endDate}T00:00:00Z`);
+    timestamp += 86_400_000
+  ) {
+    dates.push(new Date(timestamp).toISOString().slice(0, 10));
   }
-  if (locationId && !baseUrl.includes("{locationId}")) {
-    url.searchParams.set(process.env.RESTOSUITE_LOCATION_PARAM || "locationId", locationId);
+  return dates;
+}
+
+function readDateRange(request: Request):
+  | { startDate: string; endDate: string }
+  | { error: string } {
+  const url = new URL(request.url);
+  const singleDate = url.searchParams.get("date")?.trim();
+  const startDate = singleDate || url.searchParams.get("startDate")?.trim() || businessDateInMadrid(-1);
+  const endDate = singleDate || url.searchParams.get("endDate")?.trim() || businessDateInMadrid(0);
+
+  if (!isValidDate(startDate) || !isValidDate(endDate)) {
+    return { error: "Las fechas deben usar el formato YYYY-MM-DD" };
   }
-  return url.toString();
+  if (startDate > endDate) {
+    return { error: "startDate no puede ser posterior a endDate" };
+  }
+  if (daysBetween(startDate, endDate) > MAX_RANGE_DAYS) {
+    return { error: `El rango máximo es de ${MAX_RANGE_DAYS} días` };
+  }
+  return { startDate, endDate };
+}
+
+async function recordFailure(errorMessage: string): Promise<void> {
+  await logImport({
+    source: RESTOSUITE_REPORT_SOURCE,
+    fileName: null,
+    totalRows: 0,
+    insertedRows: 0,
+    updatedRows: 0,
+    skippedRows: 0,
+    status: "error",
+    errorMessage,
+  });
 }
 
 export async function GET(request: Request) {
@@ -45,94 +100,113 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const apiUrl = process.env.RESTOSUITE_API_URL;
-  const apiToken = process.env.RESTOSUITE_API_TOKEN;
-  const locationId = process.env.RESTOSUITE_LOCATION_ID || "karuma-valencia";
-  // No hacer ninguna petición externa mientras la API sea un placeholder.
-  if (!apiUrl || !apiToken || isPlaceholderApiUrl(apiUrl)) {
+  const dateRange = readDateRange(request);
+  if ("error" in dateRange) {
+    return NextResponse.json({ error: dateRange.error }, { status: 400 });
+  }
+
+  if (!isSalesDbConfigured()) {
     return NextResponse.json(
-      {
-        success: false,
-        configured: false,
-        pendingOfficialApi: true,
-        message:
-          "Restosuite no tiene API oficial configurada. Usa la importación manual de CSV (/api/sales/import).",
-      },
+      { success: false, configured: false, message: "Supabase no está configurado." },
       { status: 503 },
     );
   }
 
-  const requestUrl = new URL(request.url);
-  const targetDate = requestUrl.searchParams.get("date") || dateInMadrid(-1);
-  const authHeader = process.env.RESTOSUITE_API_KEY_HEADER || "Authorization";
-  const authPrefix = process.env.RESTOSUITE_API_KEY_PREFIX ?? "Bearer ";
-  const headers = new Headers({ Accept: "application/json, text/csv" });
-  headers.set(authHeader, `${authPrefix}${apiToken}`);
+  const locationId =
+    process.env.RESTOSUITE_LOCATION_ID?.trim() || getDefaultLocationId();
+  const fileName = `restosuite-${dateRange.startDate}_to_${dateRange.endDate}.json`;
 
   try {
-    const response = await fetch(buildRestosuiteUrl(apiUrl, targetDate, locationId), {
-      headers,
-      cache: "no-store",
+    const reportConfig = await resolveRestosuiteReportConfig(locationId);
+    const records = await fetchRestosuiteDailySales({
+      ...dateRange,
+      locationId,
+      config: reportConfig,
     });
-    if (!response.ok) {
+    const result = await upsertDailySales(records);
+    const rangeDays = daysBetween(dateRange.startDate, dateRange.endDate);
+    let dishReorders:
+      | {
+          skipped: false;
+          rows: number;
+          upserted: number;
+          deleted: number;
+        }
+      | {
+          skipped: true;
+          reason: string;
+        };
+
+    if (rangeDays <= MAX_KDS_RANGE_DAYS) {
+      const dishRecords = await fetchRestosuiteDishReorders({
+        ...dateRange,
+        locationId,
+        config: reportConfig,
+      });
+      const dishResult = await replaceDishReorderDays({
+        records: dishRecords,
+        locationId,
+        businessDates: businessDatesBetween(
+          dateRange.startDate,
+          dateRange.endDate,
+        ),
+      });
+      dishReorders = {
+        skipped: false,
+        rows: dishRecords.length,
+        ...dishResult,
+      };
+    } else {
+      dishReorders = {
+        skipped: true,
+        reason: `Use daily batches for KDS ranges longer than ${MAX_KDS_RANGE_DAYS} days`,
+      };
+    }
+
+    await logImport({
+      source: RESTOSUITE_REPORT_SOURCE,
+      fileName,
+      totalRows: records.length,
+      insertedRows: result.inserted,
+      updatedRows: result.updated,
+      skippedRows: 0,
+      status: "success",
+      errorMessage: null,
+    });
+
+    return NextResponse.json({
+      success: true,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      inserted: result.inserted,
+      updated: result.updated,
+      total: records.length,
+      noData: records.length === 0,
+      dishReorders,
+    });
+  } catch (error) {
+    if (error instanceof RestosuiteAuthError) {
+      const message = `${error.code}: ${error.message}`;
+      await recordFailure(message);
       return NextResponse.json(
-        { error: `Restosuite responded with ${response.status}` },
+        {
+          success: false,
+          reauthRequired: true,
+          error: error.code,
+          message: error.message,
+        },
         { status: 502 },
       );
     }
 
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("json") ? await response.json() : await response.text();
-    const records =
-      typeof payload === "string"
-        ? (() => {
-            const parsed = parseRestosuiteCsv(payload, `restosuite-${targetDate}.csv`);
-            const syncedAt = new Date().toISOString();
-            return (parsed.preview?.registros ?? []).map(
-              (record): DailySalesRecord => ({
-                date: record.fecha,
-                grossSales: record.ventas,
-                netSales: record.ventas,
-                customers: record.clientes,
-                orders: record.facturas,
-                averageTicket: record.ticketMedio,
-                drinkSales: record.ventasBebida,
-                deliverySales: 0,
-                cashSales: 0,
-                cardSales: 0,
-                source: "restosuite-csv",
-                locationId,
-                externalId: null,
-                notes: record.observaciones,
-                syncedAt,
-              }),
-            );
-          })()
-        : normalizeSalesPayload(payload, {
-            fallbackDate: targetDate,
-            source: "restosuite-api",
-            locationId,
-          });
-
-    if (records.length === 0) {
-      return NextResponse.json(
-        { error: "No valid sales records found" },
-        { status: 422 },
-      );
-    }
-
-    const result = await mergeDailySalesRecords(records);
-    return NextResponse.json({
-      success: true,
-      date: targetDate,
-      inserted: result.inserted,
-      updated: result.updated,
-      total: result.store.records.length,
-    });
-  } catch (error) {
+    const safeMessage =
+      error instanceof RestosuiteReportError
+        ? `${error.code}: ${error.message}`
+        : "RESTOSUITE_SYNC_FAILED: No se pudo completar la sincronización";
+    await recordFailure(safeMessage);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Restosuite sync failed" },
-      { status: 500 },
+      { success: false, error: "RESTOSUITE_SYNC_FAILED", message: safeMessage },
+      { status: 502 },
     );
   }
 }
