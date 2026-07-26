@@ -78,6 +78,7 @@ const INTENTIONALLY_UNLINKED = {
 
   // Detalle / rutas dinámicas
   "/mensajes/:id": "conversación (enlace desde /mensajes)",
+  "/mensajes/insights": "analítica del inbox (enlace desde /mensajes)",
   "/staff/:id": "detalle de empleado (enlace desde /staff)",
   "/ceo/change-requests/:id": "detalle de solicitud (enlace desde /ceo)",
 

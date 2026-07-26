@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ThreadItem } from "@/components/inbox/ThreadItem";
 import type { Contadores, ThreadResumen } from "@/components/inbox/tipos";
-import { Inbox, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, Inbox, RefreshCw } from "lucide-react";
 
 type Filtro = {
   clave: string;
@@ -90,6 +91,13 @@ export default function MensajesPage() {
         hideTitle
         description="Instagram, Google y Tripadvisor en una sola bandeja. Ningún cliente sin respuesta."
       >
+        <Link
+          href="/mensajes/insights"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          Analítica
+        </Link>
         <button
           type="button"
           onClick={() => void cargar()}
