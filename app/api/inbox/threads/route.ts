@@ -92,8 +92,32 @@ export async function GET(request: NextRequest) {
   }
 
   const threads = data ?? [];
+
+  // Extracto del último mensaje de cada hilo, en una sola consulta acotada por
+  // el límite de la página. Sin esto la bandeja no dice de qué va cada hilo.
+  const extractos = new Map<string, string>();
+  if (threads.length > 0) {
+    const { data: mensajes } = await supabase
+      .from("inbox_messages")
+      .select("thread_id, body, sent_at")
+      .in(
+        "thread_id",
+        threads.map((t) => t.id),
+      )
+      .order("sent_at", { ascending: false });
+
+    for (const mensaje of mensajes ?? []) {
+      if (!extractos.has(mensaje.thread_id) && mensaje.body) {
+        extractos.set(mensaje.thread_id, mensaje.body.slice(0, 200));
+      }
+    }
+  }
+
   const siguiente =
     threads.length === limit ? threads[threads.length - 1]?.last_message_at ?? null : null;
 
-  return NextResponse.json({ threads, cursor: siguiente });
+  return NextResponse.json({
+    threads: threads.map((t) => ({ ...t, extracto: extractos.get(t.id) ?? null })),
+    cursor: siguiente,
+  });
 }

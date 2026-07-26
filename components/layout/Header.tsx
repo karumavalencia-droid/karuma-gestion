@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Menu, Bell, LogOut } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
@@ -19,6 +21,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
   const role = normalizeRole(user?.role);
   const displayName = user?.name ?? "Zhou";
   const isMesaView = pathname === "/dashboard/mesa-view";
+  const sinResponder = useSinResponder(role);
 
   const today = new Intl.DateTimeFormat("es-ES", {
     weekday: "short",
@@ -45,13 +48,27 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-        <button
-          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 sm:flex"
-          aria-label={t("header.notifications")}
+        <Link
+          href="/mensajes"
+          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100"
+          aria-label={
+            sinResponder > 0
+              ? `${t("header.notifications")}: ${sinResponder} sin responder`
+              : t("header.notifications")
+          }
+          title={
+            sinResponder > 0
+              ? `${sinResponder} mensaje${sinResponder === 1 ? "" : "s"} sin responder`
+              : "Mensajes y reseñas"
+          }
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-karuma-500" />
-        </button>
+          {sinResponder > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-karuma-500 px-1 text-[10px] font-bold leading-none text-white">
+              {sinResponder > 9 ? "9+" : sinResponder}
+            </span>
+          )}
+        </Link>
         <button
           type="button"
           onClick={async () => {
@@ -79,4 +96,41 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
     </header>
   );
+}
+
+/**
+ * Mensajes sin responder para el contador de la campana.
+ *
+ * Solo lo consultan los roles que tienen acceso al Inbox: para el resto el
+ * endpoint devolvería 403 y no tiene sentido preguntarlo. Refresco cada 60 s;
+ * la señal instantánea vendrá de Supabase Realtime más adelante.
+ */
+function useSinResponder(role: string): number {
+  const [total, setTotal] = useState(0);
+  const puedeVer = role === "owner" || role === "manager";
+
+  useEffect(() => {
+    if (!puedeVer) return;
+    let vivo = true;
+
+    const cargar = async () => {
+      try {
+        const res = await fetch("/api/inbox/unread", { cache: "no-store" });
+        if (!res.ok) return;
+        const cuerpo = (await res.json()) as { total?: number };
+        if (vivo) setTotal(cuerpo.total ?? 0);
+      } catch {
+        /* sin red: se reintenta en el siguiente ciclo */
+      }
+    };
+
+    void cargar();
+    const id = setInterval(() => void cargar(), 60_000);
+    return () => {
+      vivo = false;
+      clearInterval(id);
+    };
+  }, [puedeVer]);
+
+  return puedeVer ? total : 0;
 }
