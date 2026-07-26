@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { ADMIN_SESSION_EMAIL } from "./admin-session";
 import type { SessionUser } from "./session";
 
 /**
@@ -38,7 +39,7 @@ export async function verifyAdminCredentials(
 export function adminSessionUser(): SessionUser {
   return {
     name: "Zhou",
-    email: "admin@karuma.local",
+    email: ADMIN_SESSION_EMAIL,
     role: "owner",
     employeeId: null,
   };

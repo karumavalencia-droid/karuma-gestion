@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAdminSession } from "@/lib/auth/admin-session";
 import {
   SESSION_COOKIE_NAME,
   verifySessionToken,
@@ -14,10 +15,24 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/logout",
 ]);
 
-// Módulos confidenciales: solo el rol owner (finanzas reales y documentos).
-const OWNER_ONLY_PREFIXES = [
+// Módulos confidenciales: SOLO la sesión de Admin (usuario + contraseña + SMS).
+// No basta el rol owner: las cuentas de oficina entran por OTP con el rol de su
+// ficha, y la única que existe hoy tiene rol owner, así que filtrar por rol no
+// las dejaría fuera.
+const ADMIN_ONLY_PREFIXES = [
+  "/ceo",
+  "/ai-gerente",
+  "/datos",
+  "/objetivo",
+  "/profit",
   "/finanzas",
   "/documentos",
+  // APIs que alimentan solo a esos módulos. /api/sales/daily NO entra: lo usa
+  // el dashboard, que la oficina sí ve.
+  "/api/ceo",
+  "/api/sales/status",
+  "/api/sales/import",
+  "/api/sales/migrate-blob",
   "/api/gastos",
   "/api/documentos",
   "/api/finanzas",
@@ -29,7 +44,6 @@ const EMPLOYEE_PAGES = new Set([
   "/my-schedule",
   "/announcements",
   "/coach",
-  "/ceo",
 ]);
 const EMPLOYEE_API_PREFIXES = [
   "/api/attendance/me",
@@ -81,16 +95,16 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // Módulos confidenciales: solo owner (y nunca cuentas de empleado).
+    // Módulos confidenciales: solo la sesión de Admin.
     if (
-      OWNER_ONLY_PREFIXES.some(
+      ADMIN_ONLY_PREFIXES.some(
         (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
       ) &&
-      (user.role !== "owner" || user.employeeId)
+      !isAdminSession(user)
     ) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
-          { error: "Solo el propietario puede acceder a este módulo" },
+          { error: "Solo el administrador puede acceder a este módulo" },
           { status: 403 },
         );
       }
@@ -103,8 +117,7 @@ export async function middleware(request: NextRequest) {
       !user.employeeId &&
       EMPLOYEE_PAGES.has(pathname) &&
       pathname !== "/announcements" &&
-      pathname !== "/coach" &&
-      pathname !== "/ceo"
+      pathname !== "/coach"
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

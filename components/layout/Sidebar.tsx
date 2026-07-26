@@ -37,12 +37,21 @@ import {
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { isAdminSession } from "@/lib/auth/admin-session";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
-// Módulos confidenciales: la entrada solo se muestra al rol owner
+// Módulos confidenciales: la entrada solo se muestra en la sesión de Admin
 // (el middleware bloquea además el acceso directo por URL).
-const OWNER_ONLY_ROUTES = new Set<ErpNavRoute>(["/finanzas", "/documentos"]);
+const ADMIN_ONLY_ROUTES = new Set<ErpNavRoute>([
+  "/ceo",
+  "/ai-gerente",
+  "/datos",
+  "/objetivo",
+  "/profit",
+  "/finanzas",
+  "/documentos",
+]);
 
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
@@ -94,9 +103,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user } = useAuth();
-  const isOwner = user?.role === "owner" && !user.employeeId;
+  const isAdmin = isAdminSession(user);
   const visibleRoutes = ERP_NAV_ROUTES.filter(
-    (route) => isOwner || !OWNER_ONLY_ROUTES.has(route),
+    (route) => isAdmin || !ADMIN_ONLY_ROUTES.has(route),
   );
   const isMesaView = pathname === "/dashboard/mesa-view";
   const supplierRouteActive = SUPPLIER_LINKS.some(
