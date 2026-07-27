@@ -1,5 +1,9 @@
-import { AlertTriangle, Heart, Plus } from "lucide-react";
-import type { CominportProduct } from "@/src/data/cominportProducts";
+import { AlertTriangle, Heart, Plus, RotateCcw } from "lucide-react";
+import type {
+  CominportProduct,
+  SupplierOrderedUsage,
+} from "@/src/data/cominportProducts";
+import type { InvoiceMetaLookup } from "@/src/data/cominportInvoiceRanking";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 import cominportPrices from "@/src/data/cominportPrices.json";
 
@@ -7,6 +11,10 @@ interface ProductCardProps {
   product: CominportProduct;
   isFavorite: boolean;
   lowStock?: boolean;
+  /** Pedidos previos de esta referencia hechos desde el panel. */
+  orderedUsage?: SupplierOrderedUsage;
+  /** Histórico de facturas del proveedor que se está mostrando. */
+  getInvoiceMeta?: InvoiceMetaLookup;
   onAdd: (product: CominportProduct) => void;
   onToggleFavorite: (codigo: string) => void;
 }
@@ -15,11 +23,14 @@ export function ProductCard({
   product,
   isFavorite,
   lowStock = false,
+  orderedUsage,
+  getInvoiceMeta = getCominportInvoiceMeta,
   onAdd,
   onToggleFavorite,
 }: ProductCardProps) {
-  const invoiceMeta = getCominportInvoiceMeta(product.codigo);
-  const precio = cominportPrices[product.codigo as keyof typeof cominportPrices];
+  const invoiceMeta = getInvoiceMeta(product.codigo);
+  const precio =
+    product.precio ?? cominportPrices[product.codigo as keyof typeof cominportPrices];
 
   return (
     <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
@@ -31,6 +42,13 @@ export function ProductCard({
           <h3 className="mt-1 text-base font-semibold text-gray-900">
             {product.nombre}
           </h3>
+          {orderedUsage && (
+            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-karuma-50 px-2.5 py-1 text-xs font-semibold text-karuma-700">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Ya pedido {orderedUsage.veces}{" "}
+              {orderedUsage.veces === 1 ? "vez" : "veces"} · {orderedUsage.unidades} uds.
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -51,7 +69,7 @@ export function ProductCard({
 
       <div className="mt-3 flex-1">
         <p className="text-sm text-gray-600">{product.formato}</p>
-        {precio && (
+        {typeof precio === "number" && precio > 0 && (
           <p className="mt-2 text-lg font-bold text-karuma-600">
             €{precio.toFixed(2)}
           </p>

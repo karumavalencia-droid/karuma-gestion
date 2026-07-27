@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Filter,
@@ -16,15 +16,14 @@ import { Cart } from "@/components/cominport/Cart";
 import { Favorites } from "@/components/cominport/Favorites";
 import { OrderHistory } from "@/components/cominport/OrderHistory";
 import { ProductCard } from "@/components/cominport/ProductCard";
-import {
-  getCominportInvoiceMeta,
-  rankCominportProducts,
-} from "@/src/data/cominportInvoiceRanking";
+import type { InvoiceMetaLookup } from "@/src/data/cominportInvoiceRanking";
+import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 import type {
   CominportCartItem,
   CominportOrder,
   CominportProduct,
   CominportStockAlert,
+  SupplierOrderedUsage,
 } from "@/src/data/cominportProducts";
 
 type Tab = "catalogo" | "ranking" | "favoritos" | "historial" | "carrito";
@@ -36,8 +35,12 @@ interface SupplierCatalogPageProps {
   whatsappStorageKey: string;
   /** Número usado si no hay ninguno guardado en este navegador. */
   defaultWhatsappNumber?: string;
+  /** Email usado si no hay ninguno guardado en este navegador. */
+  defaultEmail?: string;
   products: CominportProduct[];
   stockAlerts: CominportStockAlert[];
+  /** Histórico de facturas de este proveedor; por defecto, el de Cominport. */
+  getInvoiceMeta?: InvoiceMetaLookup;
 }
 
 function readStoredArray<T>(key: string): T[] {
@@ -51,12 +54,102 @@ function readStoredArray<T>(key: string): T[] {
   }
 }
 
+function readStoredString(key: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function saveStoredValue(key: string, value: unknown): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // La página sigue operativa aunque el navegador bloquee localStorage.
   }
+}
+
+function saveStoredString(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // La página sigue operativa aunque el navegador bloquee localStorage.
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** El carrito guardado puede venir de una versión anterior: se valida antes de usarlo. */
+function normalizeStoredCart(
+  stored: unknown[],
+  products: CominportProduct[],
+): CominportCartItem[] {
+  const byCode = new Map(products.map((product) => [product.codigo, product]));
+  const seen = new Set<string>();
+  const items: CominportCartItem[] = [];
+
+  stored.forEach((raw) => {
+    if (!raw || typeof raw !== "object") return;
+    const item = raw as Record<string, unknown>;
+    const codigo = typeof item.codigo === "string" ? item.codigo : "";
+    const product = byCode.get(codigo);
+    // Se descartan códigos que ya no existen en el catálogo actual.
+    if (!product || seen.has(codigo)) return;
+    const cantidad = Number(item.cantidad);
+    if (!Number.isFinite(cantidad)) return;
+    seen.add(codigo);
+    items.push({
+      ...product,
+      cantidad: Math.max(1, Math.min(999, Math.floor(cantidad))),
+    });
+  });
+
+  return items;
+}
+
+function buildOrderedUsage(
+  orders: CominportOrder[],
+): Map<string, SupplierOrderedUsage> {
+  const usage = new Map<string, SupplierOrderedUsage>();
+
+  orders.forEach((order) => {
+    if (!Array.isArray(order?.productos)) return;
+    order.productos.forEach((item) => {
+      if (!item || typeof item.codigo !== "string") return;
+      const current = usage.get(item.codigo) ?? { veces: 0, unidades: 0 };
+      const cantidad = Number(item.cantidad);
+      usage.set(item.codigo, {
+        veces: current.veces + 1,
+        unidades: current.unidades + (Number.isFinite(cantidad) ? cantidad : 0),
+      });
+    });
+  });
+
+  return usage;
+}
+
+/**
+ * Deja delante lo que ya se ha pedido antes (más veces primero) y mantiene
+ * el orden original para el resto: el catálogo llega ya ordenado por proveedor.
+ */
+function rankByOwnOrders(
+  products: CominportProduct[],
+  usage: Map<string, SupplierOrderedUsage>,
+): CominportProduct[] {
+  if (usage.size === 0) return products;
+
+  return [...products].sort((a, b) => {
+    const aUsage = usage.get(a.codigo);
+    const bUsage = usage.get(b.codigo);
+
+    if (aUsage && bUsage) {
+      return bUsage.veces - aUsage.veces || bUsage.unidades - aUsage.unidades;
+    }
+    if (aUsage) return -1;
+    if (bUsage) return 1;
+    return 0;
+  });
 }
 
 function createOrderId(prefix: string): string {
@@ -69,11 +162,12 @@ function createOrderId(prefix: string): string {
 function buildWhatsappMessage(
   items: CominportCartItem[],
   observations: string,
+  getInvoiceMeta: InvoiceMetaLookup,
 ): string {
   const products = items
     .map(
       (item) => {
-        const invoiceMeta = getCominportInvoiceMeta(item.codigo);
+        const invoiceMeta = getInvoiceMeta(item.codigo);
 
         return `Código: ${item.codigo}\nProducto: ${item.nombre}\nUnidad: ${
           invoiceMeta?.unidadPedido ?? "unidad"
@@ -103,15 +197,23 @@ export function SupplierCatalogPage({
   storagePrefix,
   whatsappStorageKey,
   defaultWhatsappNumber = "",
+  defaultEmail = "",
   products,
   stockAlerts,
+  getInvoiceMeta = getCominportInvoiceMeta,
 }: SupplierCatalogPageProps) {
   const favoritesStorageKey = `${storagePrefix}_favorites`;
   const historyStorageKey = `${storagePrefix}_order_history`;
+  const cartStorageKey = `${storagePrefix}_cart`;
+  const observationsStorageKey = `${storagePrefix}_cart_observations`;
+  const emailStorageKey = `${storagePrefix}_email`;
   const [cart, setCart] = useState<CominportCartItem[]>([]);
   const [favoriteCodes, setFavoriteCodes] = useState<string[]>([]);
   const [orders, setOrders] = useState<CominportOrder[]>([]);
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [supplierEmail, setSupplierEmail] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [observations, setObservations] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas");
@@ -119,8 +221,14 @@ export function SupplierCatalogPage({
   const [configMessage, setConfigMessage] = useState("");
   const [toast, setToast] = useState("");
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
+  // El carrito solo se rehidrata una vez: después manda el estado en memoria.
+  const hydratedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+
     const validCodes = new Set(products.map((product) => product.codigo));
     const storedFavorites = readStoredArray<unknown>(favoritesStorageKey)
       .filter((value): value is string => typeof value === "string")
@@ -128,21 +236,33 @@ export function SupplierCatalogPage({
 
     setFavoriteCodes(storedFavorites);
     setOrders(readStoredArray<CominportOrder>(historyStorageKey));
-
-    try {
-      setWhatsappNumber(
-        window.localStorage.getItem(whatsappStorageKey) || defaultWhatsappNumber,
-      );
-    } catch {
-      setWhatsappNumber(defaultWhatsappNumber);
-    }
+    setCart(normalizeStoredCart(readStoredArray<unknown>(cartStorageKey), products));
+    setObservations(readStoredString(observationsStorageKey));
+    setWhatsappNumber(readStoredString(whatsappStorageKey) || defaultWhatsappNumber);
+    setSupplierEmail(readStoredString(emailStorageKey) || defaultEmail);
+    setHydrated(true);
   }, [
+    cartStorageKey,
+    defaultEmail,
     defaultWhatsappNumber,
+    emailStorageKey,
     favoritesStorageKey,
     historyStorageKey,
+    observationsStorageKey,
     products,
     whatsappStorageKey,
   ]);
+
+  // Persistencia del carrito: sobrevive a recargas y a cerrar el navegador.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveStoredValue(cartStorageKey, cart);
+  }, [cart, cartStorageKey, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveStoredString(observationsStorageKey, observations);
+  }, [hydrated, observations, observationsStorageKey]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -159,9 +279,17 @@ export function SupplierCatalogPage({
     [products],
   );
 
+  const orderedUsage = useMemo(() => buildOrderedUsage(orders), [orders]);
+
+  /** Lo ya pedido desde este panel manda sobre el orden del catálogo. */
+  const sortedProducts = useMemo(
+    () => rankByOwnOrders(products, orderedUsage),
+    [orderedUsage, products],
+  );
+
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");
-    return products.filter((product) => {
+    return sortedProducts.filter((product) => {
       const matchesCategory = category === "Todas" || product.categoria === category;
       const matchesSearch =
         !query ||
@@ -169,7 +297,7 @@ export function SupplierCatalogPage({
         product.codigo.toLocaleLowerCase("es").includes(query);
       return matchesCategory && matchesSearch;
     });
-  }, [category, products, search]);
+  }, [category, search, sortedProducts]);
 
   useEffect(() => {
     setVisibleCount(CATALOG_PAGE_SIZE);
@@ -182,10 +310,19 @@ export function SupplierCatalogPage({
 
   const invoiceRankedProducts = useMemo(
     () =>
-      rankCominportProducts(products).filter((product) =>
-        Boolean(getCominportInvoiceMeta(product.codigo)),
-      ),
-    [products],
+      products
+        .filter((product) => Boolean(getInvoiceMeta(product.codigo)))
+        .sort((a, b) => {
+          const aMeta = getInvoiceMeta(a.codigo);
+          const bMeta = getInvoiceMeta(b.codigo);
+          if (!aMeta || !bMeta) return 0;
+          return (
+            bMeta.pedidosFactura - aMeta.pedidosFactura ||
+            bMeta.cantidadFactura - aMeta.cantidadFactura ||
+            a.codigo.localeCompare(b.codigo)
+          );
+        }),
+    [getInvoiceMeta, products],
   );
 
   const favoriteProducts = useMemo(() => {
@@ -281,6 +418,23 @@ export function SupplierCatalogPage({
     }
   };
 
+  /** Archiva el carrito en el historial y lo vacía tras un envío correcto. */
+  const registerSentOrder = (estado: CominportOrder["estado"]) => {
+    const order: CominportOrder = {
+      id: createOrderId(storagePrefix),
+      fecha: new Date().toISOString(),
+      productos: cart.map((item) => ({ ...item })),
+      cantidadTotal: totalQuantity,
+      estado,
+      observaciones: observations.trim(),
+    };
+    const nextOrders = [order, ...orders].slice(0, 100);
+    setOrders(nextOrders);
+    saveStoredValue(historyStorageKey, nextOrders);
+    setCart([]);
+    setObservations("");
+  };
+
   const sendWhatsappOrder = () => {
     const normalizedNumber = whatsappNumber.replace(/\D/g, "");
     if (cart.length === 0) return;
@@ -289,30 +443,71 @@ export function SupplierCatalogPage({
       return;
     }
 
-    const message = buildWhatsappMessage(cart, observations);
+    const message = buildWhatsappMessage(cart, observations, getInvoiceMeta);
     const whatsappUrl = `https://wa.me/${normalizedNumber}?text=${encodeURIComponent(message)}`;
-    const order: CominportOrder = {
-      id: createOrderId(storagePrefix),
-      fecha: new Date().toISOString(),
-      productos: cart.map((item) => ({ ...item })),
-      cantidadTotal: totalQuantity,
-      estado: "enviado_whatsapp",
-      observaciones: observations.trim(),
-    };
-    const nextOrders = [order, ...orders].slice(0, 100);
 
-    try {
-      window.localStorage.setItem(whatsappStorageKey, normalizedNumber);
-      setWhatsappNumber(normalizedNumber);
-    } catch {
-      // El envío puede continuar aunque el navegador no permita persistir el número.
-    }
+    saveStoredString(whatsappStorageKey, normalizedNumber);
+    setWhatsappNumber(normalizedNumber);
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-    setOrders(nextOrders);
-    saveStoredValue(historyStorageKey, nextOrders);
-    setCart([]);
-    setObservations("");
+    registerSentOrder("enviado_whatsapp");
     showToast("Pedido guardado en el historial");
+  };
+
+  const saveSupplierEmail = () => {
+    const normalized = supplierEmail.trim();
+    if (!EMAIL_PATTERN.test(normalized)) {
+      setEmailMessage("Introduce un email válido (ej. pedidos@proveedor.com).");
+      return;
+    }
+    saveStoredString(emailStorageKey, normalized);
+    setSupplierEmail(normalized);
+    setEmailMessage("Email guardado correctamente.");
+  };
+
+  const sendEmailOrder = async () => {
+    const normalizedEmail = supplierEmail.trim();
+    if (cart.length === 0 || sendingEmail) return;
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setEmailMessage("Guarda un email válido antes de enviar.");
+      return;
+    }
+
+    setSendingEmail(true);
+    setEmailMessage("");
+    try {
+      const response = await fetch("/api/proveedores/pedido-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierName,
+          to: normalizedEmail,
+          observations,
+          items: cart.map((item) => ({
+            codigo: item.codigo,
+            nombre: item.nombre,
+            formato: item.formato,
+            unidad: getInvoiceMeta(item.codigo)?.unidadPedido,
+            cantidad: item.cantidad,
+          })),
+        }),
+      });
+      const data: { error?: string } = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setEmailMessage(data.error || "No se pudo enviar el pedido por email.");
+        return;
+      }
+
+      saveStoredString(emailStorageKey, normalizedEmail);
+      setSupplierEmail(normalizedEmail);
+      setEmailMessage(`Pedido enviado a ${normalizedEmail}.`);
+      registerSentOrder("enviado_email");
+      showToast("Pedido enviado por email y guardado en el historial");
+    } catch {
+      setEmailMessage("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const addOrderAgain = (order: CominportOrder) => {
@@ -336,6 +531,16 @@ export function SupplierCatalogPage({
     },
     onSaveWhatsappNumber: saveWhatsappNumber,
     onSend: sendWhatsappOrder,
+    supplierEmail,
+    emailMessage,
+    sendingEmail,
+    onSupplierEmailChange: (value: string) => {
+      setSupplierEmail(value);
+      setEmailMessage("");
+    },
+    onSaveSupplierEmail: saveSupplierEmail,
+    onSendEmail: sendEmailOrder,
+    getInvoiceMeta,
   };
   const hasInvoiceRanking = invoiceRankedProducts.length > 0;
   const mobileTabs: Array<{
@@ -547,6 +752,12 @@ export function SupplierCatalogPage({
               <div className="space-y-4">
                 <p className="text-sm text-gray-500">
                   Mostrando {visibleProducts.length} de {filteredProducts.length} productos
+                  {orderedUsage.size > 0 && (
+                    <span className="text-karuma-600">
+                      {" "}
+                      · lo que ya has pedido aparece primero
+                    </span>
+                  )}
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {visibleProducts.map((product) => (
@@ -555,6 +766,8 @@ export function SupplierCatalogPage({
                       product={product}
                       isFavorite={favoriteCodes.includes(product.codigo)}
                       lowStock={lowStockCodes.has(product.codigo)}
+                      orderedUsage={orderedUsage.get(product.codigo)}
+                      getInvoiceMeta={getInvoiceMeta}
                       onAdd={addProduct}
                       onToggleFavorite={toggleFavorite}
                     />
@@ -584,12 +797,12 @@ export function SupplierCatalogPage({
                   Ranking facturas
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {invoiceRankedProducts.length} productos pedidos en facturas Cominport.
+                  {invoiceRankedProducts.length} productos pedidos en facturas de {supplierName}.
                 </p>
               </div>
               <div className="divide-y divide-gray-100">
                 {invoiceRankedProducts.map((product, index) => {
-                  const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+                  const invoiceMeta = getInvoiceMeta(product.codigo);
                   if (!invoiceMeta) return null;
 
                   return (
@@ -642,11 +855,16 @@ export function SupplierCatalogPage({
               onAdd={addProduct}
               onAddAll={addAllFavorites}
               onRemove={toggleFavorite}
+              getInvoiceMeta={getInvoiceMeta}
             />
           </div>
 
           <div className={activeTab === "historial" ? "block" : "hidden"}>
-            <OrderHistory orders={orders} onAddAgain={addOrderAgain} />
+            <OrderHistory
+              orders={orders}
+              onAddAgain={addOrderAgain}
+              getInvoiceMeta={getInvoiceMeta}
+            />
           </div>
 
           <div className={activeTab === "carrito" ? "block lg:hidden" : "hidden"}>

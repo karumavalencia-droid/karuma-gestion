@@ -1,5 +1,6 @@
 import { Heart, ShoppingCart, Trash2 } from "lucide-react";
 import type { CominportProduct } from "@/src/data/cominportProducts";
+import type { InvoiceMetaLookup } from "@/src/data/cominportInvoiceRanking";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface FavoritesProps {
@@ -7,9 +8,16 @@ interface FavoritesProps {
   onAdd: (product: CominportProduct) => void;
   onAddAll: () => void;
   onRemove: (codigo: string) => void;
+  getInvoiceMeta?: InvoiceMetaLookup;
 }
 
-export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProps) {
+export function Favorites({
+  products,
+  onAdd,
+  onAddAll,
+  onRemove,
+  getInvoiceMeta = getCominportInvoiceMeta,
+}: FavoritesProps) {
   if (products.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">
@@ -40,7 +48,7 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
 
       <div className="space-y-2">
         {products.map((product) => {
-          const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+          const invoiceMeta = getInvoiceMeta(product.codigo);
 
           return (
             <article

@@ -66,6 +66,7 @@ const INTENTIONALLY_UNLINKED = {
   // Submenús / subnavegación dentro de una página del menú
   "/dashboard/cominport": "submenú Proveedores",
   "/dashboard/jet-extramar": "submenú Proveedores",
+  "/dashboard/kankyo": "submenú Proveedores",
   "/dashboard/mesa-view": "subnav Reservas",
   "/dashboard/clientes": "subnav Reservas",
   "/dashboard/config": "subnav Reservas",

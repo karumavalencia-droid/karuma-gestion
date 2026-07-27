@@ -10,7 +10,7 @@ export interface CominportCartItem extends CominportProduct {
   cantidad: number;
 }
 
-export type CominportOrderStatus = "enviado_whatsapp";
+export type CominportOrderStatus = "enviado_whatsapp" | "enviado_email";
 
 export interface CominportOrder {
   id: string;
@@ -19,6 +19,12 @@ export interface CominportOrder {
   cantidadTotal: number;
   estado: CominportOrderStatus;
   observaciones: string;
+}
+
+/** Veces y unidades que este navegador ya ha pedido de una referencia. */
+export interface SupplierOrderedUsage {
+  veces: number;
+  unidades: number;
 }
 
 /** Estructura reservada para la futura integración con Inventario. */

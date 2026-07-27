@@ -17,6 +17,7 @@ import {
   FolderLock,
   Inbox,
   LayoutDashboard,
+  Leaf,
   Megaphone,
   MessageSquare,
   Package,
@@ -93,6 +94,11 @@ const SUPPLIER_LINKS = [
     href: "/dashboard/jet-extramar",
     labelKey: "jetExtramar",
     icon: Snowflake,
+  },
+  {
+    href: "/dashboard/kankyo",
+    labelKey: "kankyo",
+    icon: Leaf,
   },
 ] as const;
 

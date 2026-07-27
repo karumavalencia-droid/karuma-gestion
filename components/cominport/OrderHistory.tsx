@@ -1,10 +1,12 @@
 import { CalendarDays, History, RotateCcw } from "lucide-react";
 import type { CominportOrder } from "@/src/data/cominportProducts";
+import type { InvoiceMetaLookup } from "@/src/data/cominportInvoiceRanking";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface OrderHistoryProps {
   orders: CominportOrder[];
   onAddAgain: (order: CominportOrder) => void;
+  getInvoiceMeta?: InvoiceMetaLookup;
 }
 
 function formatOrderDate(value: string): string {
@@ -16,7 +18,11 @@ function formatOrderDate(value: string): string {
   }).format(date);
 }
 
-export function OrderHistory({ orders, onAddAgain }: OrderHistoryProps) {
+export function OrderHistory({
+  orders,
+  onAddAgain,
+  getInvoiceMeta = getCominportInvoiceMeta,
+}: OrderHistoryProps) {
   if (orders.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">
@@ -25,7 +31,7 @@ export function OrderHistory({ orders, onAddAgain }: OrderHistoryProps) {
           Aún no hay pedidos
         </h2>
         <p className="mt-1 text-sm text-gray-500">
-          Los pedidos enviados por WhatsApp aparecerán aquí.
+          Los pedidos enviados por WhatsApp o email aparecerán aquí.
         </p>
       </div>
     );
@@ -48,14 +54,20 @@ export function OrderHistory({ orders, onAddAgain }: OrderHistoryProps) {
                 {order.cantidadTotal} productos
               </p>
             </div>
-            <span className="w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-              Enviado por WhatsApp
+            <span
+              className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${
+                order.estado === "enviado_email"
+                  ? "bg-karuma-50 text-karuma-700"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {order.estado === "enviado_email" ? "Enviado por email" : "Enviado por WhatsApp"}
             </span>
           </div>
 
           <div className="mt-4 divide-y divide-gray-100 border-y border-gray-100">
             {order.productos.map((product) => {
-              const invoiceMeta = getCominportInvoiceMeta(product.codigo);
+              const invoiceMeta = getInvoiceMeta(product.codigo);
 
               return (
                 <div
