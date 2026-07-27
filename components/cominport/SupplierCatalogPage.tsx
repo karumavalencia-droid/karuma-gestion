@@ -372,32 +372,32 @@ export function SupplierCatalogPage({
     <div className="mx-auto max-w-7xl space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-karuma-600 dark:text-karuma-400">
+          <p className="text-sm font-medium text-karuma-600">
             Compras · {supplierName}
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
             Catálogo y pedidos
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 max-w-2xl text-sm text-gray-500">
             Busca productos, prepara la compra y envíala directamente por WhatsApp.
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
+            <p className="text-lg font-bold text-gray-900">
               {products.length}
             </p>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">Catálogo</p>
+            <p className="text-[11px] text-gray-500">Catálogo</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
+            <p className="text-lg font-bold text-gray-900">
               {favoriteCodes.length}
             </p>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">Favoritos</p>
+            <p className="text-[11px] text-gray-500">Favoritos</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{totalQuantity}</p>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">En carrito</p>
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
+            <p className="text-lg font-bold text-gray-900">{totalQuantity}</p>
+            <p className="text-[11px] text-gray-500">En carrito</p>
           </div>
         </div>
       </div>
@@ -410,15 +410,15 @@ export function SupplierCatalogPage({
             return (
               <div
                 key={alert.codigo}
-                className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900 dark:bg-amber-950/30"
+                className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                   <div>
-                    <p className="font-semibold text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold text-amber-900">
                       {alert.mensaje}
                     </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                    <p className="text-sm text-amber-700">
                       {product.nombre} · Stock {alert.stockActual}/{alert.stockMinimo}
                     </p>
                   </div>
@@ -436,7 +436,7 @@ export function SupplierCatalogPage({
         </section>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+      <section className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -445,7 +445,7 @@ export function SupplierCatalogPage({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por producto o código…"
-              className="min-h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+              className="min-h-11 w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
             />
           </label>
           <label className="relative block">
@@ -453,7 +453,7 @@ export function SupplierCatalogPage({
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              className="min-h-11 w-full appearance-none rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-8 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+              className="min-h-11 w-full appearance-none rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-8 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
             >
               {categories.map((item) => (
                 <option key={item} value={item}>
@@ -466,7 +466,7 @@ export function SupplierCatalogPage({
       </section>
 
       <nav
-        className={`grid gap-1 rounded-xl bg-gray-200 p-1 lg:hidden dark:bg-gray-800 ${
+        className={`grid gap-1 rounded-xl bg-gray-200 p-1 lg:hidden ${
           hasInvoiceRanking ? "grid-cols-5" : "grid-cols-4"
         }`}
       >
@@ -477,8 +477,8 @@ export function SupplierCatalogPage({
             onClick={() => setActiveTab(tab)}
             className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium transition-colors ${
               activeTab === tab
-                ? "bg-white text-karuma-700 shadow-sm dark:bg-gray-900 dark:text-karuma-300"
-                : "text-gray-600 dark:text-gray-300"
+                ? "bg-white text-karuma-700 shadow-sm"
+                : "text-gray-600"
             }`}
           >
             <span className="relative">
@@ -497,7 +497,7 @@ export function SupplierCatalogPage({
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-5">
         <div className="min-w-0">
           <nav
-            className={`mb-4 hidden gap-1 rounded-xl bg-gray-200 p-1 dark:bg-gray-800 lg:grid ${
+            className={`mb-4 hidden gap-1 rounded-xl bg-gray-200 p-1 lg:grid ${
               hasInvoiceRanking ? "lg:grid-cols-4" : "lg:grid-cols-3"
             }`}
           >
@@ -508,8 +508,8 @@ export function SupplierCatalogPage({
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === tab || (activeTab === "carrito" && tab === "catalogo")
-                    ? "bg-white text-gray-900 shadow-sm dark:bg-tinta dark:text-white"
-                    : "text-gray-600 dark:text-gray-300"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600"
                 }`}
               >
                 {label} ({count})
@@ -527,9 +527,9 @@ export function SupplierCatalogPage({
             }
           >
             {filteredProducts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center dark:border-gray-700 dark:bg-gray-900">
-                <PackageSearch className="mx-auto h-9 w-9 text-gray-300 dark:text-gray-600" />
-                <p className="mt-3 font-medium text-gray-900 dark:text-white">
+              <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">
+                <PackageSearch className="mx-auto h-9 w-9 text-gray-300" />
+                <p className="mt-3 font-medium text-gray-900">
                   No hay productos para esta búsqueda
                 </p>
                 <button
@@ -538,14 +538,14 @@ export function SupplierCatalogPage({
                     setSearch("");
                     setCategory("Todas");
                   }}
-                  className="mt-3 text-sm font-medium text-karuma-600 hover:text-karuma-700 dark:text-karuma-400"
+                  className="mt-3 text-sm font-medium text-karuma-600 hover:text-karuma-700"
                 >
                   Limpiar filtros
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500">
                   Mostrando {visibleProducts.length} de {filteredProducts.length} productos
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -568,7 +568,7 @@ export function SupplierCatalogPage({
                         Math.min(current + CATALOG_PAGE_SIZE, filteredProducts.length),
                       )
                     }
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                   >
                     Mostrar más ({filteredProducts.length - visibleProducts.length})
                   </button>
@@ -578,16 +578,16 @@ export function SupplierCatalogPage({
           </div>
 
           <div className={activeTab === "ranking" ? "block" : "hidden"}>
-            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-              <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-100 px-4 py-3">
+                <h2 className="text-base font-semibold text-gray-900">
                   Ranking facturas
                 </h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-sm text-gray-500">
                   {invoiceRankedProducts.length} productos pedidos en facturas Cominport.
                 </p>
               </div>
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="divide-y divide-gray-100">
                 {invoiceRankedProducts.map((product, index) => {
                   const invoiceMeta = getCominportInvoiceMeta(product.codigo);
                   if (!invoiceMeta) return null;
@@ -598,26 +598,26 @@ export function SupplierCatalogPage({
                       className="grid gap-3 px-4 py-3 sm:grid-cols-[64px_minmax(0,1fr)_180px_116px] sm:items-center"
                     >
                       <div className="flex items-center gap-2 sm:block">
-                        <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg bg-karuma-50 px-2 text-sm font-bold text-karuma-700 dark:bg-karuma-950/40 dark:text-karuma-300">
+                        <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-lg bg-karuma-50 px-2 text-sm font-bold text-karuma-700">
                           #{index + 1}
                         </span>
-                        <span className="text-xs font-semibold text-gray-500 sm:mt-1 sm:block dark:text-gray-400">
+                        <span className="text-xs font-semibold text-gray-500 sm:mt-1 sm:block">
                           {product.codigo}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                        <h3 className="truncate text-sm font-semibold text-gray-900">
                           {product.nombre}
                         </h3>
-                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                        <p className="truncate text-xs text-gray-500">
                           {product.formato}
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs sm:block sm:space-y-1">
-                        <p className="font-medium text-karuma-700 dark:text-karuma-300">
+                        <p className="font-medium text-karuma-700">
                           {invoiceMeta.unidadPedido}
                         </p>
-                        <p className="text-gray-500 dark:text-gray-400">
+                        <p className="text-gray-500">
                           {invoiceMeta.pedidosFactura} veces · {invoiceMeta.cantidadFactura} uds.
                         </p>
                       </div>
@@ -662,7 +662,7 @@ export function SupplierCatalogPage({
       {toast && (
         <div
           role="status"
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-tinta px-4 py-2.5 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-gray-900"
+          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-tinta px-4 py-2.5 text-sm font-medium text-white shadow-lg"
         >
           {toast}
         </div>
