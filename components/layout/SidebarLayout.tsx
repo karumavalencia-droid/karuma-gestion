@@ -6,19 +6,9 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { ROUTE_NAV_KEY, ROUTE_PAGE_TITLE } from "@/lib/i18n/translations";
+import { resolvePageTitle } from "@/lib/layout/page-title";
 
 const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance", "/my-schedule", "/coach"];
-
-function resolvePageTitle(pathname: string, t: (key: string) => string): string {
-  const pageTitleKey = ROUTE_PAGE_TITLE[pathname];
-  if (pageTitleKey) return t(pageTitleKey);
-
-  const navKey = ROUTE_NAV_KEY[pathname];
-  if (navKey) return t(`nav.${navKey}`);
-
-  return t("header.appName");
-}
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 export async function GET(request: Request) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const url = new URL(request.url);
     const supplierId = url.searchParams.get("supplier_id");
     const months = parseInt(url.searchParams.get("months") || "3");

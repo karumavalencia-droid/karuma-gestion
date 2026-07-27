@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { quantity, unit, product_name } = body;
-    const id = parseInt(params.id);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
 
     if (!id) {
       return NextResponse.json(
@@ -50,10 +48,13 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = parseInt(params.id);
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
 
     if (!id) {
       return NextResponse.json(

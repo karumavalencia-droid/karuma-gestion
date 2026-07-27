@@ -71,10 +71,8 @@ export default function UploadInvoicesPage() {
             className="hidden"
             id="file-input"
           />
-          <label htmlFor="file-input">
-            <Button as="span" variant="outline">
+          <label htmlFor="file-input" className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
               Seleccionar archivos
-            </Button>
           </label>
         </div>
 

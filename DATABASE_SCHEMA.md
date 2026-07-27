@@ -74,7 +74,7 @@
 | Column | Default | Notes |
 |--------|---------|-------|
 | reservas_online_activas | true | Master switch for /reservas page |
-| max_personas_online | 4 | Max guests allowed via online booking |
+| max_personas_online | 6 | Max guests allowed via online booking |
 | intervalo_min | 15 | Time slot interval in minutes |
 | turno_gap_min | 30 | Minimum gap between two reservations on the same table |
 | duracion_1_2_min | 90 | Duration for 1–2 guests |

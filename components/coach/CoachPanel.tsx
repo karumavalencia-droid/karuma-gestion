@@ -276,7 +276,7 @@ export function CoachPanel() {
       </header>
 
       {historyOpen && (
-        <div className="fixed inset-0 z-20 bg-gray-900/40" onClick={() => setHistoryOpen(false)}>
+        <div className="fixed inset-0 z-20 bg-tinta/40" onClick={() => setHistoryOpen(false)}>
           <div
             className="absolute inset-x-0 top-0 max-h-[70dvh] overflow-y-auto rounded-b-3xl bg-white p-4 shadow-xl"
             onClick={(event) => event.stopPropagation()}

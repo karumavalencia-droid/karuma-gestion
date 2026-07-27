@@ -6,42 +6,80 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   Bot,
+  Calculator,
   CalendarCheck,
   CalendarDays,
   ChefHat,
   ChevronDown,
+  Crown,
+  Database,
+  Flame,
+  FolderLock,
+  Inbox,
   LayoutDashboard,
   Leaf,
   Megaphone,
   MessageSquare,
   Package,
   PackageSearch,
+  PieChart,
+  Settings,
   ShoppingBasket,
   Snowflake,
+  Sparkles,
+  Star,
+  Target,
   Timer,
   Truck,
   Users,
   UserCheck,
+  Wallet,
   X,
 } from "lucide-react";
 import { ERP_NAV_ROUTES, type ErpNavRoute } from "@/lib/layout/navigation";
 import { KarumaLogo } from "@/components/brand/KarumaLogo";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { isAdminSession } from "@/lib/auth/admin-session";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { ROUTE_NAV_KEY } from "@/lib/i18n/translations";
 
+// Módulos confidenciales: la entrada solo se muestra en la sesión de Admin
+// (el middleware bloquea además el acceso directo por URL).
+const ADMIN_ONLY_ROUTES = new Set<ErpNavRoute>([
+  "/ceo",
+  "/ai-gerente",
+  "/datos",
+  "/objetivo",
+  "/profit",
+  "/finanzas",
+  "/documentos",
+]);
+
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
+  "/ceo": Crown,
+  "/ai-gerente": Sparkles,
+  "/datos": Database,
+  "/objetivo": Target,
+  "/profit": PieChart,
+  "/finanzas": Wallet,
+  "/documentos": FolderLock,
   "/attendance": UserCheck,
   "/staff": Users,
   "/schedule": CalendarDays,
   "/marketing": Megaphone,
+  "/mensajes": Inbox,
+  "/reviews": Star,
   "/delivery": Truck,
   "/facturas": ShoppingBasket,
+  "/food-cost": Calculator,
   "/recetas": ChefHat,
+  "/cocina": Flame,
   "/dashboard/reservas": CalendarCheck,
   "/announcements": MessageSquare,
   "/coach": Bot,
   "/dashboard/stock": Package,
+  "/configuracion": Settings,
 };
 
 const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
@@ -72,6 +110,11 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = isAdminSession(user);
+  const visibleRoutes = ERP_NAV_ROUTES.filter(
+    (route) => isAdmin || !ADMIN_ONLY_ROUTES.has(route),
+  );
   const isMesaView = pathname === "/dashboard/mesa-view";
   const supplierRouteActive = SUPPLIER_LINKS.some(
     ({ href }) => pathname === href || pathname.startsWith(`${href}/`),
@@ -86,7 +129,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <>
       {open && (
         <div
-          className={`fixed inset-0 z-40 bg-gray-900/60 backdrop-blur-sm ${
+          className={`tema-fijo-claro fixed inset-0 z-40 bg-tinta/60 backdrop-blur-sm ${
             isMesaView ? "2xl:hidden" : "lg:hidden"
           }`}
           onClick={onClose}
@@ -95,7 +138,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(100vw-3rem,16rem)] flex-col bg-gray-900 transition-transform duration-300 ease-in-out ${
+        className={`tema-fijo-claro fixed inset-y-0 left-0 z-50 flex w-[min(100vw-3rem,16rem)] flex-col bg-gray-900 transition-transform duration-300 ease-in-out ${
           isMesaView
             ? "2xl:static 2xl:w-64 2xl:translate-x-0"
             : "lg:static lg:w-64 lg:translate-x-0"
@@ -110,7 +153,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white ${
+            className={`rounded-lg p-2 text-gray-400 hover:bg-tinta-suave hover:text-white ${
               isMesaView ? "2xl:hidden" : "lg:hidden"
             }`}
             aria-label="Cerrar menú"
@@ -120,7 +163,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {ERP_NAV_ROUTES.map((route) => {
+          {visibleRoutes.map((route) => {
             const isActive =
               route === "/dashboard"
                 ? pathname === "/dashboard"
@@ -137,7 +180,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-karuma-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    : "text-gray-300 hover:bg-tinta-suave hover:text-white"
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0 opacity-90" />
@@ -154,8 +197,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               aria-controls="supplier-ordering-menu"
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 supplierRouteActive
-                  ? "bg-gray-800 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  ? "bg-tinta-suave text-white"
+                  : "text-gray-300 hover:bg-tinta-suave hover:text-white"
               }`}
             >
               <ShoppingBasket className="h-5 w-5 shrink-0 opacity-90" />
@@ -184,7 +227,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-karuma-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                          : "text-gray-400 hover:bg-tinta-suave hover:text-white"
                       }`}
                     >
                       <Icon className="h-4 w-4 shrink-0 opacity-90" />
@@ -201,7 +244,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <Link
             href="/kiosk"
             onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-tinta-suave hover:text-white"
           >
             <Timer className="h-5 w-5 shrink-0 opacity-80" />
             Modo fichaje

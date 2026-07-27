@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { calcularSlotsDisponibles } from "@/lib/reservas/disponibilidad";
 import type { Mesa, Reserva, ReservasConfig, HorarioDia } from "@/lib/reservas/types";
+import { isValidOnlinePartySize } from "@/lib/reservas/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
 
   if (!fecha || !servicio) {
     return NextResponse.json({ error: "fecha y servicio son requeridos" }, { status: 400 });
+  }
+  if (!isValidOnlinePartySize(personas)) {
+    return NextResponse.json({ error: "El número de personas debe estar entre 1 y 6" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();

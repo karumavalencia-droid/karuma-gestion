@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 export async function GET() {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const { data, error } = await supabase
       .from("suppliers")
       .select(
@@ -36,6 +33,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { id, name, contact_email, phone, website, notes } = body;
 

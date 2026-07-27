@@ -14,7 +14,7 @@ import {
   isTableBlockReservation,
 } from "@/lib/reservas/helpers";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
-import { getSharedServicio, setSharedServicio } from "@/lib/reservas/shared-view";
+import { setSharedServicio } from "@/lib/reservas/shared-view";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   updateEstado,
@@ -27,11 +27,13 @@ import {
   getMesasConEstado,
   slotsPlano,
   defaultHoraPlano,
+  servicioActual,
   mesaLabel,
   MESAS_SEED,
   MAX_DIAS,
   loadReservas,
   saveReservas,
+  storeCreatedReservation,
   addEspera,
   loadEspera,
   updateEspera,
@@ -84,8 +86,7 @@ function maxFecha() {
   return d.toISOString().split("T")[0];
 }
 function autoServicio(): ServicioLocal {
-  const h = new Date().getHours();
-  return h >= 17 ? "cena" : "comida";
+  return servicioActual();
 }
 function toMin(hora: string) { const [h, m] = hora.split(":").map(Number); return h * 60 + m; }
 
@@ -246,15 +247,7 @@ export default function ReservasPage() {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [fecha, setFecha] = useState(getSharedFecha);
   type VistaServicio = "" | ServicioLocal | "dia";
-  const [vistaServicio, setVistaServicio] = useState<VistaServicio>(() => {
-    const shared = getSharedServicio();
-    if (shared) return shared;
-
-    const h = new Date().getHours();
-    if (h >= 12 && h < 17) return "comida";
-    if (h >= 19) return "cena";
-    return "dia";
-  });
+  const [vistaServicio, setVistaServicio] = useState<VistaServicio>(autoServicio);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoLocal | "">("");
   const [busqueda, setBusqueda] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
@@ -286,7 +279,14 @@ export default function ReservasPage() {
   const [nMesaIds, setNMesaIds] = useState<string[]>([]);
   const [nCanal, setNCanal] = useState<CanalLocal>("telefono");
   const [nError, setNError] = useState("");
-  const [nExito, setNExito] = useState<{ mesaIds: string[]; nombre: string; fecha: string; hora: string; personas: number } | null>(null);
+  const [nExito, setNExito] = useState<{
+    mesaIds: string[];
+    nombre: string;
+    fecha: string;
+    hora: string;
+    personas: number;
+    emailSent: boolean | null;
+  } | null>(null);
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
   const [showWI, setShowWI] = useState(false);
@@ -566,14 +566,35 @@ export default function ReservasPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
+      const json = await response.json() as {
+        ok?: boolean;
+        error?: string;
+        reservaId?: string;
+        mesaIds?: number[];
+        emailSent?: boolean;
+      };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
       }
       const mesaIds = (json.mesaIds ?? []).map((id) => `T${id}`);
-      setNExito({ mesaIds, nombre: nNombre || "Sin nombre", fecha: nFecha, hora: nHora, personas: nPersonas });
-      reload();
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: nFecha, hora: nHora, servicio: nServicio, personas: nPersonas,
+          mesaIds, nombre: nNombre || "Sin nombre", telefono: nTelefono.trim(),
+          email: nEmail.trim() || null, notas: nNotas, origen: "manual",
+        });
+        refreshLocal();
+      }
+      setNExito({
+        mesaIds,
+        nombre: nNombre || "Sin nombre",
+        fecha: nFecha,
+        hora: nHora,
+        personas: nPersonas,
+        emailSent: nEmail.trim() ? Boolean(json.emailSent) : null,
+      });
+      void reload();
     } catch {
       setNError("No se pudo crear la reserva.");
     }
@@ -606,13 +627,22 @@ export default function ReservasPage() {
           forceMesaIds: wMesaIds.length ? wMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setWError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
-      setWExito({ mesaIds: (json.mesaIds ?? []).map((id) => `T${id}`), personas: wPersonas });
-      reload();
+      const mesaIds = (json.mesaIds ?? []).map((id) => `T${id}`);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wPersonas, mesaIds,
+          nombre: wNombre || "Walk-In", telefono: wTelefono.trim(), notas: wNotas, origen: "walkin",
+        });
+        refreshLocal();
+      }
+      setWExito({ mesaIds, personas: wPersonas });
+      void reload();
     } catch {
       setWError("No se pudo registrar el Walk-In.");
     }
@@ -651,15 +681,23 @@ export default function ReservasPage() {
           forceMesaIds: [mesaSel.numero],
         }),
       });
-      const json = (await response.json()) as { ok?: boolean; error?: string };
+      const json = (await response.json()) as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setBlockError(json.error ?? "No se pudo bloquear la mesa.");
         return;
       }
       const numero = mesaSel.numero;
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha, hora: blockHora || horaPanel, servicio: servicioPlano,
+          personas: 0, mesaIds: (json.mesaIds ?? [numero]).map((id) => `T${id}`),
+          nombre: "Bloqueo mesa", origen: "manual", duracionMin: blockDuracion, bloqueo: true,
+        });
+        refreshLocal();
+      }
       setMesaSel(null);
       setBlockInline(false);
-      reload();
+      void reload();
       showToast(`T${numero} bloqueada`);
     } catch {
       setBlockError("No se pudo bloquear la mesa.");
@@ -719,16 +757,25 @@ export default function ReservasPage() {
           forceMesaIds: wiInlineMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
       if (!response.ok || !json.ok) {
         setWiInlineError(json.error ?? "No se pudo registrar el Walk-In.");
         return;
       }
       const label = mesaLabel(wiInlineMesaIds);
+      if (json.reservaId) {
+        storeCreatedReservation({
+          id: json.reservaId, fecha: hoy(), hora: new Date().toTimeString().slice(0, 5),
+          servicio: autoServicio(), personas: wiInlinePersonas,
+          mesaIds: (json.mesaIds ?? wiInlineMesaIds.map((id) => Number(id.replace("T", "")))).map((id) => `T${id}`),
+          nombre: wiInlineNombre || "Walk-In", origen: "walkin",
+        });
+        refreshLocal();
+      }
       setWiInlineMesa(null);
       setWiInlineMesaIds([]);
       setMesaSel(null);
-      reload();
+      void reload();
       showToast(`${label} — Walk-In registrado`);
     } catch {
       setWiInlineError("No se pudo registrar el Walk-In.");
@@ -1148,7 +1195,7 @@ export default function ReservasPage() {
                       blocked ? "border-rose-300 bg-rose-100 text-rose-900" : colors[visualStatus]
                     }`}>
                     {nTurnos > 1 && (
-                      <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gray-900 px-0.5 text-[8px] font-bold text-white"
+                      <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-tinta px-0.5 text-[8px] font-bold text-white"
                         title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
                     )}
                     <p className="text-xs font-black">T{m.numero}</p>
@@ -1183,7 +1230,7 @@ export default function ReservasPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-tinta px-5 py-3 text-sm font-semibold text-white shadow-xl">
           {toast}
         </div>
       )}
@@ -1322,7 +1369,7 @@ export default function ReservasPage() {
             {mesaSel.status === "occupied" && mesaSel.reserva && (
               <>
                 <button onClick={() => { handleLiberar(mesaSel.reserva!); setMesaSel(null); }}
-                  className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
+                  className="w-full rounded-xl bg-tinta-suave py-3 font-bold text-white hover:bg-tinta-suave">
                   ✓ Liberar mesa
                 </button>
                 {canMoveLocalReservation(mesaSel.reserva) && (
@@ -1437,6 +1484,14 @@ export default function ReservasPage() {
               <div className="flex justify-between"><span className="text-gray-400">Fecha</span><span className="font-semibold">{nExito.fecha} · {nExito.hora}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Personas</span><span className="font-semibold">{nExito.personas}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Mesa</span><span className="font-bold text-karuma-600">{mesaLabel(nExito.mesaIds)}</span></div>
+              {nExito.emailSent !== null && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-400">Confirmación</span>
+                  <span className={nExito.emailSent ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+                    {nExito.emailSent ? "Email enviado" : "Email no enviado"}
+                  </span>
+                </div>
+              )}
             </div>
             <button onClick={cerrarNueva} className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">Cerrar</button>
           </div>

@@ -60,6 +60,11 @@ export function SupplierProductsManager({ supplierId = 7331 }: { supplierId?: nu
   }
 
   async function updateQuantity(id: number, newQuantity: number) {
+    const previous = products;
+    setProducts((current) =>
+      current.map((p) => p.id === id ? { ...p, quantity: newQuantity } : p),
+    );
+    setEditingId(null);
     try {
       const response = await fetch(`/api/suppliers/products/${id}`, {
         method: "PATCH",
@@ -69,14 +74,9 @@ export function SupplierProductsManager({ supplierId = 7331 }: { supplierId?: nu
 
       if (!response.ok) throw new Error("Error al actualizar");
 
-      const updated = await response.json();
-      setProducts(
-        products.map((p) =>
-          p.id === id ? { ...p, quantity: newQuantity } : p,
-        ),
-      );
-      setEditingId(null);
+      await response.json();
     } catch (err) {
+      setProducts(previous);
       alert(err instanceof Error ? err.message : "Error");
     }
   }
@@ -84,6 +84,8 @@ export function SupplierProductsManager({ supplierId = 7331 }: { supplierId?: nu
   async function deleteProduct(id: number) {
     if (!confirm("¿Eliminar este producto?")) return;
 
+    const previous = products;
+    setProducts((current) => current.filter((p) => p.id !== id));
     try {
       const response = await fetch(`/api/suppliers/products/${id}`, {
         method: "DELETE",
@@ -91,8 +93,8 @@ export function SupplierProductsManager({ supplierId = 7331 }: { supplierId?: nu
 
       if (!response.ok) throw new Error("Error al eliminar");
 
-      setProducts(products.filter((p) => p.id !== id));
     } catch (err) {
+      setProducts(previous);
       alert(err instanceof Error ? err.message : "Error");
     }
   }
@@ -121,8 +123,10 @@ export function SupplierProductsManager({ supplierId = 7331 }: { supplierId?: nu
       });
 
       if (!response.ok) throw new Error("Error al agregar");
-
-      await fetchProducts();
+      const data = await response.json() as { products?: Product[] };
+      if (data.products?.length) {
+        setProducts((current) => [...current, ...data.products!]);
+      }
       setNewProduct({ product_name: "", quantity: "", unit: "KG" });
       setShowAddForm(false);
     } catch (err) {

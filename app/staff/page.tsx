@@ -73,6 +73,16 @@ export default function StaffPage() {
   const handleSave = async (input: StaffInput) => {
     setSaving(true);
     setError("");
+    const previous = staff;
+    const isEdit = modalMode === "edit" && Boolean(editing);
+    const isCreate = modalMode === "create";
+    if (isEdit && editing) {
+      setStaff((current) =>
+        current.map((member) => (member.id === editing.id ? { ...member, ...input } : member)),
+      );
+    } else if (isCreate) {
+      setStaff((current) => [...current, { ...input, id: `optimistic-${Date.now()}` }]);
+    }
     try {
       const url = modalMode === "create" ? "/api/staff" : `/api/staff/${editing?.id}`;
       const method = modalMode === "create" ? "POST" : "PUT";
@@ -87,9 +97,15 @@ export default function StaffPage() {
         throw new Error(body.error ?? t("staff.saveError"));
       }
 
+      const saved = (await res.json()) as StaffMember;
+      setStaff((current) =>
+        isEdit
+          ? current.map((member) => member.id === saved.id ? saved : member)
+          : current.map((member) => member.id.startsWith("optimistic-") ? saved : member),
+      );
       setModalOpen(false);
-      await loadStaff();
     } catch (err) {
+      if (isEdit || isCreate) setStaff(previous);
       setError(err instanceof Error ? err.message : t("staff.saveError"));
     } finally {
       setSaving(false);
@@ -100,14 +116,16 @@ export default function StaffPage() {
     if (!window.confirm(interpolate(t("staff.deleteConfirm"), { name: row.name }))) return;
 
     setError("");
+    const previous = staff;
+    setStaff((current) => current.filter((member) => member.id !== row.id));
     try {
       const res = await fetch(`/api/staff/${row.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? t("staff.deleteError"));
       }
-      await loadStaff();
     } catch (err) {
+      setStaff(previous);
       setError(err instanceof Error ? err.message : t("staff.deleteError"));
     }
   };

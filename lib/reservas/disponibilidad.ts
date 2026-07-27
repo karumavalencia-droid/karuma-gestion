@@ -21,6 +21,39 @@ function configTurnoGapMin(config: ReservasConfig): number {
   return Math.max(0, Number(config.turno_gap_min ?? 30));
 }
 
+function sonAdyacentes(a: Mesa, b: Mesa): boolean {
+  return (a.adjacent_mesa_ids ?? []).includes(b.id)
+    && (b.adjacent_mesa_ids ?? []).includes(a.id);
+}
+
+function combinacionValida(mesas: Mesa[]): boolean {
+  if (mesas.length < 2) return false;
+  const visitadas = new Set<number>([mesas[0].id]);
+  const pendientes = [mesas[0]];
+  while (pendientes.length > 0) {
+    const actual = pendientes.shift()!;
+    for (const candidata of mesas) {
+      if (!visitadas.has(candidata.id) && sonAdyacentes(actual, candidata)) {
+        visitadas.add(candidata.id);
+        pendientes.push(candidata);
+      }
+    }
+  }
+  return visitadas.size === mesas.length;
+}
+
+function combinaciones<T>(items: T[], cantidad: number): T[][] {
+  if (cantidad === 0) return [[]];
+  if (items.length < cantidad) return [];
+  const resultado: T[][] = [];
+  items.forEach((item, index) => {
+    for (const resto of combinaciones(items.slice(index + 1), cantidad - 1)) {
+      resultado.push([item, ...resto]);
+    }
+  });
+  return resultado;
+}
+
 /** Comprueba si dos turnos no dejan el margen mínimo entre fin e inicio */
 function solapan(horaA: string, durA: number, horaB: string, durB: number, gapMin = 0): boolean {
   const toMin = (h: string) => {
@@ -84,23 +117,31 @@ export function asignarMesa(
 
   // Buscar la mesa individual más pequeña que quepa
   const libres = mesas
-    .filter((m) => m.activa && !ocupadas.has(m.id) && m.capacidad >= personas)
+    .filter((m) =>
+      m.activa
+      && !ocupadas.has(m.id)
+      && (personas <= 2 ? m.capacidad === 2 : m.capacidad >= personas),
+    )
     .sort((a, b) => a.capacidad - b.capacidad);
   if (libres.length > 0) return [libres[0].id];
 
-  // Intentar combinar mesas de la misma zona
-  const zonas = [...new Set(mesas.filter((m) => m.activa && m.combinable).map((m) => m.zona))];
-  for (const zona of zonas) {
-    const candidatas = mesas
-      .filter((m) => m.activa && m.combinable && m.zona === zona && !ocupadas.has(m.id))
-      .sort((a, b) => b.capacidad - a.capacidad);
-    let acum = 0;
-    const seleccionadas: number[] = [];
-    for (const m of candidatas) {
-      acum += m.capacidad;
-      seleccionadas.push(m.id);
-      if (acum >= personas) return seleccionadas;
-    }
+  // Solo se combinan mesas con una relación de adyacencia explícita y mutua.
+  // Para 5–6 personas se prueban primero dos mesas (p. ej. 4+2) y después tres.
+  if (personas < 5) return null;
+
+  const candidatas = mesas
+    .filter((m) => m.activa && m.combinable && !ocupadas.has(m.id))
+    .sort((a, b) => b.capacidad - a.capacidad || a.numero - b.numero);
+  for (const cantidad of [2, 3]) {
+    const opciones = combinaciones(candidatas, cantidad)
+      .filter(combinacionValida)
+      .filter((opcion) => opcion.reduce((total, mesa) => total + mesa.capacidad, 0) >= personas)
+      .sort((a, b) => {
+        const capacidadA = a.reduce((total, mesa) => total + mesa.capacidad, 0);
+        const capacidadB = b.reduce((total, mesa) => total + mesa.capacidad, 0);
+        return capacidadA - capacidadB;
+      });
+    if (opciones.length > 0) return opciones[0].map((mesa) => mesa.id);
   }
 
   return null;

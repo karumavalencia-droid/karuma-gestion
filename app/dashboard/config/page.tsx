@@ -6,10 +6,11 @@ import type { ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 import { RESERVAS_CONFIG_KEY } from "@/lib/reservas/local-store";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { Trash2, Plus } from "lucide-react";
+import { MAX_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
 const DEFAULT_CONFIG: ReservasConfig = {
   reservas_online_activas: true,
-  max_personas_online: 4,
+  max_personas_online: MAX_ONLINE_PARTY_SIZE,
   intervalo_min: 15,
   turno_gap_min: 30,
   duracion_1_2_min: 90,
@@ -52,6 +53,7 @@ export default function ConfigReservasPage() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [error, setError] = useState("");
 
   const [cierres, setCierres] = useState<CierreRow[]>([]);
   const [cFecha, setCFecha] = useState(new Date().toISOString().split("T")[0]);
@@ -88,18 +90,25 @@ export default function ConfigReservasPage() {
 
   async function guardar() {
     setGuardando(true);
-    await Promise.all([
-      sb ? sb.from("reservas_config").update(config).eq("id", 1) : Promise.resolve(),
-      fetch("/api/reservas/horario-semanal", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(horario),
-      }),
-    ]);
-    localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(config));
-    setGuardando(false);
-    setOk(true);
-    setTimeout(() => setOk(false), 2000);
+    setError("");
+    try {
+      const [configResult, horarioResult] = await Promise.all([
+        sb ? sb.from("reservas_config").update(config).eq("id", 1) : Promise.resolve({ error: null }),
+        fetch("/api/reservas/horario-semanal", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(horario),
+        }),
+      ]);
+      if (configResult.error || !horarioResult.ok) throw new Error("No se pudo guardar la configuración.");
+      localStorage.setItem(RESERVAS_CONFIG_KEY, JSON.stringify(config));
+      setOk(true);
+      setTimeout(() => setOk(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la configuración.");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function setDia<K extends keyof HorarioDia>(dia: number, k: K, v: HorarioDia[K]) {
@@ -109,21 +118,29 @@ export default function ConfigReservasPage() {
   async function añadirCierre() {
     if (!sb || !cFecha) return;
     setCGuardando(true);
-    const { data } = await sb
+    setError("");
+    const { data, error: saveError } = await sb
       .from("cierres_servicio")
       .upsert({ fecha: cFecha, servicio: cServicio, motivo: cMotivo || null }, { onConflict: "fecha,servicio" })
       .select("*").single();
     if (data) {
       setCierres((prev) => [data as CierreRow, ...prev.filter((c) => !(c.fecha === cFecha && c.servicio === cServicio))]);
     }
+    if (saveError) setError("No se pudo añadir el cierre.");
     setCMotivo("");
     setCGuardando(false);
   }
 
   async function eliminarCierre(id: number) {
     if (!sb) return;
-    await sb.from("cierres_servicio").delete().eq("id", id);
+    const previous = cierres;
     setCierres((prev) => prev.filter((c) => c.id !== id));
+    setError("");
+    const { error: deleteError } = await sb.from("cierres_servicio").delete().eq("id", id);
+    if (deleteError) {
+      setCierres(previous);
+      setError("No se pudo eliminar el cierre.");
+    }
   }
 
   function set<K extends keyof ReservasConfig>(k: K, v: ReservasConfig[K]) {
@@ -136,10 +153,16 @@ export default function ConfigReservasPage() {
   const diasOrden = [1, 2, 3, 4, 5, 6, 0];
 
   return (
-    <div className="-m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
+    <div className="tema-fijo-claro -m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
       <div className="mx-auto max-w-2xl">
         <ReservasNav />
         <h1 className="mb-6 text-xl font-bold">Configuración de Reservas</h1>
+
+        {error && (
+          <p className="mb-4 rounded-lg border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
 
         <div className="space-y-5">
           <Section title="General">
@@ -149,7 +172,7 @@ export default function ConfigReservasPage() {
               onChange={(v) => set("reservas_online_activas", v)}
             />
             <Field label="Máx. personas online">
-              <input type="number" min={1} max={20} value={config.max_personas_online}
+              <input type="number" min={MAX_ONLINE_PARTY_SIZE} max={MAX_ONLINE_PARTY_SIZE} value={config.max_personas_online}
                 onChange={(e) => set("max_personas_online", Number(e.target.value))} className={inputCls} />
             </Field>
             <Field label="Intervalo (min)">

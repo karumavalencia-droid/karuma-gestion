@@ -395,7 +395,7 @@ export function VideoAssetLibrary() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/60 p-0 sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/60 p-0 sm:items-center sm:p-4">
           <div className="max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-gray-200 bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-xl">
             <h3 className="text-lg font-bold text-gray-900">Añadir material de vídeo</h3>
             <p className="mt-1 text-sm text-gray-500">Solo registra enlaces y metadatos; no sube archivos de vídeo.</p>

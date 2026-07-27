@@ -47,6 +47,10 @@ export function NotificationCenter({ userId = "admin" }: { userId?: string }) {
   };
 
   const markAsRead = async (id: number) => {
+    const previous = notifications;
+    setNotifications((current) =>
+      current.map((n) => n.id === id ? { ...n, is_read: true } : n),
+    );
     try {
       const res = await fetch(`/api/suppliers/notifications/${id}/read`, {
         method: "PATCH",
@@ -54,12 +58,9 @@ export function NotificationCenter({ userId = "admin" }: { userId?: string }) {
         body: JSON.stringify({ is_read: true }),
       });
 
-      if (res.ok) {
-        setNotifications(
-          notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
-        );
-      }
+      if (!res.ok) throw new Error("No se pudo marcar como leída");
     } catch (error) {
+      setNotifications(previous);
       console.error("Error marking notification as read:", error);
     }
   };

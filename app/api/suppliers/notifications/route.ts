@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 import { sendNotification } from "@/lib/notifications/send-notification";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
 
 // GET: obtener notificaciones del usuario
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("user_id") || "admin";
     const limit = parseInt(searchParams.get("limit") || "20");
@@ -47,6 +44,8 @@ export async function GET(request: NextRequest) {
 // POST: crear y enviar notificación
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const {
       user_id,

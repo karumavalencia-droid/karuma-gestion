@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS mesas (
   activa      BOOLEAN NOT NULL DEFAULT true,
   pos_x       INTEGER,
   pos_y       INTEGER,
+  adjacent_mesa_ids INTEGER[] NOT NULL DEFAULT '{}',
   ancho       INTEGER,
   alto        INTEGER,
   forma       TEXT DEFAULT 'rect'
@@ -107,7 +108,7 @@ CREATE TRIGGER clientes_reservas_updated_at
 CREATE TABLE IF NOT EXISTS reservas_config (
   id                      INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   reservas_online_activas BOOLEAN NOT NULL DEFAULT true,
-  max_personas_online     INTEGER NOT NULL DEFAULT 4,
+  max_personas_online     INTEGER NOT NULL DEFAULT 6 CHECK (max_personas_online = 6),
   intervalo_min           INTEGER NOT NULL DEFAULT 15,
   turno_gap_min           INTEGER NOT NULL DEFAULT 30,
   duracion_1_2_min        INTEGER NOT NULL DEFAULT 90,

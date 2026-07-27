@@ -2,13 +2,26 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification } from "@/lib/notifications/send-notification";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
+
+type GeneratedAlert = {
+  supplier_product_id: number;
+  supplier_id: number;
+  alert_type: "low_stock" | "price_change" | "no_purchase_recent";
+  threshold_value: number;
+  current_value: number;
+  alert_message: string;
+  is_active: boolean;
+};
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { supplier_id, check_type } = body;
 
@@ -19,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const alerts: any[] = [];
+    const alerts: GeneratedAlert[] = [];
 
     // Obtener productos
     const { data: products, error: productsError } = await supabase
@@ -121,7 +134,7 @@ export async function POST(request: Request) {
           low_stock: "high",
           price_change: "normal",
           no_purchase_recent: "normal",
-        };
+        } as const;
 
         await sendNotification({
           user_id: "admin",

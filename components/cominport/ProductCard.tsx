@@ -33,17 +33,17 @@ export function ProductCard({
     product.precio ?? cominportPrices[product.codigo as keyof typeof cominportPrices];
 
   return (
-    <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
+    <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-karuma-600 dark:text-karuma-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-karuma-600">
             {product.codigo}
           </p>
-          <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
+          <h3 className="mt-1 text-base font-semibold text-gray-900">
             {product.nombre}
           </h3>
           {orderedUsage && (
-            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-karuma-50 px-2.5 py-1 text-xs font-semibold text-karuma-700 dark:bg-karuma-950/40 dark:text-karuma-300">
+            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-karuma-50 px-2.5 py-1 text-xs font-semibold text-karuma-700">
               <RotateCcw className="h-3.5 w-3.5" />
               Ya pedido {orderedUsage.veces}{" "}
               {orderedUsage.veces === 1 ? "vez" : "veces"} · {orderedUsage.unidades} uds.
@@ -55,8 +55,8 @@ export function ProductCard({
           onClick={() => onToggleFavorite(product.codigo)}
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
             isFavorite
-              ? "bg-red-50 text-karuma-600 dark:bg-red-950/40 dark:text-karuma-400"
-              : "bg-gray-100 text-gray-500 hover:text-karuma-600 dark:bg-gray-800 dark:text-gray-400"
+              ? "bg-red-50 text-karuma-600"
+              : "bg-gray-100 text-gray-500 hover:text-karuma-600"
           }`}
           aria-label={
             isFavorite ? `Quitar ${product.nombre} de favoritos` : `Guardar ${product.nombre}`
@@ -68,25 +68,25 @@ export function ProductCard({
       </div>
 
       <div className="mt-3 flex-1">
-        <p className="text-sm text-gray-600 dark:text-gray-300">{product.formato}</p>
+        <p className="text-sm text-gray-600">{product.formato}</p>
         {typeof precio === "number" && precio > 0 && (
-          <p className="mt-2 text-lg font-bold text-karuma-600 dark:text-karuma-400">
+          <p className="mt-2 text-lg font-bold text-karuma-600">
             €{precio.toFixed(2)}
           </p>
         )}
         {invoiceMeta && (
-          <p className="mt-1 text-xs font-medium text-karuma-700 dark:text-karuma-300">
+          <p className="mt-1 text-xs font-medium text-karuma-700">
             Unidad pedido: {invoiceMeta.unidadPedido}
           </p>
         )}
         {invoiceMeta && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs text-gray-500">
             Facturas: {invoiceMeta.pedidosFactura} veces · {invoiceMeta.cantidadFactura} uds.
           </p>
         )}
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{product.categoria}</p>
+        <p className="mt-1 text-xs text-gray-400">{product.categoria}</p>
         {lowStock && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             Producto próximo a agotarse
           </div>

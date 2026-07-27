@@ -227,7 +227,14 @@ export default function MyAttendancePage() {
           result.event.type === "in" ? text.entrance : text.exit
         } ${timeLabel(result.event.occurredAt, locale)}`,
       );
-      await load();
+      setData((current) => current ? {
+        ...current,
+        serverTime: result.event!.occurredAt,
+        nextAction: result.event!.type === "in" ? "out" : "in",
+        lastType: result.event!.type,
+        lastTime: result.event!.occurredAt,
+        events: [...current.events, result.event!],
+      } : current);
     } catch (punchError) {
       if (
         typeof punchError === "object" &&

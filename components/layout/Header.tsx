@@ -1,10 +1,12 @@
 "use client";
 
-import { Menu, Bell, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { CampanaInbox } from "@/components/inbox/CampanaInbox";
+import { BotonTema } from "./BotonTema";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -45,13 +47,8 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-        <button
-          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 sm:flex"
-          aria-label={t("header.notifications")}
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-karuma-500" />
-        </button>
+        <BotonTema />
+        <CampanaInbox role={role} />
         <button
           type="button"
           onClick={async () => {

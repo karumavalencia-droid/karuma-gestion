@@ -76,7 +76,7 @@ function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/50 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/50 p-0 sm:items-center sm:p-4">
       <div
         className={`max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}
       >
@@ -211,28 +211,37 @@ export function FacturasPanel() {
   const saveFacturaRecord = async (factura: Factura) => {
     if (!store) return;
 
-    if (!cloudReady) {
-      const exists = store.facturas.some((f) => f.id === factura.id);
-      const next = exists
+    const previous = store;
+    const exists = store.facturas.some((f) => f.id === factura.id);
+    const optimistic = {
+      facturas: exists
         ? store.facturas.map((f) => (f.id === factura.id ? factura : f))
-        : [factura, ...store.facturas];
-      persistLocal({ facturas: next });
+        : [factura, ...store.facturas],
+    };
+
+    if (!cloudReady) {
+      persistLocal(optimistic);
       return;
     }
 
-    const response = await fetch("/api/facturas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ factura }),
-    });
-    const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
-    if (!response.ok) {
-      throw new Error(data.error || "No se pudo guardar la factura");
+    setStore(optimistic);
+    try {
+      const response = await fetch("/api/facturas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factura }),
+      });
+      const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo guardar la factura");
+      }
+      setStore({ facturas: data.facturas ?? optimistic.facturas });
+      setCloudReady(true);
+      setSyncError("");
+    } catch (error) {
+      setStore(previous);
+      throw error;
     }
-
-    setStore({ facturas: data.facturas ?? [] });
-    setCloudReady(true);
-    setSyncError("");
   };
 
   const stats = useMemo(
@@ -398,27 +407,32 @@ export function FacturasPanel() {
 
   const handleDelete = async () => {
     if (!store || !deleteTarget) return;
+    const previous = store;
+    const targetId = deleteTarget.id;
+    const optimistic = {
+      facturas: store.facturas.filter((f) => f.id !== targetId),
+    };
     setSaving(true);
+    setStore(optimistic);
     try {
       if (cloudReady) {
         const response = await fetch(
-          `/api/facturas?id=${encodeURIComponent(deleteTarget.id)}`,
+          `/api/facturas?id=${encodeURIComponent(targetId)}`,
           { method: "DELETE" },
         );
         const data = (await response.json().catch(() => ({}))) as FacturasApiResponse;
         if (!response.ok) {
           throw new Error(data.error || "No se pudo eliminar la factura");
         }
-        setStore({ facturas: data.facturas ?? [] });
+        setStore({ facturas: data.facturas ?? optimistic.facturas });
       } else {
-        persistLocal({
-          facturas: store.facturas.filter((f) => f.id !== deleteTarget.id),
-        });
+        persistLocal(optimistic);
       }
       showToast("Factura eliminada");
       setModal(null);
       setDeleteTarget(null);
     } catch (err) {
+      setStore(previous);
       showToast(err instanceof Error ? err.message : "No se pudo eliminar la factura");
     } finally {
       setSaving(false);
@@ -1025,7 +1039,7 @@ export function FacturasPanel() {
       </Modal>
 
       {toast && (
-        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-gray-900 px-4 py-2 text-sm text-white shadow-lg sm:bottom-6">
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-tinta px-4 py-2 text-sm text-white shadow-lg sm:bottom-6">
           {toast}
         </div>
       )}

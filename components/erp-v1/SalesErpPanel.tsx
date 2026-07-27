@@ -50,7 +50,7 @@ export function SalesErpPanel() {
           title={t("pages.sales.uberEats")}
           value={formatCurrency(salesKpis.uberEats)}
           icon={Truck}
-          iconColor="bg-gray-900 text-white"
+          iconColor="bg-tinta text-white"
         />
         <StatCard
           title={t("pages.sales.glovo")}

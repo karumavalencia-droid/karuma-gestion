@@ -178,7 +178,7 @@ export function DashboardPanel() {
           value={String(pedidosStats.delivery)}
           subtitle={t("dashboard.deliveryChannels")}
           icon={Truck}
-          iconColor="bg-gray-900 text-white"
+          iconColor="bg-tinta text-white"
         />
         <StatCard
           title={t("ceo.stockBajo")}

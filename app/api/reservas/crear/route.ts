@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
 import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+import { isValidOnlinePartySize } from "@/lib/reservas/config";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function reservationIdFromIdempotencyKey(key: unknown): string | null {
+  if (typeof key !== "string") return null;
+  const cleanKey = key.trim();
+  if (!cleanKey) return null;
+  const bytes = Buffer.from(createHash("sha256").update(`karuma-reserva:${cleanKey}`).digest("hex").slice(0, 32), "hex");
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -16,13 +29,15 @@ export async function POST(req: NextRequest) {
     origen = "online",
     forceMesaIds,  // number[] | undefined — skip auto-assign if provided
     bloqueo = false,
-    duracionMin,
+    duracionMin, idempotencyKey,
   } = body as {
     nombre: string; telefono: string; email?: string; personas: number;
     fecha: string; hora: string; servicio: string; notas?: string;
-    origen?: string; forceMesaIds?: number[]; bloqueo?: boolean; duracionMin?: number;
+    origen?: string; forceMesaIds?: number[]; bloqueo?: boolean; duracionMin?: number; idempotencyKey?: string;
   };
+  const telefonoCliente = typeof telefono === "string" ? telefono.trim() : "";
   const emailCliente = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const idempotentReservaId = reservationIdFromIdempotencyKey(idempotencyKey);
   const isTableBlock = bloqueo === true;
   const isWalkIn = origen === "walkin";
   const personasReserva = Number(personas);
@@ -34,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Selecciona al menos una mesa para bloquear" }, { status: 400 });
   }
   if (!isTableBlock && (origen === "online" || origen === "telefono" || origen === "manual")) {
-    if (!telefono) {
+    if (!telefonoCliente) {
       return NextResponse.json({ error: "El teléfono es obligatorio" }, { status: 400 });
     }
   }
@@ -48,6 +63,12 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
+  }
+
+  let reusedReserva: { id: string; mesa_ids: number[]; confirmation_email_sent_at: string | null } | null = null;
+  if (idempotentReservaId) {
+    const { data } = await supabase.from("reservas").select("id, mesa_ids, confirmation_email_sent_at").eq("id", idempotentReservaId).maybeSingle();
+    if (data) reusedReserva = data;
   }
 
   const [{ data: mesas }, { data: reservasExistentes }, { data: configData }] = await Promise.all([
@@ -66,7 +87,7 @@ export async function POST(req: NextRequest) {
     if (!config.reservas_online_activas) {
       return NextResponse.json({ error: "Las reservas online están desactivadas" }, { status: 403 });
     }
-    if (personasReserva > config.max_personas_online) {
+    if (!isValidOnlinePartySize(personasReserva)) {
       return NextResponse.json({ error: "Máximo de personas por reserva online superado" }, { status: 400 });
     }
   }
@@ -75,9 +96,12 @@ export async function POST(req: NextRequest) {
     ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
     : personasReserva <= 2 ? config.duracion_1_2_min : (personasReserva <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
 
-  // Use forceMesaIds if provided (admin/walkin), otherwise auto-assign
-  let mesaIds: number[];
-  if (forceMesaIds && forceMesaIds.length > 0) {
+  // Online allocation happens atomically in the database after the customer
+  // upsert. Staff flows keep their existing manual/automatic assignment.
+  let mesaIds: number[] = reusedReserva?.mesa_ids ?? [];
+  if (reusedReserva) {
+    mesaIds = reusedReserva.mesa_ids ?? [];
+  } else if (forceMesaIds && forceMesaIds.length > 0) {
     const existentes = (reservasExistentes ?? []) as Reserva[];
     let ocupadas: Set<number>;
     if (isWalkIn) {
@@ -102,7 +126,7 @@ export async function POST(req: NextRequest) {
       );
     }
     mesaIds = forceMesaIds;
-  } else {
+  } else if (origen !== "online") {
     const assigned = asignarMesa(
       mesas as Mesa[],
       (reservasExistentes ?? []) as Reserva[],
@@ -123,11 +147,11 @@ export async function POST(req: NextRequest) {
 
   // Upsert cliente por teléfono (optional for walk-in)
   let clienteId: string | null = null;
-  if (!isTableBlock && telefono) {
+  if (!isTableBlock && telefonoCliente && !reusedReserva) {
     const { data: clienteExistente } = await supabase
       .from("clientes_reservas")
       .select("id, visitas")
-      .eq("telefono", telefono)
+      .eq("telefono", telefonoCliente)
       .maybeSingle();
 
     if (clienteExistente) {
@@ -144,7 +168,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: nuevoCliente, error } = await supabase
         .from("clientes_reservas")
-        .insert({ nombre: nombreCliente, telefono, email: emailCliente || null, visitas: 1 })
+        .insert({ nombre: nombreCliente, telefono: telefonoCliente, email: emailCliente || null, visitas: 0 })
         .select("id")
         .single();
       if (error || !nuevoCliente) {
@@ -154,25 +178,59 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: reserva, error: errReserva } = await supabase
-    .from("reservas")
-    .insert({
-      cliente_id: clienteId,
-      fecha,
-      hora_inicio: hora,
-      duracion_min: duracion,
-      servicio: servicio as "comida" | "cena",
-      personas: isTableBlock ? 0 : personasReserva,
-      mesa_ids: mesaIds,
-      estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
-      notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
-      origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
-    })
-    .select("id")
-    .single();
+  let reservaId = reusedReserva?.id ?? "";
+  if (!reusedReserva && origen === "online" && !isTableBlock) {
+    const { data, error } = await supabase.rpc("create_online_reservation_atomic", {
+      p_cliente_id: clienteId,
+      p_fecha: fecha,
+      p_hora_inicio: hora,
+      p_servicio: servicio,
+      p_personas: personasReserva,
+      p_duracion_min: duracion,
+      p_notas: notas ?? null,
+    });
+    const result = data as { reservation_id?: string; mesa_ids?: number[] } | null;
+    if (error || !result?.reservation_id || !result.mesa_ids) {
+      const noAvailability = error?.message?.includes("NO_TABLE_AVAILABILITY");
+      return NextResponse.json(
+        { error: noAvailability ? "No hay disponibilidad para ese horario" : "Error al crear reserva" },
+        { status: noAvailability ? 409 : 500 },
+      );
+    }
+    reservaId = result.reservation_id;
+    mesaIds = result.mesa_ids;
+  } else if (!reusedReserva) {
+    const { data: reserva, error: errReserva } = await supabase
+      .from("reservas")
+      .insert({
+        ...(idempotentReservaId ? { id: idempotentReservaId } : {}),
+        cliente_id: clienteId,
+        fecha,
+        hora_inicio: hora,
+        duracion_min: duracion,
+        servicio: servicio as "comida" | "cena",
+        personas: isTableBlock ? 0 : personasReserva,
+        mesa_ids: mesaIds,
+        estado: (isWalkIn ? "WalkIn" : "Confirmada") as "WalkIn" | "Confirmada",
+        seated_at: isWalkIn ? new Date().toISOString() : null,
+        notas: isTableBlock ? buildTableBlockNotes(notas) : notas ?? null,
+        origen: (isTableBlock ? "manual" : origen) as "online" | "telefono" | "walkin" | "manual",
+      })
+      .select("id")
+      .single();
 
-  if (errReserva || !reserva) {
-    return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
+    if (errReserva || !reserva) {
+      return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
+    }
+    reservaId = reserva.id;
+  }
+
+  if (!isTableBlock && clienteId && !reusedReserva) {
+    await supabase.from("clientes_reservas").update({ ...(nombreReserva ? { nombre: nombreReserva } : {}), ...(emailCliente ? { email: emailCliente } : {}), visitas: 1, ultima_visita: fecha }).eq("id", clienteId);
+  }
+
+  if (reusedReserva?.confirmation_email_sent_at) {
+    return NextResponse.json({ ok: true, reservaId, mesaIds, emailSent: true, duplicate: true });
   }
 
   const emailResult = !isTableBlock && emailCliente
@@ -183,7 +241,7 @@ export async function POST(req: NextRequest) {
         hora,
         servicio,
         personas: personasReserva,
-        reservaId: reserva.id,
+        reservaId,
         mesaIds,
         telefonoRestaurante: config.telefono,
       }).catch((error: unknown) => ({
@@ -193,13 +251,23 @@ export async function POST(req: NextRequest) {
       }))
     : { sent: false as const, reason: "invalid_recipient" as const };
 
-  if (!isTableBlock && !emailResult.sent && emailResult.reason !== "missing_config") {
+  if (!isTableBlock && !emailResult.sent) {
     console.warn("Reservation confirmation email not sent", {
-      reservaId: reserva.id,
+      reservaId,
       reason: emailResult.reason,
       error: emailResult.error,
     });
   }
 
-  return NextResponse.json({ ok: true, reservaId: reserva.id, mesaIds, emailSent: emailResult.sent });
+  if (!isTableBlock && emailResult.sent) {
+    await supabase.from("reservas").update({ confirmation_email_sent_at: new Date().toISOString() }).eq("id", reservaId);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    reservaId,
+    mesaIds,
+    emailSent: emailResult.sent,
+    emailError: emailResult.sent ? null : emailResult.reason,
+  });
 }

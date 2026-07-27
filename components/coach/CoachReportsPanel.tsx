@@ -124,6 +124,10 @@ export function CoachReportsPanel() {
   async function updateStatus(id: string, status: IncidentStatus) {
     if (updatingId) return;
     setUpdatingId(id);
+    const previous = reports;
+    setReports((current) =>
+      current.map((report) => report.id === id ? { ...report, status } : report),
+    );
     try {
       const response = await fetch(`/api/coach/reports/${id}`, {
         method: "PATCH",
@@ -144,6 +148,7 @@ export function CoachReportsPanel() {
       );
       setError("");
     } catch (updateError) {
+      setReports(previous);
       setError(
         updateError instanceof Error
           ? updateError.message

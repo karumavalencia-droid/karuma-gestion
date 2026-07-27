@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -21,11 +21,7 @@ export function SupplierAuditLog({ supplierId }: { supplierId?: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAuditLogs();
-  }, [supplierId]);
-
-  async function fetchAuditLogs() {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -45,7 +41,11 @@ export function SupplierAuditLog({ supplierId }: { supplierId?: number }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [supplierId]);
+
+  useEffect(() => {
+    void fetchAuditLogs();
+  }, [fetchAuditLogs]);
 
   if (loading) {
     return <div className="p-6 text-center text-gray-500">Cargando...</div>;
@@ -106,7 +106,7 @@ export function SupplierAuditLog({ supplierId }: { supplierId?: number }) {
                   <div key={field} className="bg-gray-50 p-2 rounded">
                     <p className="text-gray-600">{field}</p>
                     <p className="font-medium text-gray-900">
-                      {log.old_values?.[field] && (
+                      {Boolean(log.old_values?.[field]) && (
                         <>
                           <span className="text-red-600">
                             {String(log.old_values[field])}

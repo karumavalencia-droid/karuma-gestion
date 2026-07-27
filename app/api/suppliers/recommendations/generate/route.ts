@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 import { generateRecommendation } from "@/lib/notifications/send-notification";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-);
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getLegacySupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
     const body = await request.json();
     const { supplier_id } = body;
 

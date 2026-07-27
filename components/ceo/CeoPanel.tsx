@@ -117,7 +117,7 @@ export function CeoPanel() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 sm:space-y-6">
       {/* Cabecera ejecutiva */}
-      <div className="rounded-2xl bg-gray-900 px-4 py-5 text-white shadow-lg sm:px-6 sm:py-6">
+      <div className="rounded-2xl bg-tinta px-4 py-5 text-white shadow-lg sm:px-6 sm:py-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex items-center gap-2">

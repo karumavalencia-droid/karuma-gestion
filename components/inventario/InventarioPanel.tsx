@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   Boxes,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -63,7 +64,7 @@ function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/50 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/50 p-0 sm:items-center sm:p-4">
       <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
@@ -109,6 +110,8 @@ export function InventarioPanel() {
   const [products, setProducts] = useState<ProductoInventario[]>([]);
   const [historial, setHistorial] = useState<MovimientoInventario[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<"checking" | "available" | "local">("checking");
+  const [syncingRemote, setSyncingRemote] = useState(false);
   const [tab, setTab] = useState<Tab>("inventario");
   const [search, setSearch] = useState("");
   const [histSearch, setHistSearch] = useState("");
@@ -136,10 +139,64 @@ export function InventarioPanel() {
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/inventory", { cache: "no-store" })
+      .then((response) => {
+        if (!active) return;
+        setRemoteStatus(response.ok ? "available" : "local");
+      })
+      .catch(() => {
+        if (active) setRemoteStatus("local");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === "karuma_inventario_v2") setProducts(loadProductos());
+      if (event.key === "karuma_historial_v2") setHistorial(loadHistorial());
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2500);
   }, []);
+
+  const refreshLocalInventory = useCallback(() => {
+    setProducts(loadProductos());
+    setHistorial(loadHistorial());
+    setLoaded(true);
+    showToast("Inventario actualizado desde este dispositivo");
+  }, [showToast]);
+
+  const syncRemoteInventory = useCallback(async () => {
+    if (remoteStatus !== "available" || products.length === 0) {
+      showToast("La base de datos no está disponible o no hay productos");
+      return;
+    }
+    setSyncingRemote(true);
+    try {
+      const response = await fetch("/api/inventory/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products }),
+      });
+      const result = (await response.json()) as { created?: number; updated?: number; errors?: string[]; error?: string };
+      if (!response.ok && response.status !== 207) throw new Error(result.error ?? "No se pudo sincronizar");
+      showToast(`${result.created ?? 0} nuevos · ${result.updated ?? 0} actualizados${result.errors?.length ? " · revisa los errores" : ""}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "No se pudo sincronizar");
+    } finally {
+      setSyncingRemote(false);
+    }
+  }, [products, remoteStatus, showToast]);
 
   const persist = useCallback(
     (nextProducts: ProductoInventario[], nextHistorial?: MovimientoInventario[]) => {
@@ -355,7 +412,6 @@ export function InventarioPanel() {
         if (!nombre) return;
         if (newProducts.some((p) => p.nombre === nombre && p.proveedor === proveedor)) return;
         const parsed = parseForm({
-          id: String(r.id ?? genId()),
           nombre,
           categoria: String(r.categoria ?? ""),
           stock: String(r.stock ?? 0),
@@ -390,6 +446,27 @@ export function InventarioPanel() {
     <div>
       <PageHeader title="Inventario" description="Control de stock y movimientos">
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={refreshLocalInventory}
+            title="Volver a leer los datos guardados en este dispositivo"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Actualizar</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void syncRemoteInventory()}
+            disabled={syncingRemote || remoteStatus !== "available"}
+            title="Enviar una copia del inventario local a la base de datos"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncingRemote ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{syncingRemote ? "Sincronizando…" : "Sincronizar"}</span>
+          </Button>
           <Button size="sm" className="gap-1.5" onClick={() => openProductModal("add")}>
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nuevo producto</span>
@@ -406,6 +483,21 @@ export function InventarioPanel() {
           </Button>
         </div>
       </PageHeader>
+
+      <div className={`mb-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs sm:text-sm ${
+        remoteStatus === "available"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}>
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          {remoteStatus === "available"
+            ? "La base de datos de inventario está disponible. Los cambios locales existentes se conservan hasta completar la sincronización explícita."
+            : remoteStatus === "checking"
+              ? "Comprobando disponibilidad de la base de datos de inventario…"
+              : "Este inventario está guardado localmente en este dispositivo. Exporta un CSV antes de cambiar de equipo; la sincronización multiusuario queda pendiente de conectar a la base de datos."}
+        </p>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
         <StatCard

@@ -35,6 +35,7 @@ export default function ClientesReservasPage() {
   const [loadingHistorial, setLoadingHistorial] = useState(false);
   const [editNotas, setEditNotas] = useState("");
   const [guardandoNotas, setGuardandoNotas] = useState(false);
+  const [mutationError, setMutationError] = useState("");
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -70,28 +71,50 @@ export default function ClientesReservasPage() {
   async function toggleVip(id: string, vip: boolean) {
     const sb = getSupabaseClient();
     if (!sb) return;
-    await sb.from("clientes_reservas").update({ vip: !vip }).eq("id", id);
-    setSeleccionado((p) => p?.id === id ? { ...p, vip: !vip } : p);
-    cargar();
+    const next = !vip;
+    setMutationError("");
+    setClientes((current) => current.map((c) => c.id === id ? { ...c, vip: next } : c));
+    setSeleccionado((p) => p?.id === id ? { ...p, vip: next } : p);
+    const { error } = await sb.from("clientes_reservas").update({ vip: next }).eq("id", id);
+    if (error) {
+      setClientes((current) => current.map((c) => c.id === id ? { ...c, vip } : c));
+      setSeleccionado((p) => p?.id === id ? { ...p, vip } : p);
+      setMutationError("No se pudo actualizar el estado VIP.");
+    }
   }
 
   async function toggleBloqueado(id: string, bloqueado: boolean) {
     const sb = getSupabaseClient();
     if (!sb) return;
-    await sb.from("clientes_reservas").update({ bloqueado: !bloqueado }).eq("id", id);
-    setSeleccionado((p) => p?.id === id ? { ...p, bloqueado: !bloqueado } : p);
-    cargar();
+    const next = !bloqueado;
+    setMutationError("");
+    setClientes((current) => current.map((c) => c.id === id ? { ...c, bloqueado: next } : c));
+    setSeleccionado((p) => p?.id === id ? { ...p, bloqueado: next } : p);
+    const { error } = await sb.from("clientes_reservas").update({ bloqueado: next }).eq("id", id);
+    if (error) {
+      setClientes((current) => current.map((c) => c.id === id ? { ...c, bloqueado } : c));
+      setSeleccionado((p) => p?.id === id ? { ...p, bloqueado } : p);
+      setMutationError("No se pudo bloquear o desbloquear el cliente.");
+    }
   }
 
   async function guardarNotas() {
     if (!seleccionado) return;
     setGuardandoNotas(true);
+    setMutationError("");
     const sb = getSupabaseClient();
     if (!sb) { setGuardandoNotas(false); return; }
-    await sb.from("clientes_reservas").update({ notas: editNotas || null }).eq("id", seleccionado.id);
-    setSeleccionado((p) => p ? { ...p, notas: editNotas || null } : p);
+    const previous = seleccionado.notas;
+    const next = editNotas || null;
+    setClientes((current) => current.map((c) => c.id === seleccionado.id ? { ...c, notas: next } : c));
+    setSeleccionado((p) => p ? { ...p, notas: next } : p);
+    const { error } = await sb.from("clientes_reservas").update({ notas: next }).eq("id", seleccionado.id);
+    if (error) {
+      setClientes((current) => current.map((c) => c.id === seleccionado.id ? { ...c, notas: previous } : c));
+      setSeleccionado((p) => p ? { ...p, notas: previous } : p);
+      setMutationError("No se pudieron guardar las notas.");
+    }
     setGuardandoNotas(false);
-    cargar();
   }
 
   const filtrados = clientes.filter((c) => {
@@ -101,7 +124,7 @@ export default function ClientesReservasPage() {
   });
 
   return (
-    <div className="-m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
+    <div className="tema-fijo-claro -m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
       <div className="mx-auto max-w-5xl">
         <ReservasNav />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -117,6 +140,12 @@ export default function ClientesReservasPage() {
             />
           </div>
         </div>
+
+        {mutationError && (
+          <p className="mb-4 rounded-lg border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-300">
+            {mutationError}
+          </p>
+        )}
 
         {loading ? (
           <p className="text-center text-gray-500">Cargando…</p>
