@@ -14,7 +14,7 @@ const TABS = [
 export function ReservasNav() {
   const pathname = usePathname();
   return (
-    <div className="mb-4 flex gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
+    <div className="tema-fijo-claro mb-4 flex gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (

@@ -24,7 +24,7 @@ export function Dialog({ open, onClose, title, children, className = "" }: Dialo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/60 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="presentation"
     >

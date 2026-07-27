@@ -123,7 +123,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <>
       {open && (
         <div
-          className={`fixed inset-0 z-40 bg-gray-900/60 backdrop-blur-sm ${
+          className={`tema-fijo-claro fixed inset-0 z-40 bg-tinta/60 backdrop-blur-sm ${
             isMesaView ? "2xl:hidden" : "lg:hidden"
           }`}
           onClick={onClose}
@@ -132,7 +132,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(100vw-3rem,16rem)] flex-col bg-gray-900 transition-transform duration-300 ease-in-out ${
+        className={`tema-fijo-claro fixed inset-y-0 left-0 z-50 flex w-[min(100vw-3rem,16rem)] flex-col bg-gray-900 transition-transform duration-300 ease-in-out ${
           isMesaView
             ? "2xl:static 2xl:w-64 2xl:translate-x-0"
             : "lg:static lg:w-64 lg:translate-x-0"

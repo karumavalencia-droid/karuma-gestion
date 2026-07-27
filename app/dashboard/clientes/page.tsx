@@ -124,7 +124,7 @@ export default function ClientesReservasPage() {
   });
 
   return (
-    <div className="-m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
+    <div className="tema-fijo-claro -m-3 min-h-[calc(100dvh)] bg-gray-950 p-4 text-gray-100 sm:-m-4 md:-m-6 md:p-6">
       <div className="mx-auto max-w-5xl">
         <ReservasNav />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

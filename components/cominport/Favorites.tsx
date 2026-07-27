@@ -12,10 +12,10 @@ interface FavoritesProps {
 export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProps) {
   if (products.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center dark:border-gray-700 dark:bg-gray-900">
-        <Heart className="mx-auto h-9 w-9 text-gray-300 dark:text-gray-600" />
-        <h2 className="mt-3 font-semibold text-gray-900 dark:text-white">Sin productos guardados</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">
+        <Heart className="mx-auto h-9 w-9 text-gray-300" />
+        <h2 className="mt-3 font-semibold text-gray-900">Sin productos guardados</h2>
+        <p className="mt-1 text-sm text-gray-500">
           Pulsa el corazón de un producto para crear tu lista habitual.
         </p>
       </div>
@@ -25,7 +25,7 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
   return (
     <section className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-gray-500">
           {products.length} productos en tu lista habitual
         </p>
         <button
@@ -45,16 +45,16 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
           return (
             <article
               key={product.codigo}
-              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-gray-700 dark:bg-gray-900"
+              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-karuma-600 dark:text-karuma-400">
+                <p className="text-xs font-semibold text-karuma-600">
                   {product.codigo}
                 </p>
-                <h3 className="font-semibold text-gray-900 dark:text-white">{product.nombre}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{product.formato}</p>
+                <h3 className="font-semibold text-gray-900">{product.nombre}</h3>
+                <p className="text-sm text-gray-500">{product.formato}</p>
                 {invoiceMeta && (
-                  <p className="text-xs font-medium text-karuma-700 dark:text-karuma-300">
+                  <p className="text-xs font-medium text-karuma-700">
                     Unidad pedido: {invoiceMeta.unidadPedido}
                   </p>
                 )}
@@ -71,7 +71,7 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
                 <button
                   type="button"
                   onClick={() => onRemove(product.codigo)}
-                  className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950/40"
+                  className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600"
                   aria-label={`Quitar ${product.nombre} de favoritos`}
                 >
                   <Trash2 className="h-4 w-4" />

@@ -432,7 +432,7 @@ export default function KioskPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
             <p className="text-sm text-gray-500">{t("kiosk.colEmployee")}</p>
             <h2 className="text-center text-xl font-bold text-gray-900">
