@@ -81,6 +81,11 @@ const INTENTIONALLY_UNLINKED = {
   "/mensajes/insights": "analítica del inbox (enlace desde /mensajes)",
   "/staff/:id": "detalle de empleado (enlace desde /staff)",
   "/ceo/change-requests/:id": "detalle de solicitud (enlace desde /ceo)",
+  "/documento/:id": "detalle de Documento (enlace desde /documento)",
+
+  // Compatibilidad: la nueva experiencia es /documento. Se conserva la ruta
+  // anterior para enlaces existentes, sin duplicar la entrada del menú.
+  "/documentos": "entrada Documento heredada (compatibilidad)",
 
   // Panel admin (acceso por enlace/rol admin)
   "/admin/dashboard": "panel admin",
