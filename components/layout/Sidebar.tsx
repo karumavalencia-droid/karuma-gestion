@@ -27,6 +27,7 @@ import {
   ShoppingBasket,
   Snowflake,
   Sparkles,
+  Store,
   Star,
   Target,
   Timer,
@@ -99,6 +100,11 @@ const SUPPLIER_LINKS = [
     href: "/dashboard/kankyo",
     labelKey: "kankyo",
     icon: Leaf,
+  },
+  {
+    href: "/dashboard/yongxing",
+    labelKey: "yongxing",
+    icon: Store,
   },
 ] as const;
 
