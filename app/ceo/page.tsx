@@ -1,13 +1,15 @@
 import { cookies } from "next/headers";
 import { ChangeCenterPanel } from "@/components/ceo/ChangeCenterPanel";
 import { CeoChatPanel } from "@/components/ceo/CeoChatPanel";
+import { OperationsCenter } from "@/components/ceo/OperationsCenter";
 import { canViewCeo, isCeoAdmin } from "@/lib/auth/guards";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function CeoPage() {
-  const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const user = await verifySessionToken(token);
 
   if (!canViewCeo(user)) {
@@ -33,15 +35,15 @@ export default async function CeoPage() {
       </section>
 
       {canManageActions && (
-        <details id="ceo-change-center" className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-800">
-            系统修改中心
-            <span className="ml-2 text-xs font-normal text-gray-500">只有 Owner/Admin 可以操作</span>
-          </summary>
-          <div className="border-t border-gray-100 p-2">
-            <ChangeCenterPanel />
-          </div>
-        </details>
+        <section id="ceo-operations" className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <OperationsCenter />
+        </section>
+      )}
+
+      {canManageActions && (
+        <section id="ceo-change-center" className="rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
+          <ChangeCenterPanel />
+        </section>
       )}
     </div>
   );

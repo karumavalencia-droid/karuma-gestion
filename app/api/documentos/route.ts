@@ -1,116 +1,147 @@
-/**
- * Documentos confidenciales (solo owner). Bucket privado "documentos".
- *
- * GET  /api/documentos?categoria=...  → lista
- * POST /api/documentos                → subida (multipart/form-data)
- *   campos: file, categoria, notas?
- */
+import { randomUUID } from "node:crypto";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSessionUser } from "@/lib/auth/guards";
+import { isDocumentoOwner } from "@/lib/documentos/permissions";
+import { createProcessingRun, getDocumentoAdmin, listDocumentos } from "@/lib/documentos/repository";
+import { deleteDocumentoObject, uploadDocumentoObject } from "@/lib/documentos/storage";
+import { DOCUMENTO_BUCKET } from "@/lib/documentos/types";
+import { inferDocumentoType, isDocumentoStatus, isDocumentoType, validateDocumentoFile } from "@/lib/documentos/validation";
+import { detectDocumentoDuplicates } from "@/lib/documentos/associations";
 
-import { NextRequest, NextResponse } from "next/server";
-import { requireOwner } from "@/lib/auth/owner-guard";
-import {
-  DOCUMENTOS_BUCKET,
-  DOCUMENTO_CATEGORIAS as CATEGORIAS,
-} from "@/lib/documentos/constants";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import type { DbDocumentoCategoria } from "@/lib/supabase/types";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB por archivo
+function forbidden() {
+  return NextResponse.json({ error: "Sin permisos para acceder a Documento" }, { status: 403 });
+}
+
+function validDate(value: string | null) {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function validNumber(value: string | null) {
+  if (!value?.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function validId(value: string | null) {
+  return value && /^[a-zA-Z0-9-]{1,80}$/.test(value) ? value : undefined;
+}
 
 export async function GET(request: NextRequest) {
-  const guard = await requireOwner(request);
-  if ("response" in guard) return guard.response;
+  const user = await getSessionUser(request);
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!isDocumentoOwner(user)) return forbidden();
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
+  const params = request.nextUrl.searchParams;
+  try {
+    const requestedStatus = params.get("status");
+    const requestedType = params.get("type");
+    const result = await listDocumentos({
+      query: params.get("q") ?? undefined,
+      status: isDocumentoStatus(requestedStatus) ? requestedStatus : undefined,
+      documentType: isDocumentoType(requestedType) ? requestedType : undefined,
+      category: params.get("category") ?? undefined,
+      companyId: validId(params.get("companyId")),
+      restaurantId: validId(params.get("restaurantId")),
+      supplierId: validNumber(params.get("supplierId")),
+      dateFrom: validDate(params.get("dateFrom")),
+      dateTo: validDate(params.get("dateTo")),
+      amountMin: validNumber(params.get("amountMin")),
+      amountMax: validNumber(params.get("amountMax")),
+      paymentStatus: params.get("paymentStatus")?.trim().slice(0, 80) || undefined,
+      humanVerified: params.get("humanVerified") === "true" ? true : params.get("humanVerified") === "false" ? false : undefined,
+      reviewQueue: params.get("reviewQueue") === "true",
+      limit: validNumber(params.get("limit")),
+    });
+    return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    console.error("[documentos] list failed", error);
+    return NextResponse.json({ error: "No se pudieron cargar los documentos" }, { status: 500 });
   }
-
-  const categoria = request.nextUrl.searchParams.get("categoria");
-  let query = supabase
-    .from("documentos")
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
-    .order("created_at", { ascending: false });
-
-  if (categoria && CATEGORIAS.includes(categoria as DbDocumentoCategoria)) {
-    query = query.eq("categoria", categoria as DbDocumentoCategoria);
-  }
-
-  const { data, error } = await query.limit(500);
-  if (error) {
-    console.error("[documentos] Error listando:", error);
-    return NextResponse.json({ error: "Error consultando documentos" }, { status: 500 });
-  }
-
-  return NextResponse.json({ documentos: data ?? [] });
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireOwner(request);
-  if ("response" in guard) return guard.response;
+  const user = await getSessionUser(request);
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!isDocumentoOwner(user)) return forbidden();
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
-  }
-
-  let form: FormData;
+  let objectPath: string | null = null;
   try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Se esperaba multipart/form-data" }, { status: 400 });
-  }
+    const form = await request.formData();
+    const formFile = form.get("file");
+    const note = typeof form.get("note") === "string" ? String(form.get("note")).trim() : "";
+    const file = formFile instanceof File
+      ? formFile
+      : note
+        ? new File([note], "nota.txt", { type: "text/plain" })
+        : null;
+    if (!file) return NextResponse.json({ error: "Falta el archivo o la nota" }, { status: 400 });
 
-  const file = form.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Archivo demasiado grande (máx. 25 MB)" }, { status: 400 });
-  }
+    const fileError = validateDocumentoFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 413 });
 
-  const categoriaRaw = String(form.get("categoria") ?? "otros");
-  const categoria = CATEGORIAS.includes(categoriaRaw as DbDocumentoCategoria)
-    ? (categoriaRaw as DbDocumentoCategoria)
-    : "otros";
-  const notas = String(form.get("notas") ?? "").trim() || null;
-
-  // Ruta única en el bucket: <categoria>/<timestamp>-<nombre saneado>
-  const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-120) || "documento";
-  const storagePath = `${categoria}/${Date.now()}-${safeName}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const { error: uploadError } = await supabase.storage
-    .from(DOCUMENTOS_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
+    const documentId = randomUUID();
+    const mimeType = file.type || "application/octet-stream";
+    const requestedType = String(form.get("documentType") ?? "");
+    if (requestedType && !isDocumentoType(requestedType)) return NextResponse.json({ error: "Tipo de documento inválido" }, { status: 400 });
+    const documentType = requestedType || inferDocumentoType(mimeType, file.name);
+    const title = String(form.get("title") ?? file.name).trim().slice(0, 240) || file.name;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const uploaded = await uploadDocumentoObject({
+      bytes,
+      filename: file.name,
+      mimeType,
+      documentId,
+      documentType,
     });
+    objectPath = uploaded.path;
 
-  if (uploadError) {
-    console.error("[documentos] Error subiendo a storage:", uploadError);
-    return NextResponse.json({ error: "Error subiendo el archivo" }, { status: 500 });
+    const { data, error } = await getDocumentoAdmin()
+      .from("documentos")
+      .insert({
+        id: documentId,
+        nombre: title,
+        title,
+        original_filename: file.name,
+        categoria: "otros",
+        storage_path: uploaded.path,
+        storage_bucket: DOCUMENTO_BUCKET,
+        mime_type: mimeType,
+        tamano_bytes: file.size,
+        file_size: file.size,
+        document_type: documentType,
+        status: "uploaded",
+        notas: note || null,
+        extracted_text: note || null,
+        source: "manual_upload",
+        sha256: uploaded.sha256,
+        uploaded_at: new Date().toISOString(),
+        created_by_email: user.email,
+      })
+      .select("*")
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "No se pudo guardar el documento");
+
+    try {
+      await createProcessingRun(documentId, user.email);
+    } catch (processingError) {
+      console.error("[documentos] processing run failed", processingError);
+    }
+    try {
+      await detectDocumentoDuplicates(documentId);
+    } catch (duplicateError) {
+      // Candidate detection is additive and must not invalidate a successfully saved original.
+      console.error("[documentos] duplicate detection skipped", duplicateError);
+    }
+
+    return NextResponse.json({ documento: data }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (objectPath) {
+      try { await deleteDocumentoObject(objectPath); } catch (cleanupError) { console.error("[documentos] orphan cleanup failed", cleanupError); }
+    }
+    console.error("[documentos] upload failed", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo subir el documento" }, { status: 500 });
   }
-
-  const { data, error } = await supabase
-    .from("documentos")
-    .insert({
-      nombre: file.name,
-      categoria,
-      storage_path: storagePath,
-      mime_type: file.type || null,
-      tamano_bytes: file.size,
-      notas,
-    })
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
-    .single();
-
-  if (error) {
-    // Limpieza: si falla la metadata, no dejar el archivo huérfano.
-    await supabase.storage.from(DOCUMENTOS_BUCKET).remove([storagePath]);
-    console.error("[documentos] Error guardando metadata:", error);
-    return NextResponse.json({ error: "Error guardando el documento" }, { status: 500 });
-  }
-
-  return NextResponse.json({ documento: data }, { status: 201 });
 }

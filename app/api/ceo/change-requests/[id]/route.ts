@@ -116,6 +116,7 @@ export async function PATCH(
 
   const updates: DbCeoChangeRequestUpdate = {};
   let statusLogEntry: string | null = null;
+  let currentExecutionLog: unknown;
   if (typeof body.title === "string") updates.title = body.title;
   if (typeof body.summary === "string") updates.summary = body.summary;
   if (typeof body.request_text === "string") updates.request_text = body.request_text;
@@ -137,6 +138,7 @@ export async function PATCH(
     if (!current) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
+    currentExecutionLog = (current as { execution_log?: unknown }).execution_log;
     const currentStatus = current.status as ChangeCenterStatus;
     if (!ALLOWED_TRANSITIONS[currentStatus]?.includes(body.status)) {
       return NextResponse.json({ error: "invalid_transition" }, { status: 400 });
@@ -153,7 +155,7 @@ export async function PATCH(
   if (Array.isArray(body.execution_log)) updates.execution_log = body.execution_log;
 
   if (statusLogEntry) {
-    updates.execution_log = appendLog(updates.execution_log ?? (current as { execution_log?: unknown } | null)?.execution_log, [statusLogEntry]);
+    updates.execution_log = appendLog(updates.execution_log ?? currentExecutionLog, [statusLogEntry]);
   }
 
   if (Object.keys(updates).length === 0) {

@@ -933,7 +933,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{draft.draftType}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{draft.draft_type}</p>
                         <h3 className="mt-1 text-sm font-semibold text-gray-900">{draft.title}</h3>
                       </div>
                       <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-gray-500">

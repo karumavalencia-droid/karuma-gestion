@@ -9,6 +9,7 @@ import {
   Loader2,
   RefreshCw,
   Send,
+  ShieldAlert,
   Sparkles,
   SquarePen,
   WandSparkles,

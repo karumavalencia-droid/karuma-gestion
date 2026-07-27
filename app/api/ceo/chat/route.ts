@@ -446,6 +446,7 @@ async function runCeoModel(options: {
           summary,
           cards: buildInsightCards(toolState),
           actions: buildActions(toolState),
+          drafts: [],
         };
       }
       throw new Error("empty_response");

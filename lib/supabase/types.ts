@@ -175,6 +175,7 @@ export type DbReserva = {
   notas: string | null;
   origen: "online" | "telefono" | "walkin" | "manual";
   confirmation_email_sent_at: string | null;
+  confirmation_email_send_key: string | null;
   review_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -359,6 +360,61 @@ export type DbSalesImportLogInsert = {
   error_message?: string | null;
   created_at?: string;
 };
+
+export type DbDishReorderDaily = {
+  id: string;
+  location_id: string;
+  business_date: string;
+  item_id: string;
+  item_name: string;
+  category: string | null;
+  orders_with_item: number;
+  reordered_orders: number;
+  reorder_events: number;
+  total_qty: number;
+  reorder_qty: number;
+  gap_minutes_sum: number;
+  gap_samples: number;
+  covered_orders: number;
+  kds_rows: number;
+  source: string;
+  synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbDishReorderDailyInsert = Omit<DbDishReorderDaily, "id" | "created_at" | "updated_at"> & {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbRestosuiteSyncSession = {
+  location_id: string;
+  base_url: string;
+  vulcan_token: string;
+  corporation_id: string;
+  brand_id: string;
+  shop_id: string;
+  organization_id: string;
+  organization_type: string;
+  accept_timezone: string;
+  language_code: string;
+  currency: string;
+  updated_at: string;
+  created_at: string;
+};
+
+export type DbRestosuiteSyncSessionInsert = Omit<DbRestosuiteSyncSession, "created_at" | "updated_at" | "base_url" | "accept_timezone" | "language_code" | "currency"> & {
+  base_url?: string;
+  accept_timezone?: string;
+  language_code?: string;
+  currency?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DbRestosuiteSyncSessionUpdate = Partial<DbRestosuiteSyncSessionInsert>;
 
 export type DbCeoConversation = {
   id: string;
@@ -584,6 +640,13 @@ import type {
   DbCeoChangeRequest,
   DbCeoChangeRequestInsert,
 } from "../ceo/change-center";
+import type {
+  DbBusinessEvent,
+  DbBusinessEventInsert,
+  DbOperationalAlert,
+  DbOperationalAlertInsert,
+  DbOperationalAlertUpdate,
+} from "../operations/types";
 
 // ── Finanzas privadas (solo owner) ──────────────────────────────────────────
 
@@ -782,6 +845,18 @@ export type DbInboxSettings = {
 export type Database = {
   public: {
     Tables: {
+      business_events: {
+        Row: DbBusinessEvent;
+        Insert: DbBusinessEventInsert;
+        Update: Partial<DbBusinessEventInsert>;
+        Relationships: [];
+      };
+      operational_alerts: {
+        Row: DbOperationalAlert;
+        Insert: DbOperationalAlertInsert;
+        Update: DbOperationalAlertUpdate;
+        Relationships: [];
+      };
       roles: {
         Row: DbRole;
         Insert: { id: string; name_zh: string };
@@ -845,10 +920,12 @@ export type Database = {
         Row: DbReserva;
         Insert: Omit<
           DbReserva,
-          "id" | "created_at" | "updated_at" | "confirmation_email_sent_at" | "review_email_sent_at"
+          "id" | "created_at" | "updated_at" | "seated_at" | "confirmation_email_sent_at" | "confirmation_email_send_key" | "review_email_sent_at"
         > & {
           id?: string;
+          seated_at?: string | null;
           confirmation_email_sent_at?: string | null;
+          confirmation_email_send_key?: string | null;
           review_email_sent_at?: string | null;
         };
         Update: Partial<Omit<DbReserva, "id" | "created_at" | "updated_at">>;
@@ -936,6 +1013,18 @@ export type Database = {
         Row: DbCeoChangeRequest;
         Insert: DbCeoChangeRequestInsert;
         Update: Partial<DbCeoChangeRequestInsert>;
+        Relationships: [];
+      };
+      dish_reorder_daily: {
+        Row: DbDishReorderDaily;
+        Insert: DbDishReorderDailyInsert;
+        Update: Partial<DbDishReorderDailyInsert>;
+        Relationships: [];
+      };
+      restosuite_sync_sessions: {
+        Row: DbRestosuiteSyncSession;
+        Insert: DbRestosuiteSyncSessionInsert;
+        Update: DbRestosuiteSyncSessionUpdate;
         Relationships: [];
       };
       coach_conversations: {

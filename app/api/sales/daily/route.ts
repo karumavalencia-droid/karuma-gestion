@@ -4,7 +4,7 @@ import {
   isDailySalesStorageConfigured,
   mergeDailySalesRecords,
 } from "@/lib/sales-sync/storage";
-import { getSessionUser, isSalesAdmin } from "@/lib/auth/guards";
+import { canViewSales, getSessionUser, isSalesAdmin } from "@/lib/auth/guards";
 import {
   deleteDailySale,
   isSalesDbConfigured,
@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
   }
+  if (!canViewSales(user)) {
+    return NextResponse.json({ error: "Sin permisos para ver ventas" }, { status: 403 });
+  }
 
   if (!isSalesDbConfigured()) {
     return NextResponse.json(
@@ -90,6 +93,9 @@ export async function DELETE(request: NextRequest) {
   const user = await getSessionUser(request);
   if (!user) {
     return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+  }
+  if (!canViewSales(user)) {
+    return NextResponse.json({ error: "Sin permisos para ver ventas" }, { status: 403 });
   }
   if (!isSalesAdmin(user)) {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });

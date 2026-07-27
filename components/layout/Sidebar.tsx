@@ -51,7 +51,7 @@ const ADMIN_ONLY_ROUTES = new Set<ErpNavRoute>([
   "/objetivo",
   "/profit",
   "/finanzas",
-  "/documentos",
+  "/documento",
 ]);
 
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
@@ -62,7 +62,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/objetivo": Target,
   "/profit": PieChart,
   "/finanzas": Wallet,
-  "/documentos": FolderLock,
+  "/documento": FolderLock,
   "/attendance": UserCheck,
   "/staff": Users,
   "/schedule": CalendarDays,

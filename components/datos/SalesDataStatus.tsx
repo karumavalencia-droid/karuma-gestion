@@ -181,7 +181,11 @@ export function SalesDataStatus({ refreshToken = 0 }: { refreshToken?: number })
                     </StatusBadge>
                     {status.lastImport.errorMessage && (
                       <span className="text-xs text-red-600">
-                        {status.lastImport.errorMessage}
+                        {status.lastImport.errorMessage.startsWith(
+                          "RESTOSUITE_REAUTH_REQUIRED",
+                        )
+                          ? "La sesión de RestoSuite ha caducado. Inicia sesión de nuevo y renueva el token de sincronización."
+                          : status.lastImport.errorMessage}
                       </span>
                     )}
                   </>
@@ -194,9 +198,9 @@ export function SalesDataStatus({ refreshToken = 0 }: { refreshToken?: number })
 
           {status.mode === "csv-manual" && (
             <p className="mt-3 text-[11px] leading-relaxed text-gray-400">
-              La sincronización automática con la API del TPV (Restosuite /
-              Palmier Pro) no está activada: no hay credenciales oficiales. Los
-              datos entran únicamente por importación manual de CSV.
+              La sincronización automática con los informes de RestoSuite no
+              está activada. Los datos entran únicamente por importación manual
+              de CSV hasta que se configure una sesión de solo lectura.
             </p>
           )}
         </>

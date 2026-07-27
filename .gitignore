@@ -49,3 +49,7 @@ token.json
 
 # Datos sensibles locales (nunca subir)
 datos-privados/
+
+# Artefactos locales de extracción/navegador (pueden contener datos operativos)
+/tmp/
+/.cursor/
