@@ -1,5 +1,8 @@
 import type { CominportProduct } from "@/src/data/cominportProducts";
 
+/** Consulta del histórico de facturas de un proveedor por código. */
+export type InvoiceMetaLookup = (codigo: string) => CominportInvoiceMeta | undefined;
+
 export interface CominportInvoiceMeta {
   unidadPedido: string;
   pedidosFactura: number;

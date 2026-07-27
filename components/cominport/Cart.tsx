@@ -1,5 +1,16 @@
-import { Minus, Phone, Plus, Save, Send, ShoppingCart, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Mail,
+  Minus,
+  Phone,
+  Plus,
+  Save,
+  Send,
+  ShoppingCart,
+  Trash2,
+} from "lucide-react";
 import type { CominportCartItem } from "@/src/data/cominportProducts";
+import type { InvoiceMetaLookup } from "@/src/data/cominportInvoiceRanking";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
 interface CartProps {
@@ -16,7 +27,16 @@ interface CartProps {
   onWhatsappNumberChange: (value: string) => void;
   onSaveWhatsappNumber: () => void;
   onSend: () => void;
+  supplierEmail: string;
+  emailMessage: string;
+  sendingEmail: boolean;
+  onSupplierEmailChange: (value: string) => void;
+  onSaveSupplierEmail: () => void;
+  onSendEmail: () => void;
+  getInvoiceMeta?: InvoiceMetaLookup;
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function Cart({
   idPrefix = "cominport-cart",
@@ -32,8 +52,17 @@ export function Cart({
   onWhatsappNumberChange,
   onSaveWhatsappNumber,
   onSend,
+  supplierEmail,
+  emailMessage,
+  sendingEmail,
+  onSupplierEmailChange,
+  onSaveSupplierEmail,
+  onSendEmail,
+  getInvoiceMeta = getCominportInvoiceMeta,
 }: CartProps) {
   const canSend = items.length > 0 && whatsappNumber.replace(/\D/g, "").length >= 6;
+  const canSendEmail =
+    items.length > 0 && !sendingEmail && EMAIL_PATTERN.test(supplierEmail.trim());
   const observationsId = `${idPrefix}-observations`;
 
   return (
@@ -59,7 +88,7 @@ export function Cart({
         ) : (
           <div className="space-y-3">
             {items.map((item) => {
-              const invoiceMeta = getCominportInvoiceMeta(item.codigo);
+              const invoiceMeta = getInvoiceMeta(item.codigo);
 
               return (
                 <div
@@ -180,15 +209,71 @@ export function Cart({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!canSend}
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Send className="h-4 w-4" />
-          Enviar pedido por WhatsApp
-        </button>
+        <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/70">
+          <div className="mb-2 flex items-center gap-2">
+            <Mail className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+              Email del proveedor
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={supplierEmail}
+              onChange={(event) => onSupplierEmailChange(event.target.value)}
+              placeholder="pedidos@proveedor.com"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+              aria-label={`Email de ${supplierName}`}
+            />
+            <button
+              type="button"
+              onClick={onSaveSupplierEmail}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              <Save className="h-4 w-4" />
+              Guardar
+            </button>
+          </div>
+          <p
+            className={`mt-2 text-xs ${
+              emailMessage.startsWith("Email guardado") ||
+              emailMessage.startsWith("Pedido enviado")
+                ? "text-emerald-600 dark:text-emerald-400"
+                : emailMessage
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            {emailMessage || "El pedido se envía desde el correo de Karuma."}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!canSend}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+            Enviar pedido por WhatsApp
+          </button>
+          <button
+            type="button"
+            onClick={onSendEmail}
+            disabled={!canSendEmail}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-karuma-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-karuma-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sendingEmail ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="h-4 w-4" />
+            )}
+            {sendingEmail ? "Enviando…" : "Enviar pedido por email"}
+          </button>
+        </div>
       </div>
     </section>
   );
