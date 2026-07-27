@@ -15,7 +15,8 @@
     "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts",
     "seed:turnos": "node --import tsx scripts/seed-turnos.ts",
     "test:inbox": "node --import tsx --test tests/inbox-rules.test.ts tests/inbox-adapters.test.ts tests/inbox-insights.test.ts tests/inbox-avisos.test.ts tests/inbox-horario.test.ts",
-    "test:layout": "node --import tsx --test tests/page-title.test.ts tests/tema.test.ts"
+    "test:layout": "node --import tsx --test tests/page-title.test.ts tests/tema.test.ts",
+    "test:pos": "node --import tsx --test tests/pos-restosuite.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth/guards";
-import { isPosApiConfigured } from "@/lib/sales-sync/config";
+import { isRestosuiteConfigured } from "@/lib/pos/restosuite-client";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DbSalesDaily, DbSalesImportLog } from "@/lib/supabase/types";
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
   }
 
-  const mode: SalesStatusPayload["mode"] = isPosApiConfigured()
+  const mode: SalesStatusPayload["mode"] = isRestosuiteConfigured()
     ? "api-auto"
     : "csv-manual";
 
