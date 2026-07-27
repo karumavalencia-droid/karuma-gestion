@@ -42,6 +42,7 @@ export function ProductCard({
           <h3 className="mt-1 text-base font-semibold text-gray-900">
             {product.nombre}
           </h3>
+          {product.nombreEs && <p className="text-sm text-gray-600">{product.nombreEs}</p>}
           {orderedUsage && (
             <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-karuma-50 px-2.5 py-1 text-xs font-semibold text-karuma-700">
               <RotateCcw className="h-3.5 w-3.5" />

@@ -2,6 +2,7 @@
 
 import { SupplierCatalogPage } from "@/components/cominport/SupplierCatalogPage";
 import {
+  yongxingListaHabitual,
   yongxingProducts,
   yongxingStockAlerts,
 } from "@/src/data/yongxingProducts";
@@ -18,6 +19,7 @@ export default function YongxingPage() {
       defaultEmail="manisesfood@gmail.com"
       products={yongxingProducts}
       stockAlerts={yongxingStockAlerts}
+      defaultFavorites={yongxingListaHabitual}
       getInvoiceMeta={sinRankingDeFacturas}
     />
   );

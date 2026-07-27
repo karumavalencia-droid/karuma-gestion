@@ -60,6 +60,9 @@ export function Favorites({
                   {product.codigo}
                 </p>
                 <h3 className="font-semibold text-gray-900">{product.nombre}</h3>
+                {product.nombreEs && (
+                  <p className="text-sm text-gray-600">{product.nombreEs}</p>
+                )}
                 <p className="text-sm text-gray-500">{product.formato}</p>
                 {invoiceMeta && (
                   <p className="text-xs font-medium text-karuma-700">

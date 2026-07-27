@@ -39,9 +39,18 @@ interface SupplierCatalogPageProps {
   defaultEmail?: string;
   products: CominportProduct[];
   stockAlerts: CominportStockAlert[];
+  /**
+   * Lista habitual compartida del restaurante: son los favoritos que ve
+   * cualquier compañero la primera vez que abre el catálogo en su navegador.
+   * A partir de ahí manda lo que cada uno guarde o quite.
+   */
+  defaultFavorites?: string[];
   /** Histórico de facturas de este proveedor; por defecto, el de Cominport. */
   getInvoiceMeta?: InvoiceMetaLookup;
 }
+
+/** Referencia estable: se usa como dep del efecto de hidratación. */
+const NO_DEFAULT_FAVORITES: string[] = [];
 
 function readStoredArray<T>(key: string): T[] {
   try {
@@ -51,6 +60,15 @@ function readStoredArray<T>(key: string): T[] {
     return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
+  }
+}
+
+/** Distingue "nunca se guardó nada" de "se guardó una lista vacía". */
+function hasStoredValue(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) !== null;
+  } catch {
+    return false;
   }
 }
 
@@ -200,6 +218,7 @@ export function SupplierCatalogPage({
   defaultEmail = "",
   products,
   stockAlerts,
+  defaultFavorites = NO_DEFAULT_FAVORITES,
   getInvoiceMeta = getCominportInvoiceMeta,
 }: SupplierCatalogPageProps) {
   const favoritesStorageKey = `${storagePrefix}_favorites`;
@@ -230,9 +249,14 @@ export function SupplierCatalogPage({
     hydratedRef.current = true;
 
     const validCodes = new Set(products.map((product) => product.codigo));
-    const storedFavorites = readStoredArray<unknown>(favoritesStorageKey)
-      .filter((value): value is string => typeof value === "string")
-      .filter((codigo) => validCodes.has(codigo));
+    // La primera vez en este navegador se parte de la lista habitual del
+    // restaurante; si el compañero ya tiene la suya guardada (aunque la haya
+    // dejado vacía), manda la suya.
+    const storedFavorites = hasStoredValue(favoritesStorageKey)
+      ? readStoredArray<unknown>(favoritesStorageKey)
+          .filter((value): value is string => typeof value === "string")
+          .filter((codigo) => validCodes.has(codigo))
+      : defaultFavorites.filter((codigo) => validCodes.has(codigo));
 
     setFavoriteCodes(storedFavorites);
     setOrders(readStoredArray<CominportOrder>(historyStorageKey));
@@ -244,6 +268,7 @@ export function SupplierCatalogPage({
   }, [
     cartStorageKey,
     defaultEmail,
+    defaultFavorites,
     defaultWhatsappNumber,
     emailStorageKey,
     favoritesStorageKey,
@@ -294,6 +319,7 @@ export function SupplierCatalogPage({
       const matchesSearch =
         !query ||
         product.nombre.toLocaleLowerCase("es").includes(query) ||
+        (product.nombreEs?.toLocaleLowerCase("es").includes(query) ?? false) ||
         product.codigo.toLocaleLowerCase("es").includes(query);
       return matchesCategory && matchesSearch;
     });
@@ -822,6 +848,9 @@ export function SupplierCatalogPage({
                         <h3 className="truncate text-sm font-semibold text-gray-900">
                           {product.nombre}
                         </h3>
+                        {product.nombreEs && (
+                          <p className="truncate text-xs text-gray-600">{product.nombreEs}</p>
+                        )}
                         <p className="truncate text-xs text-gray-500">
                           {product.formato}
                         </p>

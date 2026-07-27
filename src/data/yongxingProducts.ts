@@ -27,6 +27,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "DFGB1",
     nombre: "大福刮包60G",
+    nombreEs: "Pan bao al vapor 60 g",
     categoria: "大福 · Dafu",
     formato: "4KG",
     precio: 23.8,
@@ -41,6 +42,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "DFZSM",
     nombre: "大福炸烧卖",
+    nombreEs: "Shumai frito",
     categoria: "大福 · Dafu",
     formato: "4*1KG · 散拿 15,00€",
     precio: 14,
@@ -55,6 +57,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "DFXLB1",
     nombre: "大福小笼包",
+    nombreEs: "Xiao long bao (empanadilla al vapor)",
     categoria: "大福 · Dafu",
     formato: "5*1KG · 散拿 7,50€",
     precio: 6.8,
@@ -104,6 +107,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZJP",
     nombre: "炸鸡排",
+    nombreEs: "Filete de pollo para freír",
     categoria: "大福 · Dafu",
     formato: "6KG · 散拿 39,50€",
     precio: 39.5,
@@ -111,6 +115,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZJC",
     nombre: "炸鸡翅",
+    nombreEs: "Alitas de pollo para freír",
     categoria: "大福 · Dafu",
     formato: "2/2.5KG",
     precio: 31.3,
@@ -118,6 +123,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "MBKJP",
     nombre: "面包糠炸鸡排",
+    nombreEs: "Filete de pollo con panko",
     categoria: "大福 · Dafu",
     formato: "6KG",
     precio: 40.5,
@@ -321,6 +327,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SF",
     nombre: "生粉",
+    nombreEs: "Almidón / fécula (para espesar y rebozar)",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "25KG",
     precio: 35.95,
@@ -363,6 +370,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "A008",
     nombre: "青龙炸粉",
+    nombreEs: "Harina para freír Qinglong",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "10包*1,5KG",
     precio: 3.29,
@@ -370,6 +378,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "LWZF",
     nombre: "CHOVI炸粉",
+    nombreEs: "Harina para freír CHOVI",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "12包*1KG",
     precio: 2.05,
@@ -433,6 +442,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "XHMBK",
     nombre: "细黄面包糠",
+    nombreEs: "Pan rallado fino dorado (panko fino)",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "10KG",
     precio: 24.5,
@@ -482,6 +492,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "GH06",
     nombre: "杏仁片",
+    nombreEs: "Almendra laminada",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "6包*1KG",
     precio: 12,
@@ -517,6 +528,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "KBZM",
     nombre: "华兴隆烤白芝麻",
+    nombreEs: "Sésamo blanco tostado",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "10包*1KG",
     precio: 6.6,
@@ -531,6 +543,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "HZM1",
     nombre: "华兴隆烤黑芝麻",
+    nombreEs: "Sésamo negro tostado",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "10包*1KG",
     precio: 7.5,
@@ -608,6 +621,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZY2",
     nombre: "竹叶L",
+    nombreEs: "Hoja de bambú, talla L",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "30包*100U",
     precio: 3,
@@ -720,6 +734,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "LS300",
     nombre: "幸运饼干",
+    nombreEs: "Galletas de la fortuna",
     categoria: "米面油 · Arroz, harina y aceite",
     formato: "1箱",
     precio: 25,
@@ -937,6 +952,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "A017",
     nombre: "大蒜粉",
+    nombreEs: "Ajo en polvo",
     categoria: "调料酱料 · Salsas y condimentos",
     formato: "900G",
     precio: 8.5,
@@ -944,6 +960,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "A019",
     nombre: "生姜粉",
+    nombreEs: "Jengibre en polvo",
     categoria: "调料酱料 · Salsas y condimentos",
     formato: "900G",
     precio: 8.95,
@@ -951,6 +968,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "JY1",
     nombre: "椒盐粉",
+    nombreEs: "Sal con pimienta de Sichuan en polvo",
     categoria: "调料酱料 · Salsas y condimentos",
     formato: "900G",
     precio: 10.95,
@@ -1105,6 +1123,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S137",
     nombre: "七味粉",
+    nombreEs: "Shichimi (siete especias)",
     categoria: "调料酱料 · Salsas y condimentos",
     formato: "30包*300G",
     precio: 4.2,
@@ -2043,6 +2062,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "A050",
     nombre: "日本天妇罗炸粉",
+    nombreEs: "Harina de tempura japonesa",
     categoria: "日本货 · Producto japonés",
     formato: "10KG",
     precio: 26.95,
@@ -2099,6 +2119,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S191",
     nombre: "MIZKAN味淋",
+    nombreEs: "Mirin MIZKAN",
     categoria: "日本货 · Producto japonés",
     formato: "18L",
     precio: 52.5,
@@ -2120,6 +2141,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S220",
     nombre: "日本万字酱油",
+    nombreEs: "Salsa de soja Kikkoman",
     categoria: "日本货 · Producto japonés",
     formato: "20L",
     precio: 49.5,
@@ -2127,6 +2149,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "BJC",
     nombre: "MIZKAN白菊醋",
+    nombreEs: "Vinagre de arroz MIZKAN",
     categoria: "日本货 · Producto japonés",
     formato: "20L",
     precio: 41,
@@ -2162,6 +2185,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "JYSY",
     nombre: "日本万字酱油无麦麸",
+    nombreEs: "Salsa de soja Kikkoman sin gluten",
     categoria: "日本货 · Producto japonés",
     formato: "6瓶*250ML",
     precio: 3.9,
@@ -2204,6 +2228,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "KKM1",
     nombre: "日本万字酱油PONZU",
+    nombreEs: "Salsa ponzu Kikkoman",
     categoria: "日本货 · Producto japonés",
     formato: "6瓶*1L",
     precio: 8.95,
@@ -2225,6 +2250,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S107",
     nombre: "KANEMAN照烧汁",
+    nombreEs: "Salsa teriyaki KANEMAN",
     categoria: "日本货 · Producto japonés",
     formato: "6桶*1,8L",
     precio: 8.5,
@@ -2316,6 +2342,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S118",
     nombre: "KANEMAN泡菜酱",
+    nombreEs: "Salsa de kimchi KANEMAN",
     categoria: "日本货 · Producto japonés",
     formato: "12瓶*1L",
     precio: 6.5,
@@ -2358,6 +2385,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "HTS1",
     nombre: "寿司海苔碎 (青粉)",
+    nombreEs: "Alga nori en copos (aonori)",
     categoria: "日本货 · Producto japonés",
     formato: "100包*100G",
     precio: 1.95,
@@ -2372,6 +2400,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S137 ·2",
     nombre: "七味粉",
+    nombreEs: "Shichimi (siete especias)",
     categoria: "日本货 · Producto japonés",
     formato: "30包*330G · código S137 duplicado en la lista original",
     precio: 4.2,
@@ -2379,6 +2408,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "RBYJ",
     nombre: "日本鱼精",
+    nombreEs: "Dashi en polvo (concentrado de pescado)",
     categoria: "日本货 · Producto japonés",
     formato: "6盒*1KG",
     precio: 13.5,
@@ -2400,6 +2430,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S112",
     nombre: "日本炒面汁",
+    nombreEs: "Salsa para yakisoba",
     categoria: "日本货 · Producto japonés",
     formato: "15盒*1,20L",
     precio: 5.15,
@@ -2428,6 +2459,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S132",
     nombre: "白味增",
+    nombreEs: "Miso blanco",
     categoria: "日本货 · Producto japonés",
     formato: "10包*1KG",
     precio: 2.95,
@@ -2442,6 +2474,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SSHT",
     nombre: "寿司紫菜100张 AAA级",
+    nombreEs: "Alga nori para sushi AAA, 100 hojas",
     categoria: "日本货 · Producto japonés",
     formato: "50包*100P*2,7G",
     precio: 13,
@@ -2463,6 +2496,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S134",
     nombre: "日本红姜片",
+    nombreEs: "Jengibre rojo en láminas",
     categoria: "日本货 · Producto japonés",
     formato: "10包*1KG",
     precio: 2.6,
@@ -2470,6 +2504,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S135",
     nombre: "MINI红姜片",
+    nombreEs: "Jengibre rojo, monodosis mini",
     categoria: "日本货 · Producto japonés",
     formato: "5包*200*5G",
     precio: 7.95,
@@ -2477,6 +2512,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "JMG",
     nombre: "MINI芥末酱",
+    nombreEs: "Wasabi en monodosis mini",
     categoria: "日本货 · Producto japonés",
     formato: "6包*500*2,6G",
     precio: 13,
@@ -2491,6 +2527,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "S136",
     nombre: "芥末粉",
+    nombreEs: "Wasabi en polvo",
     categoria: "日本货 · Producto japonés",
     formato: "10包*1KG",
     precio: 5.95,
@@ -2533,6 +2570,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B082",
     nombre: "大去骨烤鸭",
+    nombreEs: "Pato asado deshuesado, grande",
     categoria: "冰货 · Congelados",
     formato: "16只*575-700G",
     precio: 4.813,
@@ -2631,6 +2669,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B145",
     nombre: "德国寿司蟹肉棒",
+    nombreEs: "Palitos de cangrejo (surimi) alemán",
     categoria: "冰货 · Congelados",
     formato: "10包*1KG",
     precio: 4.95,
@@ -2680,6 +2719,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SEPIA",
     nombre: "目鱼SEPIA 2/4",
+    nombreEs: "Sepia 2/4",
     categoria: "冰货 · Congelados",
     formato: "6KG",
     precio: 53,
@@ -2736,6 +2776,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B095",
     nombre: "白贝壳60/80",
+    nombreEs: "Almeja blanca 60/80",
     categoria: "冰货 · Congelados",
     formato: "1箱*10KG",
     precio: 24.95,
@@ -2876,6 +2917,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B088",
     nombre: "青岛春卷",
+    nombreEs: "Rollitos de primavera Qingdao",
     categoria: "冰货 · Congelados",
     formato: "10盒*20G",
     precio: 3.3,
@@ -2925,6 +2967,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZX88",
     nombre: "炸虾",
+    nombreEs: "Gambas rebozadas para freír",
     categoria: "冰货 · Congelados",
     formato: "12包*800G",
     precio: 7,
@@ -3114,6 +3157,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZSM",
     nombre: "蒙福炸烧卖",
+    nombreEs: "Shumai frito Mengfu",
     categoria: "冰货 · Congelados",
     formato: "6包*800G",
     precio: 6.85,
@@ -3408,6 +3452,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "JRC",
     nombre: "炭烤鸡肉串（酱味）",
+    nombreEs: "Brocheta de pollo yakitori (con salsa)",
     categoria: "冰货 · Congelados",
     formato: "12包*30GX20P",
     precio: 6.95,
@@ -3415,6 +3460,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "ZYXWZ",
     nombre: "章鱼小丸子",
+    nombreEs: "Takoyaki (bolas de pulpo)",
     categoria: "冰货 · Congelados",
     formato: "12包*1KG",
     precio: 5,
@@ -3443,6 +3489,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "WMMDJ",
     nombre: "味美毛豆夹",
+    nombreEs: "Edamame (vainas de soja)",
     categoria: "冰货 · Congelados",
     formato: "25包*400G · 买23包送2包",
     precio: 1.5,
@@ -3457,6 +3504,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B071",
     nombre: "鳗鱼",
+    nombreEs: "Anguila unagi",
     categoria: "冰货 · Congelados",
     formato: "5*1KG",
     precio: 29,
@@ -3464,6 +3512,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B149",
     nombre: "寿司虾5L",
+    nombreEs: "Gamba para sushi, talla 5L",
     categoria: "冰货 · Congelados",
     formato: "20包*240G",
     precio: 5.95,
@@ -3555,6 +3604,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "TOBIKO",
     nombre: "TOBICO 皇家红鱼籽",
+    nombreEs: "Tobiko rojo (huevas de pez volador)",
     categoria: "冰货 · Congelados",
     formato: "12盒*500G",
     precio: 16.95,
@@ -3581,6 +3631,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B073",
     nombre: "WAKAME海草沙拉",
+    nombreEs: "Ensalada de alga wakame",
     categoria: "冰货 · Congelados",
     formato: "12包*1KG",
     precio: 3.95,
@@ -3609,6 +3660,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "B151",
     nombre: "3L寿司虾",
+    nombreEs: "Gamba para sushi, talla 3L",
     categoria: "冰货 · Congelados",
     formato: "20*180G",
     precio: 4.8,
@@ -3790,6 +3842,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SSST",
     nombre: "寿司手套M",
+    nombreEs: "Guantes de sushi, talla M",
     categoria: "百货 · Menaje y varios",
     formato: "30盒*200双",
     precio: 5.6,
@@ -3797,6 +3850,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SSST1",
     nombre: "寿司手套L",
+    nombreEs: "Guantes de sushi, talla L",
     categoria: "百货 · Menaje y varios",
     formato: "30盒*200双",
     precio: 5.4,
@@ -3804,6 +3858,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "H013",
     nombre: "锡纸",
+    nombreEs: "Papel de aluminio",
     categoria: "百货 · Menaje y varios",
     formato: "1箱*3个",
     precio: 16.95,
@@ -3811,6 +3866,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "H030",
     nombre: "小保鲜膜",
+    nombreEs: "Film transparente pequeño",
     categoria: "百货 · Menaje y varios",
     formato: "1箱*3个",
     precio: 6.25,
@@ -3818,6 +3874,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "H045",
     nombre: "大保鲜膜",
+    nombreEs: "Film transparente grande",
     categoria: "百货 · Menaje y varios",
     formato: "1箱*3个",
     precio: 8.95,
@@ -3839,6 +3896,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "JS121",
     nombre: "日本啤酒SAPPORO",
+    nombreEs: "Cerveza japonesa SAPPORO",
     categoria: "酒水 · Bebidas",
     formato: "24*330ML",
     precio: 1,
@@ -3902,6 +3960,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "AQL",
     nombre: "AQUARIUS NAR",
+    nombreEs: "Aquarius de naranja",
     categoria: "酒水 · Bebidas",
     formato: "24*330ML",
     precio: 0.83,
@@ -3985,6 +4044,7 @@ export const yongxingProducts: CominportProduct[] = [
   {
     codigo: "SR-09",
     nombre: "小白菜",
+    nombreEs: "Pak choi (col china pequeña)",
     categoria: "蔬菜 · Verduras",
     formato: "precio a consultar · sin referencia en la lista",
   },
@@ -4046,3 +4106,76 @@ export const yongxingProducts: CominportProduct[] = [
 
 /** Estructura reservada para la futura integración con Inventario. */
 export const yongxingStockAlerts: CominportStockAlert[] = [];
+
+/**
+ * Lista habitual del restaurante: las referencias que se piden de verdad.
+ * Aparecen ya marcadas como favoritas para cualquier compañero que abra el
+ * catálogo por primera vez, así puede pedir sin tener que buscar entre las 577.
+ * Son también las que llevan `nombreEs` traducido.
+ */
+export const yongxingListaHabitual: string[] = [
+  "DFGB1",
+  "DFZSM",
+  "DFXLB1",
+  "ZJP",
+  "ZJC",
+  "MBKJP",
+  "SF",
+  "A008",
+  "LWZF",
+  "XHMBK",
+  "GH06",
+  "KBZM",
+  "HZM1",
+  "ZY2",
+  "LS300",
+  "A017",
+  "A019",
+  "JY1",
+  "S137",
+  "A050",
+  "S191",
+  "S220",
+  "BJC",
+  "JYSY",
+  "KKM1",
+  "S107",
+  "S118",
+  "HTS1",
+  "S137 ·2",
+  "RBYJ",
+  "S112",
+  "S132",
+  "SSHT",
+  "S134",
+  "S135",
+  "JMG",
+  "S136",
+  "B082",
+  "B145",
+  "SEPIA",
+  "B095",
+  "B088",
+  "ZX88",
+  "ZSM",
+  "JRC",
+  "ZYXWZ",
+  "WMMDJ",
+  "B071",
+  "B149",
+  "TOBIKO",
+  "B073",
+  "B151",
+  "H030",
+  "H045",
+  "H013",
+  "SSST",
+  "SSST1",
+  "JS121",
+  "ZERO",
+  "FD",
+  "FDNM",
+  "AQL1",
+  "AQL",
+  "SR-09",
+];
