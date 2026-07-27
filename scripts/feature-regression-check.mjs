@@ -67,6 +67,7 @@ const INTENTIONALLY_UNLINKED = {
   "/dashboard/cominport": "submenú Proveedores",
   "/dashboard/jet-extramar": "submenú Proveedores",
   "/dashboard/kankyo": "submenú Proveedores",
+  "/dashboard/yongxing": "submenú Proveedores",
   "/dashboard/mesa-view": "subnav Reservas",
   "/dashboard/clientes": "subnav Reservas",
   "/dashboard/config": "subnav Reservas",
