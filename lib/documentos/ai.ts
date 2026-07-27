@@ -86,17 +86,37 @@ export async function analyzeDocumento(input: {
   const dataUrl = `data:${input.mimeType || "application/octet-stream"};base64,${base64}`;
   const isImage = input.mimeType.startsWith("image/");
   const isText = input.mimeType.startsWith("text/") || input.filename.toLowerCase().endsWith(".txt");
-  const content = [
-    { type: "input_text", text: `Analiza este documento empresarial de Karuma. Nombre: ${input.filename}. Notas del usuario: ${input.notes || ""}. Devuelve únicamente JSON válido según el esquema pedido. Nunca inventes campos; usa null o listas vacías si no hay evidencia.` },
-    isImage ? { type: "input_image", image_url: dataUrl, detail: "high" } : isText ? { type: "input_text", text: input.bytes.toString("utf8").slice(0, 500_000) } : { type: "input_file", file_data: dataUrl, filename: input.filename },
-  ];
-  const response = await client.responses.create({
+  const prompt = `Analiza este documento empresarial de Karuma. Nombre: ${input.filename}. Notas del usuario: ${input.notes || ""}. Nunca inventes campos; usa null o listas vacías si no hay evidencia.`;
+  const content = isImage
+    ? [
+        { type: "text" as const, text: prompt },
+        { type: "image_url" as const, image_url: { url: dataUrl, detail: "high" as const } },
+      ]
+    : [
+        {
+          type: "text" as const,
+          text: `${prompt}\n\nContenido extraído:\n${isText ? input.bytes.toString("utf8").slice(0, 500_000) : "No hay texto extraíble disponible para este formato. Clasifica únicamente a partir del nombre y las notas; no inventes datos."}`,
+        },
+      ];
+
+  // GPT-4.1 mini supports Chat Completions and Responses. We use the former
+  // here because the deployed gateway rejects the legacy Responses
+  // `input_text` content item, while Chat Completions has a stable text/image
+  // schema for this constrained JSON extraction.
+  const response = await client.chat.completions.create({
     model: MODEL,
-    instructions: `Eres un extractor documental conservador. Clasifica en uno de: ${[...ALLOWED_TYPES].join(", ")}. El resumen debe tener 1-3 frases. Si parece factura, extrae número, proveedor, NIF/CIF, fechas, importes, moneda y líneas, conservando el nombre original del producto. Responde JSON con estas claves: documentType, summary, description, extractedText, tags (array), confidence (0 a 1), invoice (objeto o null).`,
-    input: content as never,
-    max_output_tokens: 5000,
+    messages: [
+      {
+        role: "system",
+        content: `Eres un extractor documental conservador. Clasifica en uno de: ${[...ALLOWED_TYPES].join(", ")}. El resumen debe tener 1-3 frases. Si parece factura, extrae número, proveedor, NIF/CIF, fechas, importes, moneda y líneas, conservando el nombre original del producto. Responde JSON con estas claves: documentType, summary, description, extractedText, tags (array), confidence (0 a 1), invoice (objeto o null).`,
+      },
+      { role: "user", content },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 5000,
+    temperature: 0,
   });
-  return parseResult(safeJson(response.output_text));
+  return parseResult(safeJson(response.choices[0]?.message.content || ""));
 }
 
 export { MODEL as DOCUMENT_AI_MODEL };
