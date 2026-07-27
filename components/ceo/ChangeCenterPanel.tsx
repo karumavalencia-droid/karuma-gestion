@@ -83,7 +83,7 @@ function fmtDate(value: string | null) {
 function StepItem({ step, index }: { step: ChangeCenterPlanStep; index: number }) {
   return (
     <div className="flex gap-3 rounded-xl border border-gray-200 bg-white p-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tinta text-xs font-semibold text-white">
         {index + 1}
       </div>
       <div className="min-w-0">

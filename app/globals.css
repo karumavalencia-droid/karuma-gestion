@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Tema claro / oscuro
+
+   La rampa `gray` de Tailwind apunta a estas variables (ver tailwind.config.ts).
+   En oscuro se INVIERTE: gray-50 pasa a ser casi negro y gray-900 casi blanco.
+   Así `bg-gray-50` sigue significando "el fondo" y `text-gray-900` sigue
+   significando "el texto principal" en los dos temas, sin tocar componentes.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Grises de Tailwind, tal cual */
+  --c-gray-50: 249 250 251;
+  --c-gray-100: 243 244 246;
+  --c-gray-200: 229 231 235;
+  --c-gray-300: 209 213 219;
+  --c-gray-400: 156 163 175;
+  --c-gray-500: 107 114 128;
+  --c-gray-600: 75 85 99;
+  --c-gray-700: 55 65 81;
+  --c-gray-800: 31 41 55;
+  --c-gray-900: 17 24 39;
+  --c-gray-950: 3 7 18;
+
+  /* Superficie de las tarjetas (bg-white) */
+  --c-superficie: 255 255 255;
+  color-scheme: light;
+}
+
+.dark {
+  /* Rampa invertida. No es un espejo exacto: los tonos del extremo oscuro se
+     separan algo más para que fondo, tarjeta y borde sigan distinguiéndose. */
+  --c-gray-50: 24 24 27;
+  --c-gray-100: 39 39 42;
+  --c-gray-200: 55 55 61;
+  --c-gray-300: 82 82 91;
+  --c-gray-400: 113 113 122;
+  --c-gray-500: 148 148 158;
+  --c-gray-600: 180 180 190;
+  --c-gray-700: 212 212 219;
+  --c-gray-800: 233 233 238;
+  --c-gray-900: 245 245 248;
+  --c-gray-950: 253 253 255;
+
+  --c-superficie: 32 32 36;
+  color-scheme: dark;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -15,9 +62,19 @@
   }
 }
 
+/* `white` se deja literal a propósito: hay 232 `text-white` sobre botones y
+   chips de color que deben seguir siendo blancos. Lo que sí cambia en oscuro es
+   el FONDO blanco de las tarjetas, con estas dos reglas. */
+.dark .bg-white {
+  background-color: rgb(var(--c-superficie));
+}
+.dark [class*="bg-white/"] {
+  background-color: rgb(var(--c-superficie) / 0.95);
+}
+
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
+    scrollbar-color: rgb(var(--c-gray-300)) transparent;
   }
 }

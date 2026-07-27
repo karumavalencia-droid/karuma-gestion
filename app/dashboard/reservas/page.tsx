@@ -1195,7 +1195,7 @@ export default function ReservasPage() {
                       blocked ? "border-rose-300 bg-rose-100 text-rose-900" : colors[visualStatus]
                     }`}>
                     {nTurnos > 1 && (
-                      <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gray-900 px-0.5 text-[8px] font-bold text-white"
+                      <span className="absolute left-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-tinta px-0.5 text-[8px] font-bold text-white"
                         title={`${nTurnos} reservas hoy`}>{nTurnos}</span>
                     )}
                     <p className="text-xs font-black">T{m.numero}</p>
@@ -1230,7 +1230,7 @@ export default function ReservasPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-tinta px-5 py-3 text-sm font-semibold text-white shadow-xl">
           {toast}
         </div>
       )}
@@ -1369,7 +1369,7 @@ export default function ReservasPage() {
             {mesaSel.status === "occupied" && mesaSel.reserva && (
               <>
                 <button onClick={() => { handleLiberar(mesaSel.reserva!); setMesaSel(null); }}
-                  className="w-full rounded-xl bg-gray-800 py-3 font-bold text-white hover:bg-gray-700">
+                  className="w-full rounded-xl bg-tinta-suave py-3 font-bold text-white hover:bg-tinta-suave">
                   ✓ Liberar mesa
                 </button>
                 {canMoveLocalReservation(mesaSel.reserva) && (

@@ -102,7 +102,7 @@ const sugerenciaStyles = {
 };
 
 const plataformaBadge = {
-  "Uber Eats": "bg-gray-900 text-white",
+  "Uber Eats": "bg-tinta text-white",
   Glovo: "bg-yellow-400 text-gray-900",
 };
 
@@ -294,7 +294,7 @@ export function DeliveryCenterPanel() {
           value={formatCurrency(metrics.ventasUber)}
           subtitle={`${metrics.pedidosUber} pedidos`}
           icon={Truck}
-          iconColor="bg-gray-900 text-white"
+          iconColor="bg-tinta text-white"
         />
         <StatCard
           title="Ventas Glovo"

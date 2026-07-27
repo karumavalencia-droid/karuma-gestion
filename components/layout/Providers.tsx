@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { SidebarLayout } from "./SidebarLayout";
 
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -16,10 +17,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
 /** AuthProvider aporta la sesión a las páginas internas. */
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <AppShell>{children}</AppShell>
-      </LanguageProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <LanguageProvider>
+          <AppShell>{children}</AppShell>
+        </LanguageProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

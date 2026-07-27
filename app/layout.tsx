@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/layout/Providers";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { GUION_TEMA } from "@/lib/theme/ThemeProvider";
 import { NuevaVersion } from "@/components/pwa/NuevaVersion";
 import "./globals.css";
 
@@ -37,7 +38,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        {/* Aplica el tema antes del primer pintado: evita el fogonazo blanco. */}
+        <script dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
+      </head>
       <body>
         <PwaRegister />
         <NuevaVersion />

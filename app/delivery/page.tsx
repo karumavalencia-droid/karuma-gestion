@@ -36,7 +36,7 @@ function Overview({ copy }: { copy: DeliveryGrowthCopy }) {
   ];
 
   return (
-    <section className="rounded-2xl bg-gray-900 p-4 text-white shadow-sm sm:p-6">
+    <section className="rounded-2xl bg-tinta p-4 text-white shadow-sm sm:p-6">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-karuma-300">Delivery</p>
       <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{copy.title}</h1>
       <p className="mt-1 text-sm text-gray-300">{copy.description}</p>

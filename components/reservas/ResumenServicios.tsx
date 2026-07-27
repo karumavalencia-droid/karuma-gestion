@@ -14,7 +14,7 @@ export function ResumenServicios({ reservas }: { reservas: ReservaLocal[] }) {
   const comida = statsHechas(reservas, "comida");
   const cena = statsHechas(reservas, "cena");
   return (
-    <div className="pointer-events-none fixed bottom-3 right-3 z-40 select-none rounded-xl bg-gray-900/90 px-3.5 py-2.5 text-xs text-white shadow-lg backdrop-blur">
+    <div className="pointer-events-none fixed bottom-3 right-3 z-40 select-none rounded-xl bg-tinta/90 px-3.5 py-2.5 text-xs text-white shadow-lg backdrop-blur">
       <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Hecho hoy</p>
       <div className="space-y-0.5 font-medium">
         <p className="whitespace-nowrap">Comida <span className="font-bold text-amber-300">{comida.mesas}</span> mesas · <span className="font-bold text-amber-300">{comida.pax}</span> pax</p>
