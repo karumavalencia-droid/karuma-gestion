@@ -1053,7 +1053,7 @@ export function CeoChatPanel({ canManageActions = true }: { canManageActions?: b
                 <div
                   className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm sm:max-w-[75%] ${
                     msg.sender === "user"
-                      ? "bg-gray-900 text-white"
+                      ? "bg-tinta text-white"
                       : msg.sender === "assistant"
                         ? "border border-gray-200 bg-white text-gray-800"
                         : "border border-amber-200 bg-amber-50 text-amber-900"

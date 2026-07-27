@@ -508,7 +508,7 @@ export function SupplierCatalogPage({
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === tab || (activeTab === "carrito" && tab === "catalogo")
-                    ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                    ? "bg-white text-gray-900 shadow-sm dark:bg-tinta dark:text-white"
                     : "text-gray-600 dark:text-gray-300"
                 }`}
               >
@@ -662,7 +662,7 @@ export function SupplierCatalogPage({
       {toast && (
         <div
           role="status"
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-gray-900"
+          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-tinta px-4 py-2.5 text-sm font-medium text-white shadow-lg dark:bg-white dark:text-gray-900"
         >
           {toast}
         </div>

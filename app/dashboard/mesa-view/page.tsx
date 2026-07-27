@@ -988,7 +988,7 @@ export default function MesaViewPage() {
                 <p className={`mesa-card-number text-2xl font-black ${occupied ? "text-white" : "text-gray-900"}`}>T{m.numero}</p>
                 <div className="flex items-center gap-1.5">
                   {agenda.length > 1 && (
-                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-gray-900"}`}
+                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${occupied ? "bg-white/20" : "bg-tinta"}`}
                       title={`${agenda.length} reservas hoy`}>
                       {agenda.length} turnos
                     </span>
@@ -1049,7 +1049,7 @@ export default function MesaViewPage() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-tinta px-5 py-3 text-sm font-semibold text-white shadow-xl">
           {toast}
         </div>
       )}
@@ -1174,7 +1174,7 @@ export default function MesaViewPage() {
                 ) : focusOcc ? (
                   <>
                     <button onClick={() => handleLiberar(focusR)}
-                      className="w-full rounded-xl bg-gray-900 py-3 font-bold text-white hover:bg-gray-700">
+                      className="w-full rounded-xl bg-tinta py-3 font-bold text-white hover:bg-tinta-suave">
                       ✓ Liberar mesa
                     </button>
                     {focusR.estado === "sentada" && (

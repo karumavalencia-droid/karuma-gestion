@@ -59,7 +59,7 @@ export function NuevaVersion() {
     // Abajo, para no tapar la cabecera ni el botón del menú.
     <div
       role="status"
-      className="fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center gap-3 bg-gray-900 px-4 pt-2 text-sm text-white shadow-lg"
+      className="fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center gap-3 bg-tinta px-4 pt-2 text-sm text-white shadow-lg"
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
       <span>Hay una versión nueva de Karuma ERP.</span>

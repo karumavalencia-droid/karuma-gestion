@@ -6,6 +6,7 @@ import { getUserInitials, useAuth } from "@/lib/auth/AuthProvider";
 import { normalizeRole, roleLabel } from "@/lib/auth/permissions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { CampanaInbox } from "@/components/inbox/CampanaInbox";
+import { BotonTema } from "./BotonTema";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -46,6 +47,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <BotonTema />
         <CampanaInbox role={role} />
         <button
           type="button"

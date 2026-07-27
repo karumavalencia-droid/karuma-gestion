@@ -147,7 +147,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white ${
+            className={`rounded-lg p-2 text-gray-400 hover:bg-tinta-suave hover:text-white ${
               isMesaView ? "2xl:hidden" : "lg:hidden"
             }`}
             aria-label="Cerrar menú"
@@ -174,7 +174,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-karuma-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    : "text-gray-300 hover:bg-tinta-suave hover:text-white"
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0 opacity-90" />
@@ -191,8 +191,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               aria-controls="supplier-ordering-menu"
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 supplierRouteActive
-                  ? "bg-gray-800 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  ? "bg-tinta-suave text-white"
+                  : "text-gray-300 hover:bg-tinta-suave hover:text-white"
               }`}
             >
               <ShoppingBasket className="h-5 w-5 shrink-0 opacity-90" />
@@ -221,7 +221,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-karuma-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                          : "text-gray-400 hover:bg-tinta-suave hover:text-white"
                       }`}
                     >
                       <Icon className="h-4 w-4 shrink-0 opacity-90" />
@@ -238,7 +238,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <Link
             href="/kiosk"
             onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-tinta-suave hover:text-white"
           >
             <Timer className="h-5 w-5 shrink-0 opacity-80" />
             Modo fichaje

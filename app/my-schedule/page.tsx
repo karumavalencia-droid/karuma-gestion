@@ -124,7 +124,7 @@ export default function MySchedulePage() {
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+                  className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white"
                 >
                   {text.retry}
                 </button>
