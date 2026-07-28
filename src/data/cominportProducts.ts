@@ -1,6 +1,12 @@
 export interface CominportProduct {
   codigo: string;
   nombre: string;
+  /**
+   * Nombre en español para los proveedores cuyo catálogo viene en chino
+   * (Yongxing). Se muestra bajo el nombre original y también se busca por él,
+   * para que cualquier compañero pueda pedir sin leer chino.
+   */
+  nombreEs?: string;
   categoria: string;
   formato: string;
   precio?: number;
