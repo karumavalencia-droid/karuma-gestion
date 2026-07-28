@@ -744,6 +744,10 @@ export type DbInboxAiSuggestion = {
   reply_text: string;
   analysis: Record<string, unknown>;
   used: boolean;
+  /** Qué hizo la política de respuesta automática. Ver lib/inbox/auto-reply.ts */
+  auto_decision: "enviada" | "simulada" | "revisar" | null;
+  auto_motivo: string | null;
+  auto_enviada_at: string | null;
   created_at: string;
 };
 
@@ -776,6 +780,10 @@ export type DbInboxSettings = {
   sla_urgente_min: number;
   palabras_prioridad: string[];
   ia_activa: boolean;
+  /** false = modo simulacro: se decide y se registra, pero no se publica nada. */
+  auto_reply_activa: boolean;
+  auto_reply_min_estrellas: number;
+  auto_reply_plataformas: string[];
   updated_at: string;
 };
 
