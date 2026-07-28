@@ -8,9 +8,34 @@ import { getDefaultRoute } from "@/lib/auth/permissions";
 const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
 
+const checkboxRowClass =
+  "flex min-h-[44px] cursor-pointer items-center gap-2.5 text-sm text-gray-700";
+const checkboxClass =
+  "h-4 w-4 shrink-0 rounded border-gray-300 text-karuma-600 focus:ring-karuma-500";
+
 type Mode = "empleado" | "oficina" | "admin";
 type OtpStep = "phone" | "code";
 type AdminStep = "creds" | "code";
+
+/**
+ * Datos recordados en el navegador para no reescribirlos en cada login.
+ * Solo identificadores (usuario / teléfono / última pestaña): nunca la
+ * contraseña ni el PIN — de eso se encarga el gestor de contraseñas.
+ */
+const REMEMBER_KEYS = {
+  mode: "karuma:login:mode",
+  adminUser: "karuma:login:admin-user",
+  phone: "karuma:login:phone",
+} as const;
+
+function remember(key: string, value: string) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    // Safari en modo privado puede bloquear localStorage: no es crítico.
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,13 +60,42 @@ export default function LoginPage() {
   const [adminPhoneHint, setAdminPhoneHint] = useState("");
   const [adminExpiresIn, setAdminExpiresIn] = useState<number | null>(null);
 
+  // "Recordar este dispositivo 30 días" (salta el segundo factor).
+  const [trustDevice, setTrustDevice] = useState(false);
+
   useEffect(() => {
     if (ready && user) {
       router.replace(getDefaultRoute(user.role, user.employeeId));
     }
   }, [ready, user, router]);
 
-  // Employee PIN login (unchanged)
+  // Rehidratar lo recordado. En un efecto (no en el estado inicial) para no
+  // romper la hidratación: el servidor no ve el localStorage.
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem(REMEMBER_KEYS.mode);
+      if (savedMode === "empleado" || savedMode === "oficina" || savedMode === "admin") {
+        setMode(savedMode);
+      }
+      setAdminUser(localStorage.getItem(REMEMBER_KEYS.adminUser) ?? "");
+      setPhone(localStorage.getItem(REMEMBER_KEYS.phone) ?? "");
+    } catch {
+      // localStorage no disponible: se entra escribiéndolo todo, como antes.
+    }
+  }, []);
+
+  /**
+   * Navegación dura tras un login correcto.
+   *
+   * Con `router.push` la página nunca recarga y Chrome/Safari no llegan a
+   * registrar que se ha enviado un formulario de acceso, así que no ofrecen
+   * guardar la contraseña. Con una navegación real, sí.
+   */
+  const finishLogin = (destination: string) => {
+    window.location.assign(destination);
+  };
+
+  // Employee PIN login
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -55,7 +109,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.push(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
+    remember(REMEMBER_KEYS.mode, "empleado");
+    finishLogin(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
   };
 
   // OTP login: request OTP
@@ -79,6 +134,16 @@ export default function LoginPage() {
         return;
       }
 
+      remember(REMEMBER_KEYS.mode, "oficina");
+      remember(REMEMBER_KEYS.phone, phone);
+
+      // Dispositivo de confianza: el servidor ya ha creado la sesión, no hay
+      // código que pedir.
+      if (data.trustedDevice) {
+        finishLogin(getDefaultRoute(data.user.role, null));
+        return;
+      }
+
       // OTP enviado correctamente
       setOtpExpiresIn(data.expiresIn);
       setOtpStep("code");
@@ -92,7 +157,7 @@ export default function LoginPage() {
           if (remaining <= 0) clearInterval(timer);
         }, 1000);
       }
-    } catch (err) {
+    } catch {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {
       setOtpLoading(false);
@@ -109,7 +174,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otpCode }),
+        body: JSON.stringify({ phone, code: otpCode, trustDevice }),
       });
 
       const data = await res.json();
@@ -128,8 +193,8 @@ export default function LoginPage() {
       }
 
       // Login exitoso - la cookie se estableció automáticamente
-      router.push(getDefaultRoute(data.user.role, null));
-    } catch (err) {
+      finishLogin(getDefaultRoute(data.user.role, null));
+    } catch {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {
       setOtpLoading(false);
@@ -156,6 +221,9 @@ export default function LoginPage() {
         return;
       }
 
+      remember(REMEMBER_KEYS.mode, "admin");
+      remember(REMEMBER_KEYS.adminUser, adminUser);
+
       if (data.requiresOtp) {
         setAdminPhoneHint(data.phoneHint || "");
         setAdminExpiresIn(data.expiresIn ?? null);
@@ -172,9 +240,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Sin 2FA configurado (solo desarrollo): sesión creada directamente.
+      // Dispositivo de confianza (o dev sin 2FA): sesión creada directamente.
       if (data.role) {
-        window.location.assign(getDefaultRoute(data.role, data.employeeId ?? null));
+        finishLogin(getDefaultRoute(data.role, data.employeeId ?? null));
         return;
       }
 
@@ -196,7 +264,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: adminUser, password: adminPass, code: adminCode }),
+        body: JSON.stringify({
+          username: adminUser,
+          password: adminPass,
+          code: adminCode,
+          trustDevice,
+        }),
       });
 
       const data = await res.json();
@@ -206,8 +279,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Recarga completa para que AuthProvider lea la nueva sesión.
-      window.location.assign(getDefaultRoute(data.role, data.employeeId ?? null));
+      finishLogin(getDefaultRoute(data.role, data.employeeId ?? null));
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {
@@ -237,6 +309,24 @@ export default function LoginPage() {
         : adminStep === "creds"
           ? "Continuar"
           : "Verificar";
+
+  const trustDeviceCheckbox = (
+    <label className={checkboxRowClass}>
+      <input
+        type="checkbox"
+        name="trust-device"
+        checked={trustDevice}
+        onChange={(e) => setTrustDevice(e.target.checked)}
+        className={checkboxClass}
+      />
+      <span>
+        Recordar este dispositivo 30 días
+        <span className="block text-xs text-gray-500">
+          No te pediremos el código SMS en este navegador.
+        </span>
+      </span>
+    </label>
+  );
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 p-4">
@@ -278,9 +368,11 @@ export default function LoginPage() {
         <form onSubmit={formHandler} className="space-y-4">
           {mode === "empleado" ? (
             <>
-              <label className="block space-y-1.5">
+              <label className="block space-y-1.5" htmlFor="pin">
                 <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
                 <input
+                  id="pin"
+                  name="pin"
                   type="password"
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -289,7 +381,10 @@ export default function LoginPage() {
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                   className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
                   placeholder="••••"
-                  autoComplete="off"
+                  // `section-empleado` mantiene el PIN en un llavero aparte del
+                  // de la contraseña de admin, para que no se autorrellenen
+                  // el uno con el otro.
+                  autoComplete="section-empleado current-password"
                   required
                 />
               </label>
@@ -300,27 +395,33 @@ export default function LoginPage() {
           ) : mode === "oficina" ? (
             otpStep === "phone" ? (
               <>
-                <label className="block space-y-1.5">
+                <label className="block space-y-1.5" htmlFor="phone">
                   <span className="text-sm font-medium text-gray-700">Número de teléfono</span>
                   <input
+                    id="phone"
+                    name="phone"
                     type="tel"
                     inputMode="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className={inputClass}
                     placeholder="+34 600 123 456"
+                    autoComplete="tel username"
                     required
                   />
                 </label>
+                {trustDeviceCheckbox}
                 <p className="text-center text-xs text-gray-500">
                   Recibirás un código de 6 dígitos por SMS.
                 </p>
               </>
             ) : (
               <>
-                <label className="block space-y-1.5">
+                <label className="block space-y-1.5" htmlFor="otp-code">
                   <span className="text-sm font-medium text-gray-700">Código de verificación</span>
                   <input
+                    id="otp-code"
+                    name="otp-code"
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
@@ -332,6 +433,7 @@ export default function LoginPage() {
                     required
                   />
                 </label>
+                {trustDeviceCheckbox}
                 <p className="text-center text-xs text-gray-500">
                   {otpExpiresIn ? `Válido por ${otpExpiresIn}s` : "Código expirado, solicita uno nuevo"}
                 </p>
@@ -350,9 +452,11 @@ export default function LoginPage() {
             )
           ) : adminStep === "creds" ? (
             <>
-              <label className="block space-y-1.5">
+              <label className="block space-y-1.5" htmlFor="admin-username">
                 <span className="text-sm font-medium text-gray-700">Usuario</span>
                 <input
+                  id="admin-username"
+                  name="username"
                   type="text"
                   value={adminUser}
                   onChange={(e) => setAdminUser(e.target.value)}
@@ -361,9 +465,11 @@ export default function LoginPage() {
                   required
                 />
               </label>
-              <label className="block space-y-1.5">
+              <label className="block space-y-1.5" htmlFor="admin-password">
                 <span className="text-sm font-medium text-gray-700">Contraseña</span>
                 <input
+                  id="admin-password"
+                  name="password"
                   type="password"
                   value={adminPass}
                   onChange={(e) => setAdminPass(e.target.value)}
@@ -372,15 +478,18 @@ export default function LoginPage() {
                   required
                 />
               </label>
+              {trustDeviceCheckbox}
               <p className="text-center text-xs text-gray-500">
                 Tras la contraseña recibirás un código SMS de verificación.
               </p>
             </>
           ) : (
             <>
-              <label className="block space-y-1.5">
+              <label className="block space-y-1.5" htmlFor="admin-code">
                 <span className="text-sm font-medium text-gray-700">Código SMS</span>
                 <input
+                  id="admin-code"
+                  name="admin-code"
                   type="text"
                   inputMode="numeric"
                   maxLength={6}
@@ -392,6 +501,7 @@ export default function LoginPage() {
                   required
                 />
               </label>
+              {trustDeviceCheckbox}
               <p className="text-center text-xs text-gray-500">
                 Código enviado a {adminPhoneHint || "tu teléfono"}.
                 {adminExpiresIn ? ` Válido por ${adminExpiresIn}s.` : " Código expirado, vuelve a empezar."}

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
 import { findAccount } from "@/lib/auth/accounts";
 import { requestOtp } from "@/lib/auth/otp-service";
@@ -13,9 +13,14 @@ import {
 import {
   createSessionToken,
   SESSION_COOKIE_NAME,
-  SESSION_MAX_AGE_SECONDS,
+  sessionCookieOptions,
   type SessionUser,
 } from "@/lib/auth/session";
+import {
+  adminDeviceSubject,
+  isDeviceTrustedFor,
+  TRUSTED_DEVICE_COOKIE_NAME,
+} from "@/lib/auth/trusted-device";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
 import { findStaffMember } from "@/lib/staff/data";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
@@ -26,17 +31,11 @@ type LoginUser = Pick<
   "email" | "name" | "role_id" | "password_hash" | "employee_key"
 >;
 
-async function createLoginResponse(user: SessionUser) {
+async function createLoginResponse(user: SessionUser, extra?: Record<string, unknown>) {
   try {
     const token = await createSessionToken(user);
-    const response = NextResponse.json(user);
-    response.cookies.set(SESSION_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_SECONDS,
-    });
+    const response = NextResponse.json({ ...user, ...extra });
+    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
     return response;
   } catch {
     return NextResponse.json(
@@ -46,7 +45,7 @@ async function createLoginResponse(user: SessionUser) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let body: { email?: string; password?: string };
   try {
     body = (await request.json()) as { email?: string; password?: string };
@@ -62,6 +61,35 @@ export async function POST(request: Request) {
   }
 
   if (await verifyAdminCredentials(username, password)) {
+    // Dispositivo de confianza: la contraseña ya cubre el primer factor y este
+    // navegador superó el SMS hace menos de 30 días, así que no lo repetimos.
+    const trusted = await isDeviceTrustedFor(
+      request.cookies.get(TRUSTED_DEVICE_COOKIE_NAME)?.value,
+      adminDeviceSubject(username),
+    );
+
+    if (trusted) {
+      // Auditoría best-effort: importación dinámica porque supabase-auth crea
+      // su cliente al importarse y este endpoint debe funcionar sin Supabase.
+      try {
+        const { logLoginEvent } = await import("@/lib/auth/supabase-auth");
+        await logLoginEvent({
+          status: "success",
+          loginMethod: "password",
+          ip:
+            request.headers.get("x-forwarded-for") ||
+            request.headers.get("x-real-ip") ||
+            "unknown",
+          userAgent: request.headers.get("user-agent") || "unknown",
+          deviceInfo: { trustedDevice: true, skipped2fa: true },
+        });
+      } catch {
+        // Sin Supabase configurado no hay log; el login sigue siendo válido.
+      }
+
+      return createLoginResponse(adminSessionUser(), { trustedDevice: true });
+    }
+
     const adminPhone = getAdminPhone();
 
     if (!adminPhone) {

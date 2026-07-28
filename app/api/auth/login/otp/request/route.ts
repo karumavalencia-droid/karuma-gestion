@@ -25,7 +25,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requestOtp } from "@/lib/auth/otp-service";
+import { buildOtpLoginResponse } from "@/lib/auth/otp-session";
 import { logLoginEvent } from "@/lib/auth/supabase-auth";
+import {
+  isDeviceTrustedFor,
+  phoneDeviceSubject,
+  TRUSTED_DEVICE_COOKIE_NAME,
+} from "@/lib/auth/trusted-device";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +55,16 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-real-ip") ||
       "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
+
+    // Dispositivo de confianza: este navegador ya verificó este número por SMS
+    // hace menos de 30 días → entramos directamente, sin mandar otro código.
+    const trusted = await isDeviceTrustedFor(
+      request.cookies.get(TRUSTED_DEVICE_COOKIE_NAME)?.value,
+      phoneDeviceSubject(phone),
+    );
+    if (trusted) {
+      return buildOtpLoginResponse(request, phone, { trustedDevice: true });
+    }
 
     // 请求 OTP
     const result = await requestOtp(phone);
