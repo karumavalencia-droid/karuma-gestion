@@ -46,48 +46,56 @@ export function Favorites({
         </button>
       </div>
 
-      <div className="space-y-2">
+      {/* Una fila por producto, también en el móvil: así entra el máximo de
+          referencias en pantalla sin perder ningún dato. */}
+      <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
         {products.map((product) => {
           const invoiceMeta = getInvoiceMeta(product.codigo);
+          const subtitulo = [product.nombreEs, product.formato]
+            .filter(Boolean)
+            .join(" · ");
 
           return (
             <article
               key={product.codigo}
-              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center"
+              // min-w-0: sin esto un nombre largo ensancha la celda de la
+              // rejilla y saca los botones fuera de la pantalla en el móvil.
+              className="flex min-w-0 items-center gap-2.5 rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-karuma-600">
-                  {product.codigo}
-                </p>
-                <h3 className="font-semibold text-gray-900">{product.nombre}</h3>
-                {product.nombreEs && (
-                  <p className="text-sm text-gray-600">{product.nombreEs}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="shrink-0 text-[11px] font-semibold text-karuma-600">
+                    {product.codigo}
+                  </span>
+                  <h3 className="min-w-0 truncate text-sm font-semibold text-gray-900">
+                    {product.nombre}
+                  </h3>
+                </div>
+                {subtitulo && (
+                  <p className="truncate text-xs text-gray-500">{subtitulo}</p>
                 )}
-                <p className="text-sm text-gray-500">{product.formato}</p>
                 {invoiceMeta && (
-                  <p className="text-xs font-medium text-karuma-700">
-                    Unidad pedido: {invoiceMeta.unidadPedido}
+                  <p className="truncate text-[11px] font-medium text-karuma-700">
+                    Ud. pedido: {invoiceMeta.unidadPedido}
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => onAdd(product)}
-                  className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-karuma-600 px-3 py-2 text-sm font-medium text-white hover:bg-karuma-700 sm:flex-none"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  Añadir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(product.codigo)}
-                  className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                  aria-label={`Quitar ${product.nombre} de favoritos`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onAdd(product)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-white hover:bg-karuma-700"
+                aria-label={`Añadir ${product.nombre} al carrito`}
+              >
+                <ShoppingCart className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(product.codigo)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                aria-label={`Quitar ${product.nombre} de favoritos`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </article>
           );
         })}
