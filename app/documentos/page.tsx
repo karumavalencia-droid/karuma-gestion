@@ -7,6 +7,7 @@ import {
   DOCUMENTO_CATEGORIA_LABELS,
   DOCUMENTO_CATEGORIAS,
 } from "@/lib/documentos/constants";
+import { KIOSK_EMPLOYEES } from "@/lib/kiosk/employees";
 import type { DbDocumentoCategoria } from "@/lib/supabase/types";
 import { Download, FileText, Trash2, Upload } from "lucide-react";
 
@@ -17,8 +18,16 @@ type Documento = {
   mime_type: string | null;
   tamano_bytes: number | null;
   notas: string | null;
+  empleado_id: string | null;
+  periodo: string | null;
   created_at: string;
 };
+
+/** Mes actual en formato "AAAA-MM", el que espera la API. */
+function mesActual(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
 
 const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
@@ -37,7 +46,12 @@ export default function DocumentosPage() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [categoria, setCategoria] = useState<DbDocumentoCategoria>("bancos");
+  // Solo para nóminas: a quién pertenece y de qué mes. Sin empleado asignado,
+  // el Coach no puede devolvérsela a nadie.
+  const [empleadoId, setEmpleadoId] = useState("");
+  const [periodo, setPeriodo] = useState(mesActual);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const esNomina = categoria === "nominas";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +75,11 @@ export default function DocumentosPage() {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return;
+    if (esNomina && !empleadoId) {
+      setError("Elige de qué empleado es la nómina antes de subirla.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setUploading(true);
     setError("");
     try {
@@ -68,6 +87,10 @@ export default function DocumentosPage() {
         const form = new FormData();
         form.set("file", file);
         form.set("categoria", categoria);
+        if (esNomina) {
+          form.set("empleado_id", empleadoId);
+          form.set("periodo", periodo);
+        }
         const res = await fetch("/api/documentos", { method: "POST", body: form });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || `Error subiendo ${file.name}`);
@@ -129,6 +152,34 @@ export default function DocumentosPage() {
               ))}
             </select>
           </label>
+          {esNomina && (
+            <>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Empleado</span>
+                <select
+                  value={empleadoId}
+                  onChange={(e) => setEmpleadoId(e.target.value)}
+                  className={`${inputClass} w-auto`}
+                >
+                  <option value="">Elegir…</option>
+                  {KIOSK_EMPLOYEES.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-gray-600">Mes</span>
+                <input
+                  type="month"
+                  value={periodo}
+                  onChange={(e) => setPeriodo(e.target.value)}
+                  className={`${inputClass} w-auto`}
+                />
+              </label>
+            </>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -196,7 +247,20 @@ export default function DocumentosPage() {
                     {DOCUMENTO_CATEGORIA_LABELS[doc.categoria] ?? doc.categoria} ·{" "}
                     {formatBytes(doc.tamano_bytes)} ·{" "}
                     {new Date(doc.created_at).toLocaleDateString("es-ES")}
+                    {doc.empleado_id && (
+                      <>
+                        {" · "}
+                        {KIOSK_EMPLOYEES.find((e) => e.id === doc.empleado_id)?.name ??
+                          doc.empleado_id}
+                        {doc.periodo ? ` · ${doc.periodo}` : ""}
+                      </>
+                    )}
                   </p>
+                  {doc.categoria === "nominas" && !doc.empleado_id && (
+                    <p className="text-xs text-amber-700">
+                      Sin empleado asignado: el Coach no puede entregarla.
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"

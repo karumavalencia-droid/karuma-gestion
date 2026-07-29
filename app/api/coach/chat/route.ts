@@ -7,6 +7,7 @@ import { buildCoachSystemPrompt } from "@/lib/coach/system-prompt";
 import {
   COACH_TOOLS,
   runCreateIncidentReport,
+  runGetMyPayslips,
   runGetMySchedule,
   runSearchKnowledge,
 } from "@/lib/coach/tools";
@@ -304,6 +305,8 @@ async function executeCoachTool(
   switch (call.name) {
     case "get_my_schedule":
       return runGetMySchedule(user);
+    case "get_my_payslips":
+      return runGetMyPayslips(user);
     case "search_knowledge":
       return runSearchKnowledge(args);
     case "create_incident_report":
