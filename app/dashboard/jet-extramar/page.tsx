@@ -1,19 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { SupplierCatalogPage } from "@/components/cominport/SupplierCatalogPage";
-import {
-  jetExtramarProducts,
-  jetExtramarStockAlerts,
-} from "@/src/data/jetExtramarProducts";
-
+/** La ficha del proveedor vive ahora en /compras/jet-extramar. */
 export default function JetExtramarPage() {
-  return (
-    <SupplierCatalogPage
-      supplierName="Jet Extramar"
-      storagePrefix="jet_extramar"
-      whatsappStorageKey="JET_EXTRAMAR_WHATSAPP"
-      products={jetExtramarProducts}
-      stockAlerts={jetExtramarStockAlerts}
-    />
-  );
+  redirect("/compras/jet-extramar");
 }

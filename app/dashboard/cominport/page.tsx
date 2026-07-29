@@ -1,21 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { SupplierCatalogPage } from "@/components/cominport/SupplierCatalogPage";
-import {
-  cominportProducts,
-  cominportStockAlerts,
-} from "@/src/data/cominportProducts";
-import { rankCominportProducts } from "@/src/data/cominportInvoiceRanking";
-
+/** La ficha del proveedor vive ahora en /compras/cominport. */
 export default function CominportPage() {
-  return (
-    <SupplierCatalogPage
-      supplierName="Cominport"
-      storagePrefix="cominport"
-      whatsappStorageKey="COMINPORT_WHATSAPP"
-      defaultWhatsappNumber="34699503780"
-      products={rankCominportProducts(cominportProducts)}
-      stockAlerts={cominportStockAlerts}
-    />
-  );
+  redirect("/compras/cominport");
 }

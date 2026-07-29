@@ -1,23 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { SupplierCatalogPage } from "@/components/cominport/SupplierCatalogPage";
-import { kankyoProducts, kankyoStockAlerts } from "@/src/data/kankyoProducts";
-import {
-  getKankyoInvoiceMeta,
-  rankKankyoProducts,
-} from "@/src/data/kankyoInvoiceRanking";
-
+/** Kankyo = Kanyo. La ficha del proveedor vive ahora en /compras/kanyo. */
 export default function KankyoPage() {
-  return (
-    <SupplierCatalogPage
-      supplierName="Kankyo"
-      storagePrefix="kankyo"
-      whatsappStorageKey="KANKYO_WHATSAPP"
-      defaultWhatsappNumber="34696396116"
-      defaultEmail="kankyo-youpin@outlook.com"
-      products={rankKankyoProducts(kankyoProducts)}
-      stockAlerts={kankyoStockAlerts}
-      getInvoiceMeta={getKankyoInvoiceMeta}
-    />
-  );
+  redirect("/compras/kanyo");
 }
