@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -43,6 +45,7 @@ import {
   type PedidoForm,
   type ProveedorForm,
 } from "@/lib/compras/helpers";
+import { supplierDetailPath, withCoreSuppliers } from "@/lib/compras/suppliers";
 import { loadProductos } from "@/lib/inventario/helpers";
 import { EstadoPedidoCompra, PedidoCompra, ProductoInventario, Proveedor } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -142,15 +145,50 @@ export function ComprasPanel() {
   }, []);
 
   useEffect(() => {
-    try {
-      const store = loadCompras();
-      setProveedores(store.proveedores);
-      setPedidos(store.pedidos);
-      setContadorPedido(store.contadorPedido);
-      refreshInventario();
-    } finally {
-      setLoaded(true);
-    }
+    let activo = true;
+    const store = loadCompras();
+    setProveedores(withCoreSuppliers(store.proveedores));
+    setPedidos(store.pedidos);
+    setContadorPedido(store.contadorPedido);
+    refreshInventario();
+
+    // Los proveedores dados de alta en Supabase se suman a los locales.
+    // withCoreSuppliers deduplica por proveedor, no por texto exacto.
+    void fetch("/api/suppliers", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: unknown) => {
+        if (!activo || !payload || typeof payload !== "object") return;
+        const filas = (payload as { suppliers?: unknown }).suppliers;
+        if (!Array.isArray(filas)) return;
+
+        const remotos = filas.flatMap((fila): Proveedor[] => {
+          if (!fila || typeof fila !== "object") return [];
+          const item = fila as Record<string, unknown>;
+          const nombre = String(item.name ?? "").trim();
+          if (!nombre) return [];
+          return [
+            {
+              id: `supabase-${String(item.id ?? nombre)}`,
+              nombre,
+              contacto: String(item.contact_email ?? ""),
+              telefono: String(item.phone ?? ""),
+              email: String(item.contact_email ?? ""),
+              categoria: "Distribución",
+              estado: "activo",
+            },
+          ];
+        });
+
+        setProveedores(withCoreSuppliers([...store.proveedores, ...remotos]));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (activo) setLoaded(true);
+      });
+
+    return () => {
+      activo = false;
+    };
   }, [refreshInventario]);
 
   const showToast = useCallback((msg: string) => {
@@ -479,9 +517,18 @@ export function ComprasPanel() {
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold text-gray-900">
-                        {prov.nombre}
-                      </h3>
+                      {supplierDetailPath(prov.nombre) ? (
+                        <Link
+                          href={supplierDetailPath(prov.nombre)!}
+                          className="block truncate text-base font-semibold text-karuma-700 underline-offset-2 hover:underline"
+                        >
+                          {prov.nombre}
+                        </Link>
+                      ) : (
+                        <h3 className="truncate text-base font-semibold text-gray-900">
+                          {prov.nombre}
+                        </h3>
+                      )}
                       <p className="text-xs text-gray-500">{prov.categoria}</p>
                     </div>
                     <StatusBadge variant={prov.estado === "activo" ? "success" : "danger"}>
@@ -505,6 +552,15 @@ export function ComprasPanel() {
                   </dl>
 
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    {supplierDetailPath(prov.nombre) && (
+                      <Link
+                        href={supplierDetailPath(prov.nombre)!}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-karuma-600 px-3 text-sm font-medium text-white hover:bg-karuma-700"
+                      >
+                        Abrir proveedor
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

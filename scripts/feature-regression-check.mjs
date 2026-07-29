@@ -64,10 +64,11 @@ const INTENTIONALLY_UNLINKED = {
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 
   // Submenús / subnavegación dentro de una página del menú
-  "/dashboard/cominport": "submenú Proveedores",
-  "/dashboard/jet-extramar": "submenú Proveedores",
-  "/dashboard/kankyo": "submenú Proveedores",
-  "/dashboard/yongxing": "submenú Proveedores",
+  // Rutas antiguas de los catálogos: ahora redirigen a /compras/<proveedor>.
+  "/dashboard/cominport": "redirección a /compras/cominport",
+  "/dashboard/jet-extramar": "redirección a /compras/jet-extramar",
+  "/dashboard/kankyo": "redirección a /compras/kanyo",
+  "/dashboard/yongxing": "redirección a /compras/yongxing",
   "/dashboard/mesa-view": "subnav Reservas",
   "/dashboard/clientes": "subnav Reservas",
   "/dashboard/config": "subnav Reservas",
@@ -107,7 +108,8 @@ const INTENTIONALLY_UNLINKED = {
   // NO restaurar para no duplicar entradas). Ver FEATURE_AUDIT.md §2.
   "/personal": "solapa con /staff (no restaurado)",
   "/inventario": "solapa con /dashboard/stock (no restaurado)",
-  "/compras": "solapa con submenú Proveedores (no restaurado)",
+  "/compras": "submenú Proveedores (Todos los proveedores)",
+  "/compras/:id": "ficha de proveedor (submenú Proveedores y tarjetas de /compras)",
   "/pedidos": "solapa con submenú Proveedores (no restaurado)",
   "/delivery-center": "solapa con /delivery (no restaurado)",
 

@@ -85,24 +85,27 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
 
 const RESERVAS_ROUTES = ["/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
 
+// Cada proveedor tiene su ficha propia en /compras/<slug>. El slug sale del
+// registro de lib/compras/suppliers.ts, así que el menú no puede volver a
+// apuntar a una ruta inexistente.
 const SUPPLIER_LINKS = [
   {
-    href: "/dashboard/cominport",
+    href: "/compras/cominport",
     labelKey: "cominport",
     icon: PackageSearch,
   },
   {
-    href: "/dashboard/jet-extramar",
+    href: "/compras/jet-extramar",
     labelKey: "jetExtramar",
     icon: Snowflake,
   },
   {
-    href: "/dashboard/kankyo",
+    href: "/compras/kanyo",
     labelKey: "kankyo",
     icon: Leaf,
   },
   {
-    href: "/dashboard/yongxing",
+    href: "/compras/yongxing",
     labelKey: "yongxing",
     icon: Store,
   },
@@ -122,9 +125,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     (route) => isAdmin || !ADMIN_ONLY_ROUTES.has(route),
   );
   const isMesaView = pathname === "/dashboard/mesa-view";
-  const supplierRouteActive = SUPPLIER_LINKS.some(
-    ({ href }) => pathname === href || pathname.startsWith(`${href}/`),
-  );
+  // Todo lo que cuelga de /compras abre el submenú: la lista y cada ficha.
+  const supplierRouteActive =
+    pathname === "/compras" || pathname.startsWith("/compras/");
   const [supplierMenuOpen, setSupplierMenuOpen] = useState(supplierRouteActive);
 
   useEffect(() => {
@@ -223,6 +226,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 id="supplier-ordering-menu"
                 className="ml-5 mt-1 space-y-1 border-l border-gray-700 pl-2"
               >
+                <Link
+                  href="/compras"
+                  onClick={onClose}
+                  className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    pathname === "/compras"
+                      ? "bg-karuma-600 text-white"
+                      : "text-gray-400 hover:bg-tinta-suave hover:text-white"
+                  }`}
+                >
+                  <Truck className="h-4 w-4 shrink-0 opacity-90" />
+                  Todos los proveedores
+                </Link>
                 {SUPPLIER_LINKS.map(({ href, labelKey, icon: Icon }) => {
                   const isActive = pathname === href || pathname.startsWith(`${href}/`);
                   return (
@@ -230,7 +245,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       key={href}
                       href={href}
                       onClick={onClose}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-karuma-600 text-white"
                           : "text-gray-400 hover:bg-tinta-suave hover:text-white"
