@@ -5,6 +5,7 @@ import {
   SESSION_COOKIE_NAME,
   verifySessionToken,
 } from "@/lib/auth/session";
+import { canAccessRoute, getModuleForRoute } from "@/lib/auth/permissions";
 
 const PUBLIC_PATHS = new Set([
   "/api/auth/login",
@@ -68,11 +69,16 @@ export async function middleware(request: NextRequest) {
     PUBLIC_PATHS.has(pathname) ||
     // Endpoints de login (OTP, admin 2FA, registro): siempre públicos.
     pathname.startsWith("/api/auth/login") ||
+    pathname.startsWith("/login/") ||
     pathname === "/api/auth/register" ||
     pathname === "/reservas" ||
     pathname.startsWith("/reservas/") ||
     pathname.startsWith("/api/reservas/") ||
     pathname.startsWith("/api/cron/") ||
+    pathname === "/" ||
+    pathname === "/menu" ||
+    pathname === "/restaurante" ||
+    pathname === "/contacto" ||
     pathname === "/api/stock/import-template" ||
     pathname === "/api/stock/from-invoices"
   ) {
@@ -103,6 +109,24 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
+    // El portal del empleado tiene su propia autorización: una cuenta con
+    // employeeId debe poder consultar su fichaje, horario y anuncios aunque
+    // su rol operativo no tenga acceso al módulo interno "staff".
+    if (
+      user.employeeId &&
+      (EMPLOYEE_PAGES.has(pathname) ||
+        EMPLOYEE_API_PREFIXES.some(
+          (prefix) => pathname === prefix || pathname.startsWith(prefix),
+        ))
+    ) {
+      return NextResponse.next();
+    }
+
+    const permissionPath = pathname.startsWith("/api/") ? pathname.slice(4) : pathname;
+    if (getModuleForRoute(permissionPath) && !canAccessRoute(user.role, permissionPath)) {
+      if (pathname.startsWith("/api/")) return NextResponse.json({ error: "No tienes permiso para este módulo" }, { status: 403 });
+      return NextResponse.redirect(new URL(user.employeeId ? "/my-attendance" : "/dashboard", request.url));
+    }
     // Módulos confidenciales: solo la sesión de Admin.
     if (
       ADMIN_ONLY_PREFIXES.some(
