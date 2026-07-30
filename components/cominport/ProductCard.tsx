@@ -20,8 +20,9 @@ interface ProductCardProps {
 }
 
 /**
- * Ficha compacta: una fila por producto para ver el máximo de referencias sin
- * hacer scroll. Toda la información sigue estando, en menos alto.
+ * Ficha compacta: dos líneas por producto para ver el máximo de referencias sin
+ * hacer scroll. Arriba código y nombre; abajo nombre en español, formato y el
+ * resto de datos. No se quita ninguna información, solo se aprieta.
  */
 export function ProductCard({
   product,
@@ -36,17 +37,13 @@ export function ProductCard({
   const precio =
     product.precio ?? cominportPrices[product.codigo as keyof typeof cominportPrices];
 
-  // Segunda línea: nombre en español y formato. La categoría no entra: se corta
-  // lo que de verdad hace falta para pedir y además ya se filtra por ella.
-  const subtitulo = [product.nombreEs, product.formato].filter(Boolean).join(" · ");
-
   return (
     // min-w-0: como celda de la rejilla su mínimo es el del contenido, y sin
     // esto los nombres largos ensanchan la ficha y sacan los botones de la
     // pantalla en el móvil en vez de recortarse.
-    <article className="flex min-w-0 items-center gap-2.5 rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
+    <article className="flex min-w-0 items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="flex items-baseline gap-1.5">
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-karuma-600">
             {product.codigo}
           </span>
@@ -55,34 +52,38 @@ export function ProductCard({
           </h3>
         </div>
 
-        {subtitulo && <p className="truncate text-xs text-gray-500">{subtitulo}</p>}
-
-        {(invoiceMeta || orderedUsage || lowStock) && (
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-            {invoiceMeta && (
-              <span className="font-medium text-karuma-700">
-                Ud. pedido: {invoiceMeta.unidadPedido}
-              </span>
-            )}
-            {invoiceMeta && (
-              <span className="text-gray-400">
-                {invoiceMeta.pedidosFactura}× facturas · {invoiceMeta.cantidadFactura} uds.
-              </span>
-            )}
-            {orderedUsage && (
-              <span className="inline-flex items-center gap-1 font-medium text-karuma-700">
-                <RotateCcw className="h-3 w-3" />
-                {orderedUsage.veces}× · {orderedUsage.unidades} uds.
-              </span>
-            )}
-            {lowStock && (
-              <span className="inline-flex items-center gap-1 font-medium text-amber-700">
-                <AlertTriangle className="h-3 w-3" />
-                Casi agotado
-              </span>
-            )}
-          </p>
-        )}
+        {/* Todo lo demás en una sola línea: el español que pidió el jefe sigue
+            estando, y los datos de factura ya no gastan una tercera línea. */}
+        <p className="mt-0.5 truncate text-[11px] text-gray-500">
+          {product.nombreEs && <span>{product.nombreEs}</span>}
+          {product.nombreEs && product.formato && <span> · </span>}
+          {product.formato && <span>{product.formato}</span>}
+          {invoiceMeta && (
+            <span className="font-medium text-karuma-700">
+              {" "}
+              · {invoiceMeta.unidadPedido}
+            </span>
+          )}
+          {invoiceMeta && (
+            <span>
+              {" "}
+              · {invoiceMeta.pedidosFactura}× fra.
+            </span>
+          )}
+          {orderedUsage && (
+            <span className="font-medium text-karuma-700">
+              {" "}
+              · <RotateCcw className="inline h-3 w-3 align-[-2px]" />{" "}
+              {orderedUsage.veces}×
+            </span>
+          )}
+          {lowStock && (
+            <span className="font-medium text-amber-700">
+              {" "}
+              · <AlertTriangle className="inline h-3 w-3 align-[-2px]" /> Casi agotado
+            </span>
+          )}
+        </p>
       </div>
 
       {typeof precio === "number" && precio > 0 && (
@@ -94,7 +95,7 @@ export function ProductCard({
       <button
         type="button"
         onClick={() => onToggleFavorite(product.codigo)}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
           isFavorite
             ? "bg-red-50 text-karuma-600"
             : "bg-gray-100 text-gray-500 hover:text-karuma-600"
@@ -110,7 +111,7 @@ export function ProductCard({
       <button
         type="button"
         onClick={() => onAdd(product)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-white transition-colors hover:bg-karuma-700 active:bg-karuma-800"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-white transition-colors hover:bg-karuma-700 active:bg-karuma-800"
         aria-label={`Añadir ${product.nombre} al carrito`}
       >
         <Plus className="h-5 w-5" />

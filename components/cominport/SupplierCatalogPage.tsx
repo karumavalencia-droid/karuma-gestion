@@ -602,7 +602,7 @@ export function SupplierCatalogPage({
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="mx-auto max-w-7xl space-y-3">
       {/* Ni título ni contadores: el nombre del proveedor ya sale en la cabecera
           de la ficha (/compras/<slug>) y las cifras de catálogo, favoritos y
           carrito ya van como globo en cada pestaña. Repetirlo costaba media
@@ -642,8 +642,11 @@ export function SupplierCatalogPage({
         </section>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+      {/* Sin tarjeta alrededor: los campos ya tienen su borde y el marco solo
+          añadía alto. Buscador y categoría van en la misma fila también en el
+          móvil, donde antes se apilaban. */}
+      <section>
+        <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-2 sm:grid-cols-[minmax(0,1fr)_220px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
@@ -750,8 +753,8 @@ export function SupplierCatalogPage({
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500">
+              <div className="space-y-2">
+                <p className="text-[11px] text-gray-400">
                   Mostrando {visibleProducts.length} de {filteredProducts.length} productos
                   {orderedUsage.size > 0 && (
                     <span className="text-karuma-600">

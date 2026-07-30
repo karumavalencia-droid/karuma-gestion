@@ -51,7 +51,13 @@ export function Favorites({
       <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
         {products.map((product) => {
           const invoiceMeta = getInvoiceMeta(product.codigo);
-          const subtitulo = [product.nombreEs, product.formato]
+          // Todo el detalle en una línea: el español sigue estando y la unidad
+          // de pedido ya no gasta una tercera línea.
+          const subtitulo = [
+            product.nombreEs,
+            product.formato,
+            invoiceMeta?.unidadPedido,
+          ]
             .filter(Boolean)
             .join(" · ");
 
@@ -60,10 +66,10 @@ export function Favorites({
               key={product.codigo}
               // min-w-0: sin esto un nombre largo ensancha la celda de la
               // rejilla y saca los botones fuera de la pantalla en el móvil.
-              className="flex min-w-0 items-center gap-2.5 rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm"
+              className="flex min-w-0 items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 shadow-sm"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="flex items-baseline gap-1.5">
                   <span className="shrink-0 text-[11px] font-semibold text-karuma-600">
                     {product.codigo}
                   </span>
@@ -72,18 +78,15 @@ export function Favorites({
                   </h3>
                 </div>
                 {subtitulo && (
-                  <p className="truncate text-xs text-gray-500">{subtitulo}</p>
-                )}
-                {invoiceMeta && (
-                  <p className="truncate text-[11px] font-medium text-karuma-700">
-                    Ud. pedido: {invoiceMeta.unidadPedido}
+                  <p className="mt-0.5 truncate text-[11px] text-gray-500">
+                    {subtitulo}
                   </p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => onAdd(product)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-white hover:bg-karuma-700"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-karuma-600 text-white hover:bg-karuma-700"
                 aria-label={`Añadir ${product.nombre} al carrito`}
               >
                 <ShoppingCart className="h-4 w-4" />
@@ -91,7 +94,7 @@ export function Favorites({
               <button
                 type="button"
                 onClick={() => onRemove(product.codigo)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600"
                 aria-label={`Quitar ${product.nombre} de favoritos`}
               >
                 <Trash2 className="h-4 w-4" />
