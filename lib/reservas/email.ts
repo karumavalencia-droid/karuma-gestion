@@ -299,15 +299,54 @@ async function sendEmailViaGmailSmtp({
   return { sent: true };
 }
 
+/** ¿Están puestas las dos credenciales que necesita el envío por Gmail? */
+export function gmailConfigurado(): boolean {
+  return Boolean(
+    process.env.RESERVAS_GMAIL_USER?.trim() &&
+      process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim(),
+  );
+}
+
+/**
+ * Elige proveedor de envío según lo que esté configurado.
+ *
+ * Gmail SMTP si están sus dos credenciales; si no, Resend, que es el que ya
+ * usa el email de reseña. Así el mismo código sirve para las dos rutas y no
+ * hace falta tocar nada al cambiar de una a otra: basta con poner o quitar las
+ * variables en Vercel y redesplegar.
+ *
+ * Antes esto llamaba directamente a Gmail, y como sus variables nunca se
+ * añadieron, las confirmaciones cortaban en `missing_config` sin enviar nada.
+ */
+async function enviarConfirmacion(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  idempotencyKey: string;
+}): Promise<EmailSendResult> {
+  if (gmailConfigurado()) {
+    return sendEmailViaGmailSmtp({
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+  }
+  return sendEmailViaResend(input);
+}
+
 export async function sendReservationConfirmationEmail(
   input: ReservationConfirmationInput,
 ): Promise<EmailSendResult> {
   const email = buildConfirmationEmail(input);
-  return sendEmailViaGmailSmtp({
+  return enviarConfirmacion({
     to: input.to,
     subject: email.subject,
     text: email.text,
     html: email.html,
+    // Una reserva solo puede generar una confirmación, aunque se reintente.
+    idempotencyKey: `reserva-confirmacion-${input.reservaId}`,
   });
 }
 
