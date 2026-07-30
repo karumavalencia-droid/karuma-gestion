@@ -27,7 +27,9 @@ import type {
 } from "@/src/data/cominportProducts";
 
 type Tab = "catalogo" | "ranking" | "favoritos" | "historial" | "carrito";
-const CATALOG_PAGE_SIZE = 48;
+// Las fichas son de una fila, así que cabe el triple por pantalla: cargamos
+// más de golpe para tener que pulsar "Mostrar más" muchas menos veces.
+const CATALOG_PAGE_SIZE = 120;
 
 interface SupplierCatalogPageProps {
   supplierName: string;
@@ -600,38 +602,11 @@ export function SupplierCatalogPage({
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-karuma-600">
-            Compras · {supplierName}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
-            Catálogo y pedidos
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Busca productos, prepara la compra y envíala directamente por WhatsApp.
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
-            <p className="text-lg font-bold text-gray-900">
-              {products.length}
-            </p>
-            <p className="text-[11px] text-gray-500">Catálogo</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
-            <p className="text-lg font-bold text-gray-900">
-              {favoriteCodes.length}
-            </p>
-            <p className="text-[11px] text-gray-500">Favoritos</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
-            <p className="text-lg font-bold text-gray-900">{totalQuantity}</p>
-            <p className="text-[11px] text-gray-500">En carrito</p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-4">
+      {/* Ni título ni contadores: el nombre del proveedor ya sale en la cabecera
+          de la ficha (/compras/<slug>) y las cifras de catálogo, favoritos y
+          carrito ya van como globo en cada pestaña. Repetirlo costaba media
+          pantalla de productos. */}
 
       {stockAlerts.length > 0 && (
         <section className="space-y-2">
@@ -785,7 +760,7 @@ export function SupplierCatalogPage({
                     </span>
                   )}
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
                   {visibleProducts.map((product) => (
                     <ProductCard
                       key={product.codigo}

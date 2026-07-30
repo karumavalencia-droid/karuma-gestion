@@ -38,45 +38,44 @@ const CATALOGS: Record<SupplierSlug, ComponentType> = {
   }),
 };
 
-function ContactRow({
+/** Dato de contacto en una línea. Si no lo tenemos, no ocupa sitio. */
+function ContactChip({
   icon: Icon,
-  label,
   value,
   href,
 }: {
   icon: typeof Phone;
-  label: string;
   value: string;
   href?: string;
 }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 rounded-lg bg-gray-100 p-2 text-gray-500">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs text-gray-500">{label}</p>
-        {value ? (
-          href ? (
-            <a
-              href={href}
-              className="block break-words text-sm font-medium text-karuma-700 underline-offset-2 hover:underline"
-            >
-              {value}
-            </a>
-          ) : (
-            <p className="break-words text-sm font-medium text-gray-900">{value}</p>
-          )
-        ) : (
-          <p className="text-sm text-gray-400">Sin datos</p>
-        )}
-      </div>
-    </div>
+  if (!value) return null;
+
+  const contenido = (
+    <>
+      <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      <span className="truncate">{value}</span>
+    </>
+  );
+
+  return href ? (
+    <a
+      href={href}
+      className="inline-flex min-h-8 max-w-full items-center gap-1.5 text-sm text-karuma-700 underline-offset-2 hover:underline"
+    >
+      {contenido}
+    </a>
+  ) : (
+    <span className="inline-flex min-h-8 max-w-full items-center gap-1.5 text-sm text-gray-600">
+      {contenido}
+    </span>
   );
 }
 
 export function SupplierDetail({ supplier }: { supplier: CoreSupplier }) {
   const Catalog = supplier.tieneCatalogo ? CATALOGS[supplier.slug] : null;
+  const tieneContacto = Boolean(
+    supplier.contacto || supplier.telefono || supplier.email || supplier.whatsapp,
+  );
 
   return (
     <div className="space-y-5">
@@ -88,39 +87,38 @@ export function SupplierDetail({ supplier }: { supplier: CoreSupplier }) {
         Todos los proveedores
       </Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-karuma-600">Proveedor</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
-              {supplierFullName(supplier)}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">{supplier.categoria}</p>
-          </div>
+      {/* Cabecera compacta: el sitio manda para los productos, no para la ficha. */}
+      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            {supplierFullName(supplier)}
+          </h1>
+          <span className="text-xs text-gray-500">{supplier.categoria}</span>
           <StatusBadge variant="success">Activo</StatusBadge>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-          <ContactRow icon={User} label="Contacto" value={supplier.contacto} />
-          <ContactRow
-            icon={Phone}
-            label="Teléfono"
-            value={supplier.telefono}
-            href={supplier.telefono ? `tel:${supplier.telefono.replace(/\s/g, "")}` : undefined}
-          />
-          <ContactRow
-            icon={Mail}
-            label="Email"
-            value={supplier.email}
-            href={supplier.email ? `mailto:${supplier.email}` : undefined}
-          />
-          <ContactRow
-            icon={MessageCircle}
-            label="WhatsApp"
-            value={supplier.whatsapp ? `+${supplier.whatsapp}` : ""}
-            href={supplier.whatsapp ? `https://wa.me/${supplier.whatsapp}` : undefined}
-          />
-        </div>
+        {tieneContacto ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <ContactChip icon={User} value={supplier.contacto} />
+            <ContactChip
+              icon={Phone}
+              value={supplier.telefono}
+              href={supplier.telefono ? `tel:${supplier.telefono.replace(/\s/g, "")}` : undefined}
+            />
+            <ContactChip
+              icon={Mail}
+              value={supplier.email}
+              href={supplier.email ? `mailto:${supplier.email}` : undefined}
+            />
+            <ContactChip
+              icon={MessageCircle}
+              value={supplier.whatsapp ? `+${supplier.whatsapp}` : ""}
+              href={supplier.whatsapp ? `https://wa.me/${supplier.whatsapp}` : undefined}
+            />
+          </div>
+        ) : (
+          <p className="mt-1 text-sm text-gray-400">Sin datos de contacto</p>
+        )}
       </div>
 
       {Catalog ? (
