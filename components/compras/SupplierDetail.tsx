@@ -78,19 +78,20 @@ export function SupplierDetail({ supplier }: { supplier: CoreSupplier }) {
   );
 
   return (
-    <div className="space-y-5">
-      <Link
-        href="/compras"
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Todos los proveedores
-      </Link>
-
-      {/* Cabecera compacta: el sitio manda para los productos, no para la ficha. */}
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+    <div className="space-y-3">
+      {/* Cabecera compacta, con el enlace de volver en la misma fila que el
+          nombre: el sitio manda para los productos, no para la ficha. */}
+      <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+          <Link
+            href="/compras"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Todos los proveedores"
+            title="Todos los proveedores"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-lg font-bold tracking-tight text-gray-900">
             {supplierFullName(supplier)}
           </h1>
           <span className="text-xs text-gray-500">{supplier.categoria}</span>
@@ -98,7 +99,7 @@ export function SupplierDetail({ supplier }: { supplier: CoreSupplier }) {
         </div>
 
         {tieneContacto ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
             <ContactChip icon={User} value={supplier.contacto} />
             <ContactChip
               icon={Phone}
