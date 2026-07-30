@@ -12,8 +12,14 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { DbInboxThread } from "@/lib/supabase/types";
 import { analizarMensaje } from "./ai";
+import { leerAjustesAutoReply } from "./ajustes";
+import { decidir } from "./auto-reply";
+import { enviarRespuesta } from "./enviar";
 import { clasificarPorReglas } from "./rules";
 import type { InboxPlatform, NormalizedItem } from "./types";
+
+/** Nombre que queda en los mensajes que publica el sistema sin intervención. */
+const AUTOR_AUTOMATICO = "Karuma (automático)";
 
 export type ResultadoIngesta = {
   /** Mensajes nuevos que se han guardado. */
@@ -245,7 +251,28 @@ export async function enriquecerConIa(input: {
 
   if (!sugerencia) return;
 
-  await supabase.from("inbox_ai_suggestions").insert({
+  // ── Política de respuesta automática ──────────────────────────────────────
+  // Se evalúa SIEMPRE, esté activada o no. Con la función apagada la decisión
+  // queda guardada como 'simulada' y sirve para ver, durante unas semanas, qué
+  // habría publicado el sistema antes de dejarle publicar de verdad.
+  const ajustes = await leerAjustesAutoReply();
+  const decision = decidir(
+    {
+      platform: input.item.platform,
+      kind: input.item.kind,
+      rating: input.item.rating,
+      isComplaint: analisis.isComplaint,
+      sentiment: analisis.sentiment,
+      priority: analisis.priority,
+      intents: analisis.intents,
+      borrador: sugerencia.reply,
+    },
+    ajustes,
+  );
+
+  // Se guarda antes de intentar nada. Así un fallo a mitad de camino nunca deja
+  // una fila diciendo 'enviada' sin que se haya enviado.
+  const fila = {
     thread_id: input.threadId,
     message_id: input.messageId,
     model: sugerencia.model,
@@ -257,5 +284,64 @@ export async function enriquecerConIa(input: {
       isComplaint: sugerencia.isComplaint,
       priority: sugerencia.priority,
     } as never,
+  };
+
+  const guardado = await supabase
+    .from("inbox_ai_suggestions")
+    .insert({
+      ...fila,
+      auto_decision: decision.apta ? "simulada" : "revisar",
+      auto_motivo: decision.motivo,
+    })
+    .select("id")
+    .single();
+
+  // Si la migración 039 no está aplicada todavía, esas dos columnas no existen.
+  // Sin este respaldo el borrador NO se guardaría, que es peor que perder el
+  // rastro de la decisión. En este proyecto ya ha pasado que una migración se
+  // quede semanas sin aplicar (la 023 dejó los anuncios rotos).
+  if (guardado.error?.code === "PGRST204" || guardado.error?.code === "42703") {
+    console.warn(
+      "[inbox] migración 039 sin aplicar: se guarda el borrador sin la decisión automática",
+    );
+    await supabase.from("inbox_ai_suggestions").insert(fila);
+    return; // Sin sitio donde registrar la decisión, tampoco se publica solo.
+  }
+
+  if (guardado.error) {
+    console.error("[inbox] no se pudo guardar el borrador:", guardado.error.message);
+    return;
+  }
+
+  const guardada = guardado.data;
+
+  if (!decision.apta || !ajustes.activa) return;
+
+  const envio = await enviarRespuesta({
+    threadId: input.threadId,
+    texto: sugerencia.reply,
+    autor: AUTOR_AUTOMATICO,
+    autorEmail: null,
+    sugerenciaId: guardada?.id ?? null,
   });
+
+  if (!envio.ok) {
+    // El cliente sigue esperando respuesta: pasa a la cola de personas en vez
+    // de quedarse como simulacro, que se leería como "no hacía falta".
+    console.error("[inbox] la respuesta automática no se pudo publicar:", envio.error);
+    if (guardada?.id) {
+      await supabase
+        .from("inbox_ai_suggestions")
+        .update({ auto_decision: "revisar", auto_motivo: "envio_fallido" })
+        .eq("id", guardada.id);
+    }
+    return;
+  }
+
+  if (guardada?.id) {
+    await supabase
+      .from("inbox_ai_suggestions")
+      .update({ auto_decision: "enviada", auto_enviada_at: envio.enviadoEn })
+      .eq("id", guardada.id);
+  }
 }
