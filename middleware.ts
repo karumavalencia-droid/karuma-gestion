@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isAdminSession } from "@/lib/auth/admin-session";
 import {
+  createSessionToken,
   SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+  shouldRefreshSession,
+  verifySession,
   verifySessionToken,
 } from "@/lib/auth/session";
 
@@ -61,7 +65,7 @@ const EMPLOYEE_API_PREFIXES = [
   "/api/coach/",
 ];
 
-export async function middleware(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -167,6 +171,41 @@ export async function middleware(request: NextRequest) {
   }
 
   return NextResponse.redirect(new URL("/login", request.url));
+}
+
+/**
+ * Renovación deslizante de la sesión.
+ *
+ * La cookie caducaba 7 días exactos después del login aunque se usara el ERP a
+ * diario. Aquí se vuelve a emitir cuando le queda menos de la ventana de
+ * renovación, así que un usuario activo no vuelve a ver la pantalla de login y
+ * uno que no entra en 7 días sigue teniendo que identificarse.
+ *
+ * Va envuelto alrededor de `handleRequest` (en vez de dentro) para no tocar la
+ * lógica de enrutado por rol.
+ */
+export async function middleware(request: NextRequest) {
+  const response = await handleRequest(request);
+
+  // Los endpoints de /api/auth gestionan la cookie ellos mismos (login la crea,
+  // logout la borra): renovarla aquí competiría con esa cabecera.
+  if (request.nextUrl.pathname.startsWith("/api/auth/")) return response;
+
+  const session = await verifySession(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+
+  if (session && shouldRefreshSession(session.expiresAt)) {
+    try {
+      const token = await createSessionToken(session.user);
+      response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+    } catch {
+      // Sin secret configurado no podemos re-firmar: la cookie actual sigue
+      // siendo válida hasta que caduque.
+    }
+  }
+
+  return response;
 }
 
 export const config = {
