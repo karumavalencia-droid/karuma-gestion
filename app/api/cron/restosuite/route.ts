@@ -1,18 +1,27 @@
-// NOTA (MVP ventas): esta ruta de cron está EN ESPERA de una API/exportación
-// oficial de Restosuite. Restosuite no expone hoy una API pública estable
-// (ver análisis previo); la vía soportada de entrada de datos es la importación
-// manual de CSV (POST /api/sales/import). Mientras RESTOSUITE_API_URL sea un
-// placeholder o falte, esta ruta responde "no configurada" y NO hace ninguna
-// petición externa (nunca llama a pos-provider.example).
+// Sincronización diaria de ventas desde RestoSuite hacia la tabla `sales_daily`.
+//
+// RestoSuite no tiene envío programado de informes por email ni API pública
+// contratada: lo que usamos es el endpoint JSON de su propio backoffice
+// (ver lib/pos/restosuite-client.ts, que documenta el contrato y sus riesgos).
+//
+// Sin las variables de entorno de RestoSuite la ruta responde "no configurada"
+// y NO hace ninguna petición externa. La importación manual de CSV
+// (POST /api/sales/import) sigue disponible como alternativa.
 import { NextResponse } from "next/server";
-import { parseRestosuiteCsv } from "@/lib/restosuite/csvImport";
-import { isPlaceholderApiUrl } from "@/lib/sales-sync/config";
-import { normalizeSalesPayload } from "@/lib/sales-sync/normalize";
-import { mergeDailySalesRecords } from "@/lib/sales-sync/storage";
-import type { DailySalesRecord } from "@/lib/sales-sync/types";
+import {
+  RestosuiteAuthError,
+  fetchDailySales,
+  getRestosuiteConfig,
+} from "@/lib/pos/restosuite-client";
+import { logImport, upsertDailySales } from "@/lib/sales-sync/supabaseRepo";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+/** Tope de días por ejecución, para que un `days` enorme no agote la función. */
+const MAX_RANGE_DAYS = 92;
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function dateInMadrid(daysFromToday: number): string {
   const date = new Date();
@@ -25,18 +34,55 @@ function dateInMadrid(daysFromToday: number): string {
   }).format(date);
 }
 
-function buildRestosuiteUrl(baseUrl: string, date: string, locationId: string): string {
-  const expanded = baseUrl
-    .replaceAll("{date}", encodeURIComponent(date))
-    .replaceAll("{locationId}", encodeURIComponent(locationId));
-  const url = new URL(expanded);
-  if (!baseUrl.includes("{date}")) {
-    url.searchParams.set(process.env.RESTOSUITE_DATE_PARAM || "date", date);
+function shiftDate(date: string, days: number): string {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function daysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  return Math.round((end - start) / 86_400_000) + 1;
+}
+
+/**
+ * Rango a sincronizar. Por defecto sólo ayer (el día ya cerrado).
+ *   ?date=2026-07-27          -> un día suelto
+ *   ?start=...&end=...        -> rango explícito
+ *   ?days=30                  -> los últimos 30 días hasta ayer (carga inicial)
+ */
+function resolveRange(url: URL): { startDate: string; endDate: string } | { error: string } {
+  const date = url.searchParams.get("date");
+  if (date) {
+    if (!DATE_PATTERN.test(date)) return { error: "Parámetro `date` no válido (YYYY-MM-DD)" };
+    return { startDate: date, endDate: date };
   }
-  if (locationId && !baseUrl.includes("{locationId}")) {
-    url.searchParams.set(process.env.RESTOSUITE_LOCATION_PARAM || "locationId", locationId);
+
+  const start = url.searchParams.get("start");
+  const end = url.searchParams.get("end");
+  if (start || end) {
+    if (!start || !end || !DATE_PATTERN.test(start) || !DATE_PATTERN.test(end)) {
+      return { error: "Se requieren `start` y `end` en formato YYYY-MM-DD" };
+    }
+    if (start > end) return { error: "El rango de fechas está invertido" };
+    if (daysBetween(start, end) > MAX_RANGE_DAYS) {
+      return { error: `El rango no puede superar ${MAX_RANGE_DAYS} días` };
+    }
+    return { startDate: start, endDate: end };
   }
-  return url.toString();
+
+  const daysParam = url.searchParams.get("days");
+  const yesterday = dateInMadrid(-1);
+  if (daysParam) {
+    const days = Number(daysParam);
+    if (!Number.isInteger(days) || days < 1 || days > MAX_RANGE_DAYS) {
+      return { error: `Parámetro \`days\` no válido (1-${MAX_RANGE_DAYS})` };
+    }
+    return { startDate: shiftDate(yesterday, -(days - 1)), endDate: yesterday };
+  }
+
+  return { startDate: yesterday, endDate: yesterday };
 }
 
 export async function GET(request: Request) {
@@ -45,94 +91,90 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const apiUrl = process.env.RESTOSUITE_API_URL;
-  const apiToken = process.env.RESTOSUITE_API_TOKEN;
-  const locationId = process.env.RESTOSUITE_LOCATION_ID || "karuma-valencia";
-  // No hacer ninguna petición externa mientras la API sea un placeholder.
-  if (!apiUrl || !apiToken || isPlaceholderApiUrl(apiUrl)) {
+  const config = getRestosuiteConfig();
+  if (!config) {
     return NextResponse.json(
       {
         success: false,
         configured: false,
-        pendingOfficialApi: true,
         message:
-          "Restosuite no tiene API oficial configurada. Usa la importación manual de CSV (/api/sales/import).",
+          "Faltan las variables de RestoSuite (RESTOSUITE_TOKEN, RESTOSUITE_SHOP_ID, " +
+          "RESTOSUITE_CORPORATION_ID, RESTOSUITE_BRAND_ID, RESTOSUITE_ORG_ID, " +
+          "RESTOSUITE_ORG_TYPE). Mientras tanto, usa la importación manual de CSV " +
+          "(/api/sales/import).",
       },
       { status: 503 },
     );
   }
 
-  const requestUrl = new URL(request.url);
-  const targetDate = requestUrl.searchParams.get("date") || dateInMadrid(-1);
-  const authHeader = process.env.RESTOSUITE_API_KEY_HEADER || "Authorization";
-  const authPrefix = process.env.RESTOSUITE_API_KEY_PREFIX ?? "Bearer ";
-  const headers = new Headers({ Accept: "application/json, text/csv" });
-  headers.set(authHeader, `${authPrefix}${apiToken}`);
+  const range = resolveRange(new URL(request.url));
+  if ("error" in range) {
+    return NextResponse.json({ error: range.error }, { status: 400 });
+  }
 
   try {
-    const response = await fetch(buildRestosuiteUrl(apiUrl, targetDate, locationId), {
-      headers,
-      cache: "no-store",
+    const records = await fetchDailySales(range.startDate, range.endDate, config);
+
+    if (records.length === 0) {
+      // Un día sin ventas es un resultado legítimo, no un error: no escribimos ceros.
+      await logImport({
+        source: "restosuite-api",
+        totalRows: 0,
+        insertedRows: 0,
+        updatedRows: 0,
+        skippedRows: 0,
+        status: "success",
+      });
+      return NextResponse.json({
+        success: true,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        records: 0,
+        inserted: 0,
+        updated: 0,
+        message: "RestoSuite no devolvió ventas para ese rango.",
+      });
+    }
+
+    const result = await upsertDailySales(records);
+    await logImport({
+      source: "restosuite-api",
+      totalRows: records.length,
+      insertedRows: result.inserted,
+      updatedRows: result.updated,
+      skippedRows: 0,
+      status: "success",
     });
-    if (!response.ok) {
+
+    return NextResponse.json({
+      success: true,
+      startDate: range.startDate,
+      endDate: range.endDate,
+      records: records.length,
+      inserted: result.inserted,
+      updated: result.updated,
+      netSalesTotal: records.reduce((sum, record) => sum + record.netSales, 0),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Fallo sincronizando RestoSuite";
+    await logImport({
+      source: "restosuite-api",
+      totalRows: 0,
+      insertedRows: 0,
+      updatedRows: 0,
+      skippedRows: 0,
+      status: "error",
+      errorMessage: message,
+    });
+
+    // El token caducado es el fallo esperado y necesita acción manual:
+    // se marca aparte para poder alertar sobre él.
+    if (error instanceof RestosuiteAuthError) {
       return NextResponse.json(
-        { error: `Restosuite responded with ${response.status}` },
+        { success: false, authExpired: true, error: message },
         { status: 502 },
       );
     }
-
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("json") ? await response.json() : await response.text();
-    const records =
-      typeof payload === "string"
-        ? (() => {
-            const parsed = parseRestosuiteCsv(payload, `restosuite-${targetDate}.csv`);
-            const syncedAt = new Date().toISOString();
-            return (parsed.preview?.registros ?? []).map(
-              (record): DailySalesRecord => ({
-                date: record.fecha,
-                grossSales: record.ventas,
-                netSales: record.ventas,
-                customers: record.clientes,
-                orders: record.facturas,
-                averageTicket: record.ticketMedio,
-                drinkSales: record.ventasBebida,
-                deliverySales: 0,
-                cashSales: 0,
-                cardSales: 0,
-                source: "restosuite-csv",
-                locationId,
-                externalId: null,
-                notes: record.observaciones,
-                syncedAt,
-              }),
-            );
-          })()
-        : normalizeSalesPayload(payload, {
-            fallbackDate: targetDate,
-            source: "restosuite-api",
-            locationId,
-          });
-
-    if (records.length === 0) {
-      return NextResponse.json(
-        { error: "No valid sales records found" },
-        { status: 422 },
-      );
-    }
-
-    const result = await mergeDailySalesRecords(records);
-    return NextResponse.json({
-      success: true,
-      date: targetDate,
-      inserted: result.inserted,
-      updated: result.updated,
-      total: result.store.records.length,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Restosuite sync failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 502 });
   }
 }
