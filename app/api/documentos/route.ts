@@ -12,6 +12,7 @@ import {
   DOCUMENTOS_BUCKET,
   DOCUMENTO_CATEGORIAS as CATEGORIAS,
 } from "@/lib/documentos/constants";
+import { findKioskEmployee } from "@/lib/kiosk/employees";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { DbDocumentoCategoria } from "@/lib/supabase/types";
 
@@ -29,7 +30,9 @@ export async function GET(request: NextRequest) {
   const categoria = request.nextUrl.searchParams.get("categoria");
   let query = supabase
     .from("documentos")
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
+    .select(
+      "id, nombre, categoria, mime_type, tamano_bytes, notas, empleado_id, periodo, created_at",
+    )
     .order("created_at", { ascending: false });
 
   if (categoria && CATEGORIAS.includes(categoria as DbDocumentoCategoria)) {
@@ -75,6 +78,18 @@ export async function POST(request: NextRequest) {
     : "otros";
   const notas = String(form.get("notas") ?? "").trim() || null;
 
+  // Solo las nóminas se asignan a un empleado: es lo que permite que el Coach
+  // le devuelva la suya y solo la suya. El id debe ser uno de plantilla; si no
+  // lo es, se guarda sin asignar antes que asignárselo a quien no toca.
+  const empleadoIdRaw = String(form.get("empleado_id") ?? "").trim();
+  const empleadoId =
+    categoria === "nominas" && findKioskEmployee(empleadoIdRaw)
+      ? empleadoIdRaw
+      : null;
+  const periodoRaw = String(form.get("periodo") ?? "").trim();
+  const periodo =
+    categoria === "nominas" && /^\d{4}-\d{2}$/.test(periodoRaw) ? periodoRaw : null;
+
   // Ruta única en el bucket: <categoria>/<timestamp>-<nombre saneado>
   const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-120) || "documento";
   const storagePath = `${categoria}/${Date.now()}-${safeName}`;
@@ -101,8 +116,12 @@ export async function POST(request: NextRequest) {
       mime_type: file.type || null,
       tamano_bytes: file.size,
       notas,
+      empleado_id: empleadoId,
+      periodo,
     })
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
+    .select(
+      "id, nombre, categoria, mime_type, tamano_bytes, notas, empleado_id, periodo, created_at",
+    )
     .single();
 
   if (error) {

@@ -1,5 +1,6 @@
 import { attendanceBusinessDate } from "@/lib/attendance/time";
 import type { SessionUser } from "@/lib/auth/session";
+import { DOCUMENTOS_BUCKET } from "@/lib/documentos/constants";
 import { findKioskEmployee } from "@/lib/kiosk/employees";
 import { getEmployeeWeek } from "@/lib/schedule/portal";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -22,6 +23,19 @@ export const COACH_TOOLS = [
     name: "get_my_schedule",
     description:
       "Devuelve el horario semanal del empleado que ha iniciado sesión (semana actual, con hoy y mañana marcados). No admite parámetros: solo puede consultar el horario del propio empleado.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+      required: [],
+    },
+  },
+  {
+    type: "function" as const,
+    name: "get_my_payslips",
+    description:
+      "Devuelve las nóminas del empleado que ha iniciado sesión, con enlace de descarga que caduca en 5 minutos. No admite parámetros: solo puede devolver las nóminas del propio empleado, nunca las de otra persona. Úsala cuando pida su nómina, su sueldo del mes o su recibo de salario.",
     strict: true,
     parameters: {
       type: "object",
@@ -365,5 +379,72 @@ export async function runCreateIncidentReport(
     ok: true,
     report: data,
     message: "Reporte creado. El encargado lo revisará.",
+  });
+}
+
+/**
+ * Nóminas del propio empleado. La identidad sale SOLO de la sesión: nunca de un
+ * parámetro del modelo ni del nombre del archivo (hay dos Sebastián en
+ * plantilla, emparejar por nombre entregaría la nómina equivocada).
+ * Devuelve enlaces de descarga firmados que caducan en 5 minutos.
+ */
+export async function runGetMyPayslips(user: SessionUser): Promise<string> {
+  if (!user.employeeId) {
+    return JSON.stringify({
+      error: "not_linked",
+      message: "Esta cuenta no está vinculada a un empleado.",
+    });
+  }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return JSON.stringify({
+      error: "documentos_unavailable",
+      message: "El archivo de documentos no está disponible ahora mismo.",
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("documentos")
+    .select("id, nombre, periodo, storage_path, created_at")
+    .eq("categoria", "nominas")
+    .eq("empleado_id", user.employeeId)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  if (error) {
+    console.error("[coach] Error consultando nóminas:", error);
+    return JSON.stringify({
+      error: "documentos_unavailable",
+      message: "No se pudieron consultar las nóminas.",
+    });
+  }
+
+  if (!data || data.length === 0) {
+    return JSON.stringify({
+      nominas: [],
+      message:
+        "No hay ninguna nómina guardada a nombre de este empleado. Dile que se lo pida al encargado.",
+    });
+  }
+
+  const nominas = await Promise.all(
+    data.map(async (doc) => {
+      const { data: signed } = await supabase.storage
+        .from(DOCUMENTOS_BUCKET)
+        .createSignedUrl(doc.storage_path, 60 * 5, { download: doc.nombre });
+      return {
+        periodo: doc.periodo,
+        nombre: doc.nombre,
+        subida: doc.created_at.slice(0, 10),
+        url: signed?.signedUrl ?? null,
+      };
+    }),
+  );
+
+  return JSON.stringify({
+    nominas,
+    message:
+      "Enlaces de descarga válidos 5 minutos. Pásale al empleado solo sus propias nóminas.",
   });
 }

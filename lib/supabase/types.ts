@@ -634,6 +634,10 @@ export type DbDocumento = {
   mime_type: string | null;
   tamano_bytes: number | null;
   notas: string | null;
+  /** Solo en nóminas: id de sesión del empleado (slug de lib/staff/data.ts). */
+  empleado_id: string | null;
+  /** Solo en nóminas: mes en formato "AAAA-MM". */
+  periodo: string | null;
   created_at: string;
 };
 
@@ -642,6 +646,8 @@ export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
   mime_type?: string | null;
   tamano_bytes?: number | null;
   notas?: string | null;
+  empleado_id?: string | null;
+  periodo?: string | null;
 };
 
 // ─── Inbox: mensajes y reseñas (migración 038) ───────────────────────────────

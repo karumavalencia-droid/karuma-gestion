@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { DbReserva, DbSalesDaily, DbInventoryItem, DbTurno } from "@/lib/supabase/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { CONTEXTO_CEO, PERFIL_NEGOCIO } from "@/lib/negocio/perfil";
 import { computeMetrics, seedProfit } from "@/lib/profit/helpers";
 import { seedReviews } from "@/lib/reviews/helpers";
 
@@ -251,11 +252,13 @@ export function buildCeoSystemPrompt(user: SessionUser): string {
   const dates = getCeoReferenceDates();
   return [
     "Eres el AI CEO del sistema Karuma ERP.",
+    CONTEXTO_CEO,
+    PERFIL_NEGOCIO,
     "Responde siempre en el mismo idioma que use el usuario en su mensaje más reciente.",
     "Si el usuario escribe en chino, responde completamente en chino. Si escribe en español, responde en español.",
     "Mantén la respuesta clara, directa y natural en el idioma elegido.",
     `Fecha actual en Europe/Madrid: ${dates.today}. Ayer fue ${dates.yesterday}.`,
-    "Usa solo datos reales devueltos por herramientas o indicados explícitamente.",
+    "Usa solo datos reales devueltos por herramientas o indicados explícitamente. Los datos fijos del negocio (precios, horario, mesas, equipos, objetivos) sí son fiables y puedes usarlos sin llamar a ninguna herramienta.",
     "Para preguntas sobre ayer o una fecha concreta, usa get_sales_by_date; no intentes deducir ese día desde el resumen mensual.",
     "Si falta un dato, dilo con honestidad.",
     "No inventes cifras, reservas, turnos ni ventas.",
