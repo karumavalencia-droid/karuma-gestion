@@ -211,6 +211,29 @@ export interface FacturasStats {
   porCategoria: { categoria: CategoriaFactura; total: number; count: number }[];
 }
 
+export interface FacturasMonthStats {
+  mes: string;
+  total: number;
+  count: number;
+}
+
+export function computeMonthlyStats(facturas: Factura[]): FacturasMonthStats[] {
+  const monthMap = new Map<string, { total: number; count: number }>();
+
+  for (const factura of facturas) {
+    const mes = factura.fecha.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(mes)) continue;
+    const current = monthMap.get(mes) ?? { total: 0, count: 0 };
+    current.total += factura.importe;
+    current.count += 1;
+    monthMap.set(mes, current);
+  }
+
+  return [...monthMap.entries()]
+    .map(([mes, value]) => ({ mes, total: fmtNum(value.total), count: value.count }))
+    .sort((a, b) => b.mes.localeCompare(a.mes));
+}
+
 export function computeStats(facturas: Factura[], mes = mesActual()): FacturasStats {
   const delMes = facturas.filter((f) => f.fecha.startsWith(mes));
   const totalMes = fmtNum(delMes.reduce((s, f) => s + f.importe, 0));
@@ -218,7 +241,7 @@ export function computeStats(facturas: Factura[], mes = mesActual()): FacturasSt
   const provMap = new Map<string, { total: number; count: number }>();
   const catMap = new Map<CategoriaFactura, { total: number; count: number }>();
 
-  for (const f of facturas) {
+  for (const f of delMes) {
     const p = provMap.get(f.proveedor) ?? { total: 0, count: 0 };
     p.total += f.importe;
     p.count += 1;

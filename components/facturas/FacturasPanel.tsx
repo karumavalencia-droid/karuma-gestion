@@ -25,6 +25,7 @@ import {
   EMPRESAS_FACTURA,
   EMPTY_FACTURA_FORM,
   computeStats,
+  computeMonthlyStats,
   empresaEfectiva,
   empresaLabel,
   facturaToForm,
@@ -159,6 +160,9 @@ export function FacturasPanel() {
   const [filtroEmpresa, setFiltroEmpresa] = useState<FiltroEmpresa>("");
   const [syncError, setSyncError] = useState("");
   const [toast, setToast] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7),
+  );
   const [envioEmpresa, setEnvioEmpresa] = useState<EmpresaEnvio>("kosushi");
   const [envioIncluirEnviadas, setEnvioIncluirEnviadas] = useState(false);
   const [envioError, setEnvioError] = useState("");
@@ -244,10 +248,27 @@ export function FacturasPanel() {
     }
   };
 
-  const stats = useMemo(
-    () => computeStats(store?.facturas ?? []),
+  const months = useMemo(
+    () => computeMonthlyStats(store?.facturas ?? []),
     [store?.facturas],
   );
+
+  const activeMonth = months.some((month) => month.mes === selectedMonth)
+    ? selectedMonth
+    : months[0]?.mes ?? selectedMonth;
+
+  const stats = useMemo(
+    () => computeStats(store?.facturas ?? [], activeMonth),
+    [store?.facturas, activeMonth],
+  );
+
+  const activeMonthLabel = useMemo(() => {
+    if (!activeMonth) return "Sin mes seleccionado";
+    return new Intl.DateTimeFormat("es-ES", {
+      month: "long",
+      year: "numeric",
+    }).format(new Date(`${activeMonth}-01T12:00:00`));
+  }, [activeMonth]);
 
   const facturasFiltradas = useMemo(() => {
     const list = [...(store?.facturas ?? [])].sort(
@@ -507,7 +528,7 @@ export function FacturasPanel() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard
-          title="Compras del mes"
+          title={`Compras de ${activeMonthLabel}`}
           value={formatCurrency(stats.totalMes)}
           icon={Receipt}
           subtitle={`${stats.countMes} factura${stats.countMes !== 1 ? "s" : ""}`}
@@ -691,9 +712,67 @@ export function FacturasPanel() {
       )}
 
       {tab === "estadisticas" && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
           <Card className="p-4">
-            <h3 className="mb-3 text-sm font-semibold text-gray-900">Total por proveedor</h3>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Facturas por mes</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Entra en un mes para ver sus proveedores y número de facturas.
+                </p>
+              </div>
+              <select
+                aria-label="Seleccionar mes"
+                value={activeMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className={`${inputClass} max-w-[180px]`}
+              >
+                {months.map((month) => (
+                  <option key={month.mes} value={month.mes}>
+                    {new Intl.DateTimeFormat("es-ES", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(new Date(`${month.mes}-01T12:00:00`))}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {months.length === 0 ? (
+              <p className="text-sm text-gray-500">Sin facturas registradas.</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {months.map((month) => (
+                  <button
+                    key={month.mes}
+                    type="button"
+                    onClick={() => setSelectedMonth(month.mes)}
+                    className={`rounded-lg border px-3 py-3 text-left transition-colors ${
+                      month.mes === activeMonth
+                        ? "border-karuma-500 bg-karuma-50"
+                        : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold capitalize text-gray-900">
+                      {new Intl.DateTimeFormat("es-ES", {
+                        month: "long",
+                        year: "numeric",
+                      }).format(new Date(`${month.mes}-01T12:00:00`))}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {month.count} factura{month.count !== 1 ? "s" : ""} · {formatCurrency(month.total)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="p-4">
+            <h3 className="mb-1 text-sm font-semibold text-gray-900">
+              Proveedores de {activeMonthLabel}
+            </h3>
+            <p className="mb-3 text-xs text-gray-500">Facturas y total por proveedor</p>
             {stats.porProveedor.length === 0 ? (
               <p className="text-sm text-gray-500">Sin datos</p>
             ) : (
@@ -739,6 +818,7 @@ export function FacturasPanel() {
               </ul>
             )}
           </Card>
+          </div>
         </div>
       )}
 
