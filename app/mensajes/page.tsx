@@ -8,7 +8,7 @@ import { ThreadItem } from "@/components/inbox/ThreadItem";
 import type { Contadores, ThreadResumen } from "@/components/inbox/tipos";
 import { BotonAvisos } from "@/components/inbox/BotonAvisos";
 import Link from "next/link";
-import { BarChart3, Inbox, RefreshCw } from "lucide-react";
+import { BarChart3, Bot, Inbox, RefreshCw } from "lucide-react";
 
 type Filtro = {
   clave: string;
@@ -108,6 +108,13 @@ function Bandeja() {
         description="Instagram, Google y Tripadvisor en una sola bandeja. Ningún cliente sin respuesta."
       >
         <BotonAvisos />
+        <Link
+          href="/mensajes/auto"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <Bot className="h-3.5 w-3.5" />
+          Respuesta automática
+        </Link>
         <Link
           href="/mensajes/insights"
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
