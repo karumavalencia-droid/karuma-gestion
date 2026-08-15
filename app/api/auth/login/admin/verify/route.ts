@@ -21,18 +21,29 @@ import { logLoginEvent } from "@/lib/auth/supabase-auth";
 import {
   createSessionToken,
   SESSION_COOKIE_NAME,
-  SESSION_MAX_AGE_SECONDS,
+  sessionCookieOptions,
 } from "@/lib/auth/session";
+import {
+  addTrustedSubject,
+  adminDeviceSubject,
+  TRUSTED_DEVICE_COOKIE_NAME,
+  trustedDeviceCookieOptions,
+} from "@/lib/auth/trusted-device";
 
 export async function POST(request: NextRequest) {
-  let body: { username?: string; password?: string; code?: string };
+  let body: {
+    username?: string;
+    password?: string;
+    code?: string;
+    trustDevice?: boolean;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Formato de solicitud inválido" }, { status: 400 });
   }
 
-  const { username, password, code } = body;
+  const { username, password, code, trustDevice } = body;
   if (!username || !password || !code) {
     return NextResponse.json(
       { error: "Usuario, contraseña y código son obligatorios" },
@@ -99,12 +110,22 @@ export async function POST(request: NextRequest) {
   });
 
   const response = NextResponse.json(user);
-  response.cookies.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+
+  // "Recordar este dispositivo": los próximos 30 días bastará la contraseña.
+  if (trustDevice) {
+    const trustedToken = await addTrustedSubject(
+      request.cookies.get(TRUSTED_DEVICE_COOKIE_NAME)?.value,
+      adminDeviceSubject(username),
+    );
+    if (trustedToken) {
+      response.cookies.set(
+        TRUSTED_DEVICE_COOKIE_NAME,
+        trustedToken,
+        trustedDeviceCookieOptions(),
+      );
+    }
+  }
+
   return response;
 }
