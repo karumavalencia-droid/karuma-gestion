@@ -65,6 +65,7 @@ export function mapSbRow(row: Record<string, unknown>): ReservaLocal {
     estado: mapEstadoSb(row.estado as EstadoReserva),
     creadoEn: (row.created_at as string) ?? new Date().toISOString(),
     origen,
+    confirmationEmailSentAt: (row.confirmation_email_sent_at as string | null) ?? null,
     reviewEmailSentAt: (row.review_email_sent_at as string | null) ?? null,
   };
 }

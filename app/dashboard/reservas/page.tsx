@@ -256,6 +256,7 @@ export default function ReservasPage() {
 
   const [toast, setToast] = useState("");
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [confirmationSendingId, setConfirmationSendingId] = useState<string | null>(null);
   const [reviewSendingId, setReviewSendingId] = useState<string | null>(null);
   const [reviewLink, setReviewLink] = useState("");
 
@@ -408,6 +409,41 @@ export default function ReservasPage() {
   }).sort((a, b) => a.hora.localeCompare(b.hora) || a.servicio.localeCompare(b.servicio));
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  async function handleResendConfirmation(r: ReservaLocal) {
+    if (!r.email) {
+      showToast("Esta reserva no tiene email.");
+      return;
+    }
+
+    setConfirmationSendingId(r.id);
+    try {
+      const response = await fetch("/api/reservas/reenviar-confirmacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id }),
+      });
+      const json = await response.json() as { ok?: boolean; error?: string; sentAt?: string };
+      if (!response.ok || !json.ok) {
+        showToast(json.error ?? "No se pudo enviar la confirmación.");
+        return;
+      }
+      const sentAt = json.sentAt ?? new Date().toISOString();
+      const nextReservas = loadReservas().map((item) =>
+        item.id === r.id ? { ...item, confirmationEmailSentAt: sentAt } : item,
+      );
+      saveReservas(nextReservas);
+      setReservas((current) => current.map((item) =>
+        item.id === r.id ? { ...item, confirmationEmailSentAt: sentAt } : item,
+      ));
+      void reload();
+      showToast(r.confirmationEmailSentAt ? "Confirmación reenviada" : "Confirmación enviada");
+    } catch {
+      showToast("No se pudo enviar la confirmación.");
+    } finally {
+      setConfirmationSendingId(null);
+    }
+  }
+
   async function handleSendReview(r: ReservaLocal) {
     if (!r.email) {
       showToast("Esta reserva no tiene email.");
@@ -572,6 +608,7 @@ export default function ReservasPage() {
         reservaId?: string;
         mesaIds?: number[];
         emailSent?: boolean;
+        confirmationEmailSentAt?: string | null;
       };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
@@ -583,6 +620,7 @@ export default function ReservasPage() {
           id: json.reservaId, fecha: nFecha, hora: nHora, servicio: nServicio, personas: nPersonas,
           mesaIds, nombre: nNombre || "Sin nombre", telefono: nTelefono.trim(),
           email: nEmail.trim() || null, notas: nNotas, origen: "manual",
+          confirmationEmailSentAt: json.confirmationEmailSentAt ?? null,
         });
         refreshLocal();
       }
@@ -990,8 +1028,10 @@ export default function ReservasPage() {
               const canMove = canMoveLocalReservation(r);
               const canReview = !isBlock && canRequestReview(r);
               const canWhats = !isBlock && Boolean(reviewLink) && canWhatsappReview(r);
+              const canConfirmationEmail = !isBlock && Boolean(r.email);
+              const confirmationSent = Boolean(r.confirmationEmailSentAt);
               const reviewSent = Boolean(r.reviewEmailSentAt);
-              const showActions = isAct || canReview || canWhats || reviewSent;
+              const showActions = isAct || canReview || canWhats || reviewSent || canConfirmationEmail;
               const visitas = isBlock ? 0 : getVisitasCliente(r.telefono);
               return (
                 <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -1037,6 +1077,12 @@ export default function ReservasPage() {
                         ) : null;
                       })()}
                       {r.notas && <p className="mt-1 text-xs italic text-gray-500">{r.notas}</p>}
+                      {canConfirmationEmail && (
+                        <p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${confirmationSent ? "text-emerald-600" : "text-amber-600"}`}>
+                          <Mail className="h-3.5 w-3.5" />
+                          {confirmationSent ? "Confirmación enviada" : "Confirmación pendiente"}
+                        </p>
+                      )}
                       {r.seatedAt && (
                         <p className="mt-0.5 text-[10px] text-gray-400">
                           Entrada: {new Date(r.seatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
@@ -1115,6 +1161,20 @@ export default function ReservasPage() {
                               </button>
                             )}
                           </>
+                        )}
+                        {canConfirmationEmail && (
+                          <button
+                            onClick={() => void handleResendConfirmation(r)}
+                            disabled={confirmationSendingId === r.id}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:cursor-wait disabled:bg-gray-200 disabled:text-gray-500 ${confirmationSent ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}`}
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${confirmationSendingId === r.id ? "animate-spin" : ""}`} />
+                            {confirmationSendingId === r.id
+                              ? "Enviando"
+                              : confirmationSent
+                                ? "Reenviar confirmación"
+                                : "Enviar confirmación"}
+                          </button>
                         )}
                         {canReview && (
                           <button

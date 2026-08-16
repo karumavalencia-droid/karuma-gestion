@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
+import { isReservationStaffRequest } from "@/lib/reservas/security";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +9,6 @@ type EstadoEspera = "esperando" | "sentado" | "cancelado";
 // La ruta /api/reservas/* es pública en el middleware (la usa la web de reservas),
 // así que el listado y la gestión — que exponen datos de clientes — comprueban
 // la sesión de staff aquí mismo.
-async function isStaff(req: NextRequest): Promise<boolean> {
-  const user = await verifySessionToken(req.cookies.get(SESSION_COOKIE_NAME)?.value);
-  return Boolean(user && !user.employeeId);
-}
-
 export async function POST(req: NextRequest) {
   const sb = getSupabaseAdmin();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
@@ -35,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   // El origen 'staff' solo se acepta con sesión; lo demás entra como 'online'.
-  const origen = body.origen === "staff" && (await isStaff(req)) ? "staff" : "online";
+  const origen = body.origen === "staff" && (await isReservationStaffRequest(req)) ? "staff" : "online";
 
   const { data, error } = await sb
     .from("lista_espera")
@@ -48,7 +43,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await isStaff(req))) {
+  if (!(await isReservationStaffRequest(req))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const sb = getSupabaseAdmin();
@@ -70,7 +65,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isStaff(req))) {
+  if (!(await isReservationStaffRequest(req))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const sb = getSupabaseAdmin();

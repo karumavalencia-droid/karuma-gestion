@@ -5,6 +5,7 @@ import {
   SESSION_COOKIE_NAME,
   verifySessionToken,
 } from "@/lib/auth/session";
+import { isPublicReservationApiRequest } from "@/lib/reservas/security";
 
 const PUBLIC_PATHS = new Set([
   "/api/auth/login",
@@ -71,7 +72,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/register" ||
     pathname === "/reservas" ||
     pathname.startsWith("/reservas/") ||
-    pathname.startsWith("/api/reservas/") ||
+    isPublicReservationApiRequest(pathname, request.method) ||
     pathname.startsWith("/api/cron/") ||
     pathname === "/api/stock/import-template" ||
     pathname === "/api/stock/from-invoices"
