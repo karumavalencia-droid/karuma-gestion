@@ -917,7 +917,7 @@ export function FacturasPanel() {
               />
             </label>
             <p className="mt-1 text-xs text-gray-400">
-              Máximo 2 MB por archivo. Para muchas facturas, las importaremos desde Drive.
+              Se guarda en la nube; máximo 10 MB por archivo. Las copias iguales se omiten automáticamente.
             </p>
             {tieneArchivo && archivoActual && (
               <p className="mt-1 text-xs text-green-600">

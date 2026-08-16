@@ -5,6 +5,7 @@ import {
   genId,
   normalizeEmpresa,
 } from "@/lib/facturas/helpers";
+import { createHash } from "node:crypto";
 import type { CategoriaFactura, Factura, FacturasStore } from "@/lib/types";
 
 const STORE_PATH = "facturas/facturas.json";
@@ -217,6 +218,10 @@ function parseDataUrl(dataUrl: string): { bytes: Buffer; contentType: string } |
   };
 }
 
+function attachmentHash(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
 async function maybeStoreAttachment(
   credentials: BlobCredentials,
   factura: Factura,
@@ -227,7 +232,8 @@ async function maybeStoreAttachment(
   if (!parsed) return factura;
 
   const fileName = safeFileName(factura.archivoNombre || "factura", parsed.contentType);
-  const archivoPath = `${FILES_PREFIX}/${factura.id}/${fileName}`;
+  const hash = attachmentHash(parsed.bytes);
+  const archivoPath = `${FILES_PREFIX}/${hash}/${fileName}`;
   await writeBlobBytes(credentials, archivoPath, new Uint8Array(parsed.bytes), parsed.contentType);
 
   return {
@@ -236,6 +242,7 @@ async function maybeStoreAttachment(
     archivoPath,
     archivoData: "",
     archivoSource: "upload",
+    archivoHash: hash,
     updatedAt: Date.now(),
   };
 }
@@ -266,7 +273,7 @@ export async function writeFacturasStore(store: FacturasStore): Promise<Facturas
 
 export async function upsertFacturas(
   inputs: FacturaInput[],
-): Promise<{ inserted: number; updated: number; store: FacturasCloudStore }> {
+): Promise<{ inserted: number; updated: number; duplicates: number; store: FacturasCloudStore }> {
   const credentials = getBlobCredentials();
   if (!credentials) throw new Error("BLOB_READ_WRITE_TOKEN is not configured");
 
@@ -274,6 +281,7 @@ export async function upsertFacturas(
   const byId = new Map(store.facturas.map((factura) => [factura.id, factura]));
   let inserted = 0;
   let updated = 0;
+  let duplicates = 0;
 
   for (const input of inputs) {
     const previous = input.id ? byId.get(input.id) : undefined;
@@ -287,6 +295,15 @@ export async function upsertFacturas(
     if (!normalized) continue;
 
     const withAttachment = await maybeStoreAttachment(credentials, normalized);
+    const duplicate = withAttachment.archivoHash
+      ? [...byId.values()].find(
+          (item) => item.id !== withAttachment.id && item.archivoHash === withAttachment.archivoHash,
+        )
+      : undefined;
+    if (duplicate) {
+      duplicates += 1;
+      continue;
+    }
     if (previous) updated += 1;
     else inserted += 1;
     byId.set(withAttachment.id, withAttachment);
@@ -296,7 +313,7 @@ export async function upsertFacturas(
     facturas: [...byId.values()].sort((a, b) => b.fecha.localeCompare(a.fecha)),
   });
 
-  return { inserted, updated, store: next };
+  return { inserted, updated, duplicates, store: next };
 }
 
 export async function deleteFactura(id: string): Promise<FacturasCloudStore> {

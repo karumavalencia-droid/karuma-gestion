@@ -383,6 +383,7 @@ export interface Factura {
   archivoData: string;
   archivoPath?: string;
   archivoUrl?: string;
+  archivoHash?: string;
   archivoSource?: "upload" | "google-drive" | "legacy";
   driveFileId?: string;
   enviadoAt?: number;

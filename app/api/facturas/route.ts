@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       success: true,
       inserted: result.inserted,
       updated: result.updated,
+      duplicates: result.duplicates,
       updatedAt: result.store.updatedAt,
       facturas: result.store.facturas,
     });

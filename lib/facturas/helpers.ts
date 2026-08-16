@@ -1,7 +1,7 @@
 import { CategoriaFactura, EmpresaFactura, Factura, FacturasStore } from "@/lib/types";
 
 export const STORAGE_KEY = "karuma_facturas_v1";
-export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 export const EMPRESAS_FACTURA: { id: Exclude<EmpresaFactura, "">; label: string }[] = [
   { id: "kosushi", label: "Kosushi" },
@@ -114,6 +114,7 @@ function normalizeFactura(raw: unknown): Factura | null {
     archivoNombre: String(r.archivoNombre ?? ""),
     archivoTipo: String(r.archivoTipo ?? ""),
     archivoData: String(r.archivoData ?? ""),
+    archivoHash: typeof r.archivoHash === "string" ? r.archivoHash : undefined,
     enviadoAt: typeof r.enviadoAt === "number" ? r.enviadoAt : undefined,
     enviadoA: typeof r.enviadoA === "string" ? r.enviadoA : undefined,
     createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
