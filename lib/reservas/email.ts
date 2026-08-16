@@ -299,15 +299,34 @@ async function sendEmailViaGmailSmtp({
   return { sent: true };
 }
 
+/** Gmail SMTP is usable only when both required credentials are present. */
+export function gmailConfigurado(): boolean {
+  return Boolean(
+    process.env.RESERVAS_GMAIL_USER?.trim() &&
+      process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim(),
+  );
+}
+
 export async function sendReservationConfirmationEmail(
   input: ReservationConfirmationInput,
 ): Promise<EmailSendResult> {
   const email = buildConfirmationEmail(input);
-  return sendEmailViaGmailSmtp({
+
+  if (gmailConfigurado()) {
+    return sendEmailViaGmailSmtp({
+      to: input.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  }
+
+  return sendEmailViaResend({
     to: input.to,
     subject: email.subject,
     text: email.text,
     html: email.html,
+    idempotencyKey: `reservation-confirmation-${input.reservaId}`,
   });
 }
 
