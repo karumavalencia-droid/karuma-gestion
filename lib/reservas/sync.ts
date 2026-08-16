@@ -49,6 +49,7 @@ function mapSbRow(r: SbRow): ReservaLocal {
     estado: mapEstadoSb(r.estado as EstadoReserva),
     creadoEn: r.created_at as string,
     origen,
+    confirmationEmailSentAt: (r.confirmation_email_sent_at as string | null) ?? null,
     reviewEmailSentAt: (r.review_email_sent_at as string | null) ?? null,
     // La duración en mesa siempre parte del momento real en que se sentó.
     // `created_at` es la creación de la reserva y puede ser horas o días anterior.

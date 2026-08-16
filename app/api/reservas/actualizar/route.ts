@@ -4,6 +4,7 @@ import { canMoveReservation, isTableBlockReservation } from "@/lib/reservas/help
 import { mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import type { EstadoReserva, Reserva, ReservasConfig } from "@/lib/reservas/types";
 import type { DbReserva } from "@/lib/supabase/types";
+import { isReservationStaffRequest } from "@/lib/reservas/security";
 
 const MESA_NO_DISPONIBLE_ERROR =
   "Esta mesa no está disponible: cada reserva bloquea la mesa al menos 1h30.";
@@ -26,6 +27,9 @@ function duracionPorPersonas(personas: number, config: ReservasConfig): number {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await isReservationStaffRequest(req))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const body = await req.json() as ActualizarReservaBody;
 
   const { action, id, estado, mesaIds } = body;

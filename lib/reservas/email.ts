@@ -33,6 +33,10 @@ type EmailSendResult =
   | { sent: true }
   | { sent: false; reason: "missing_config" | "request_failed" | "invalid_recipient"; error?: string };
 
+type ReservationConfirmationSendOptions = {
+  idempotencyKey?: string;
+};
+
 const RESTAURANT_NAME = "Karuma Sushi & Grill";
 const RESTAURANT_ADDRESS = "C/ de Roger de Llòria, 2, Valencia";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
@@ -309,6 +313,7 @@ export function gmailConfigurado(): boolean {
 
 export async function sendReservationConfirmationEmail(
   input: ReservationConfirmationInput,
+  options: ReservationConfirmationSendOptions = {},
 ): Promise<EmailSendResult> {
   const email = buildConfirmationEmail(input);
 
@@ -326,8 +331,17 @@ export async function sendReservationConfirmationEmail(
     subject: email.subject,
     text: email.text,
     html: email.html,
-    idempotencyKey: `reservation-confirmation-${input.reservaId}`,
+    idempotencyKey: options.idempotencyKey?.trim()
+      || `reservation-confirmation-${input.reservaId}`,
   });
+}
+
+export function reservationConfirmationResendKey(
+  reservaId: string,
+  now = Date.now(),
+): string {
+  const fiveMinuteBucket = Math.floor(now / (5 * 60 * 1000));
+  return `reservation-confirmation-resend-${reservaId}-${fiveMinuteBucket}`;
 }
 
 export async function sendReservationReviewEmail(

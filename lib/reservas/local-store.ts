@@ -70,6 +70,7 @@ export interface ReservaLocal {
   creadoEn: string;
   origen?: "online" | "telefono" | "walkin" | "manual";
   canal?: CanalLocal;    // captación: google, instagram, etc.
+  confirmationEmailSentAt?: string | null;
   reviewEmailSentAt?: string | null;
   seatedAt?: string;
   finishedAt?: string;
@@ -181,6 +182,7 @@ export function storeCreatedReservation(input: {
   origen: NonNullable<ReservaLocal["origen"]>;
   duracionMin?: number;
   bloqueo?: boolean;
+  confirmationEmailSentAt?: string | null;
 }): ReservaLocal {
   const now = new Date().toISOString();
   const reserva: ReservaLocal = {
@@ -199,6 +201,7 @@ export function storeCreatedReservation(input: {
     estado: input.origen === "walkin" ? "walkin" : "confirmada",
     creadoEn: now,
     origen: input.origen,
+    confirmationEmailSentAt: input.confirmationEmailSentAt ?? null,
     seatedAt: input.origen === "walkin" ? now : undefined,
   };
   const list = loadReservas();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { EstadoReserva } from "@/lib/reservas/types";
+import { isReservationStaffRequest } from "@/lib/reservas/security";
 
 function mapLocalToSb(estado: string): EstadoReserva {
   switch (estado) {
@@ -15,6 +16,9 @@ function mapLocalToSb(estado: string): EstadoReserva {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await isReservationStaffRequest(req))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const { id, estado } = await req.json() as { id: string; estado: string };
   if (!id || !estado) return NextResponse.json({ error: "id y estado requeridos" }, { status: 400 });
 

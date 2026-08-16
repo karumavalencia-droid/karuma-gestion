@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { sendReservationReviewEmail } from "@/lib/reservas/email";
 import type { EstadoReserva } from "@/lib/reservas/types";
+import { isReservationStaffRequest } from "@/lib/reservas/security";
 
 type ClienteReservaLite = {
   nombre?: string | null;
@@ -24,6 +25,9 @@ function getCliente(row: ReservaReviewRow): ClienteReservaLite {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await isReservationStaffRequest(req))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const { id } = await req.json() as { id?: string };
   if (!id) return NextResponse.json({ error: "Falta id de reserva" }, { status: 400 });
 

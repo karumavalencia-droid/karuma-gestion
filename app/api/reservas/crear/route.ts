@@ -6,6 +6,11 @@ import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
 import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
 import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
 import { isValidOnlinePartySize } from "@/lib/reservas/config";
+import {
+  isReservationOrigin,
+  isReservationStaffRequest,
+  reservationCreationNeedsStaff,
+} from "@/lib/reservas/security";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -35,6 +40,18 @@ export async function POST(req: NextRequest) {
     fecha: string; hora: string; servicio: string; notas?: string;
     origen?: string; forceMesaIds?: number[]; bloqueo?: boolean; duracionMin?: number; idempotencyKey?: string;
   };
+  if (!isReservationOrigin(origen)) {
+    return NextResponse.json({ error: "Origen de reserva no válido" }, { status: 400 });
+  }
+  if (reservationCreationNeedsStaff(body) && !(await isReservationStaffRequest(req))) {
+    return NextResponse.json({ error: "Inicia sesión para gestionar reservas" }, { status: 401 });
+  }
+  if (
+    origen === "online" &&
+    (bloqueo === true || typeof forceMesaIds !== "undefined" || typeof duracionMin !== "undefined")
+  ) {
+    return NextResponse.json({ error: "Una reserva online no permite asignación manual" }, { status: 400 });
+  }
   const telefonoCliente = typeof telefono === "string" ? telefono.trim() : "";
   const emailCliente = typeof email === "string" ? email.trim().toLowerCase() : "";
   const idempotentReservaId = reservationIdFromIdempotencyKey(idempotencyKey);
@@ -230,7 +247,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (reusedReserva?.confirmation_email_sent_at) {
-    return NextResponse.json({ ok: true, reservaId, mesaIds, emailSent: true, duplicate: true });
+    return NextResponse.json({
+      ok: true,
+      reservaId,
+      mesaIds,
+      emailSent: true,
+      confirmationEmailSentAt: reusedReserva.confirmation_email_sent_at,
+      duplicate: true,
+    });
   }
 
   const emailResult = !isTableBlock && emailCliente
@@ -259,8 +283,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (!isTableBlock && emailResult.sent) {
-    await supabase.from("reservas").update({ confirmation_email_sent_at: new Date().toISOString() }).eq("id", reservaId);
+  const confirmationEmailSentAt = !isTableBlock && emailResult.sent
+    ? new Date().toISOString()
+    : null;
+
+  if (confirmationEmailSentAt) {
+    await supabase.from("reservas").update({ confirmation_email_sent_at: confirmationEmailSentAt }).eq("id", reservaId);
   }
 
   return NextResponse.json({
@@ -268,6 +296,7 @@ export async function POST(req: NextRequest) {
     reservaId,
     mesaIds,
     emailSent: emailResult.sent,
+    confirmationEmailSentAt,
     emailError: emailResult.sent ? null : emailResult.reason,
   });
 }
