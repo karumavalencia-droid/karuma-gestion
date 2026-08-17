@@ -13,10 +13,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Karuma ERP 1.0",
-  description: "Sistema ERP interno para Karuma Sushi & Grill — Valencia",
+  title: "Karuma Sushi & Grill · Valencia",
+  description: "Sushi, brasa y una mesa para compartir en el centro de Valencia.",
   manifest: "/manifest.json",
-  applicationName: "Karuma ERP",
+  applicationName: "Karuma Sushi & Grill",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

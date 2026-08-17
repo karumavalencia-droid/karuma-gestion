@@ -1,27 +1,9 @@
-"use client";
+import Link from "next/link";
+import { ArrowDown, ArrowRight, Clock3, MapPin, Sparkles } from "lucide-react";
+import { PublicShell, ReservationCta, RestaurantDetails } from "@/components/public/PublicSite";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthProvider";
+export const metadata = { title: "Karuma Sushi & Grill · Valencia", description: "Sushi, brasa y una mesa para compartir en el centro de Valencia." };
 
-const ADMIN_ROLES = new Set(["owner", "manager", "cashier"]);
-
-export default function Home() {
-  const { user, ready } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!ready || !user) return;
-    if (user.employeeId) {
-      router.replace("/my-attendance");
-      return;
-    }
-    if (ADMIN_ROLES.has(user.role)) {
-      router.replace("/dashboard");
-    } else {
-      router.replace("/kiosk");
-    }
-  }, [ready, user, router]);
-
-  return null;
+export default function HomePage() {
+  return <PublicShell><main id="inicio" className="public-page home-page"><section className="home-hero"><div className="hero-content"><p className="eyebrow">Sushi &amp; grill · Valencia</p><h1>Una mesa.<br /><em>Muchos sabores.</em></h1><p className="hero-lede">Sushi fresco, fuego de parrilla y ganas de compartir. Bienvenido a Karuma.</p><div className="hero-actions"><Link href="/menu" className="button button-light">Ver nuestra carta <ArrowRight size={17} /></Link><ReservationCta /></div></div><div className="hero-scroll"><ArrowDown size={16} /> Descubre Karuma</div></section><section className="intro-section"><div className="section-heading"><p className="eyebrow">La experiencia Karuma</p><h2>Ven por el sushi.<br /><em>Quédate por todo lo demás.</em></h2></div><div className="intro-copy"><p>En el corazón de Valencia, una carta para probar sin límites: rolls, nigiris, platos asiáticos y nuestra brasa, todo en una mesa pensada para compartir.</p><Link href="/restaurante" className="text-link">Conoce nuestra historia <ArrowRight size={16} /></Link></div></section><section className="feature-grid"><div className="feature-card feature-food"><span>Sushi a tu manera</span><strong>Prueba, comparte,<br />repite.</strong><Link href="/menu" className="circle-link" aria-label="Ver menú"><ArrowRight size={18} /></Link></div><div className="feature-card feature-grill"><span>El fuego de Karuma</span><strong>El sabor que<br />se recuerda.</strong></div><div className="feature-card feature-room"><span>Un ambiente para quedarse</span><strong>Tu mesa empieza<br />aquí.</strong><Link href="/reservas" className="circle-link" aria-label="Reservar mesa"><ArrowRight size={18} /></Link></div></section><section className="visit-section"><div><p className="eyebrow">Plan de hoy</p><h2>¿Nos vemos<br /><em>en Karuma?</em></h2><ReservationCta /></div><RestaurantDetails /></section></main></PublicShell>;
 }

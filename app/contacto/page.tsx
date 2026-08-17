@@ -1,0 +1,6 @@
+import { ExternalLink, MapPin, Phone } from "lucide-react";
+import { PublicShell, RESTAURANT, ReservationCta, RestaurantDetails } from "@/components/public/PublicSite";
+
+export default function ContactPage() {
+  return <PublicShell><main className="public-page contact-page"><section className="subpage-hero contact-hero"><p className="eyebrow">Contacto</p><h1>Te esperamos<br /><em>en Valencia.</em></h1><p>Ven a vernos, reserva tu mesa online o escríbenos si tienes cualquier duda.</p><ReservationCta /></section><section className="contact-layout"><div className="contact-card"><p className="eyebrow">Dónde estamos</p><h2>En el centro, cerca de todo.</h2><a className="contact-row" href={RESTAURANT.maps}><MapPin /><span><strong>{RESTAURANT.address}</strong><small>Cómo llegar en Google Maps <ExternalLink size={14} /></small></span></a><a className="contact-row" href={`tel:${RESTAURANT.phone.replace(/\s/g, "")}`}><Phone /><span><strong>{RESTAURANT.phone}</strong><small>Reservas y consultas</small></span></a></div><iframe className="map-frame" title="Mapa de Karuma Sushi & Grill" src="https://www.google.com/maps?q=Carrer%20de%20Roger%20de%20Ll%C3%B2ria%202%2C%20Valencia&output=embed" loading="lazy" /></section><section className="details-section"><RestaurantDetails /></section></main></PublicShell>;
+}

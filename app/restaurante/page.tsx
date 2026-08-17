@@ -1,0 +1,6 @@
+import { Flame, Heart, Leaf } from "lucide-react";
+import { PublicShell, ReservationCta, RestaurantDetails } from "@/components/public/PublicSite";
+
+export default function RestaurantPage() {
+  return <PublicShell><main className="public-page"><section className="subpage-hero restaurant-hero"><p className="eyebrow">El restaurante</p><h1>Una mesa con<br /><em>muchas historias.</em></h1><p>Karuma nace para juntar lo mejor del sushi con el fuego de la parrilla: sabores para descubrir, compartir y hacer tuya la noche.</p><ReservationCta /></section><section className="story-section"><div className="story-image" /><div className="story-copy"><p className="eyebrow">Nuestra manera de hacerlo</p><h2>Japón, brasa y el punto exacto de diversión.</h2><p>Nos gusta que cada visita tenga algo de descubrimiento. Un roll que no habías probado, una salsa que se convierte en favorita o ese plato de la brasa que llega justo al centro de la mesa.</p><p>Por eso nuestra carta está pensada para compartir: pide poco, prueba mucho y deja sitio para la próxima ronda.</p><div className="values-grid"><div><Flame /><strong>Hecho al momento</strong></div><div><Leaf /><strong>Producto y equilibrio</strong></div><div><Heart /><strong>Una experiencia cercana</strong></div></div></div></section><section className="details-section"><RestaurantDetails /></section></main></PublicShell>;
+}
