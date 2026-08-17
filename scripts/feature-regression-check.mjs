@@ -55,7 +55,13 @@ function readNavRoutes() {
 const INTENTIONALLY_UNLINKED = {
   // Sistema / público / portal empleado (acceso por login, rol o URL directa)
   "/": "landing / redirect",
+  "/menu": "web pública: carta",
+  "/restaurante": "web pública: historia y experiencia",
+  "/contacto": "web pública: ubicación y contacto",
   "/login": "página pública de acceso",
+  "/empleado": "alias de inicio del portal empleado",
+  "/oficina": "alias de inicio de la oficina ERP",
+  "/admin": "alias de inicio del panel admin",
   "/kiosk": "acceso desde el pie del sidebar (Modo fichaje)",
   "/my-attendance": "portal empleado (redirección por rol)",
   "/my-schedule": "portal empleado (redirección por rol)",
@@ -111,6 +117,7 @@ const INTENTIONALLY_UNLINKED = {
   "/personal": "solapa con /staff (no restaurado)",
   "/inventario": "solapa con /dashboard/stock (no restaurado)",
   "/compras": "solapa con submenú Proveedores (no restaurado)",
+  "/compras/:id": "detalle de proveedor desde el submenú Proveedores",
   "/pedidos": "solapa con submenú Proveedores (no restaurado)",
   "/delivery-center": "solapa con /delivery (no restaurado)",
 

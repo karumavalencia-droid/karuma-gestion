@@ -396,6 +396,23 @@ export default function ReservasPage() {
   // ── Derived stats per service ──────────────────────────────────────────────
   const statsComida = getMealStats(reservas, "comida");
   const statsCena = getMealStats(reservas, "cena");
+  const reservasOperativas = reservas.filter((r) => !isTableBlockReservation(r));
+  const estadoResumen: { val: EstadoLocal; label: string; tone: string }[] = [
+    { val: "pendiente", label: "Pendientes", tone: "text-amber-700" },
+    { val: "confirmada", label: "Confirmadas", tone: "text-emerald-700" },
+    { val: "llegada", label: "Llegadas", tone: "text-purple-700" },
+    { val: "sentada", label: "En mesa", tone: "text-emerald-900" },
+    { val: "no-show", label: "No-show", tone: "text-gray-600" },
+    { val: "cancelada", label: "Canceladas", tone: "text-gray-400" },
+  ];
+  const horaActual = new Date().toTimeString().slice(0, 5);
+  const proximasLlegadas = reservasOperativas
+    .filter((r) =>
+      (r.estado === "pendiente" || r.estado === "confirmada" || r.estado === "llegada") &&
+      (fecha !== hoy() || r.hora >= horaActual),
+    )
+    .sort((a, b) => a.hora.localeCompare(b.hora))
+    .slice(0, 3);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const servicioFiltro: ServicioLocal | "" = vistaServicio === "dia" ? "" : vistaServicio;
@@ -892,6 +909,50 @@ export default function ReservasPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── Control operativo del turno ───────────────────────────────── */}
+        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-black text-gray-800">Control operativo</p>
+              <p className="text-[11px] text-gray-400">Estado real de las reservas del día</p>
+            </div>
+            {proximasLlegadas.length > 0 && (
+              <p className="text-[11px] font-semibold text-karuma-600">
+                Próxima llegada: {proximasLlegadas[0].hora}
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {estadoResumen.map(({ val, label, tone }) => {
+              const totalEstado = reservasOperativas.filter((r) => r.estado === val).length;
+              return (
+                <button
+                  key={val}
+                  onClick={() => setEstadoFiltro(val)}
+                  className={`rounded-lg border border-gray-100 bg-gray-50 px-2 py-2 text-left transition-colors hover:border-karuma-200 hover:bg-karuma-50 ${estadoFiltro === val ? "ring-2 ring-karuma-400" : ""}`}
+                >
+                  <p className={`text-lg font-black ${tone}`}>{totalEstado}</p>
+                  <p className="truncate text-[10px] text-gray-500">{label}</p>
+                </button>
+              );
+            })}
+          </div>
+          {proximasLlegadas.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+              <span className="py-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Siguiente</span>
+              {proximasLlegadas.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { setBusqueda(r.nombre); setEstadoFiltro(""); }}
+                  className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] text-gray-600 hover:bg-karuma-50 hover:text-karuma-700"
+                >
+                  <span className="font-bold">{r.hora}</span> · {r.nombre} · {r.personas}p
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Filters ─────────────────────────────────────────────────────── */}
