@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
+type InvoiceLine = {
+  product_name?: string;
+  quantity?: number;
+  unit_price?: number;
+  total_price?: number;
+  invoice_date?: string;
+};
+
+type GroupedInvoice = {
+  id: string;
+  date: string;
+  items: Array<{ invoice_id: string; invoice_date: string; total_price?: number }>;
+  total: number;
+};
+
 export async function POST(request: Request) {
   try {
     const supabase = getLegacySupabaseAdmin();
@@ -17,7 +32,7 @@ export async function POST(request: Request) {
 
     // Insertar items de factura
     const items = invoices.flatMap((invoice) =>
-      invoice.items.map((item: any) => ({
+      (invoice.items ?? []).map((item: InvoiceLine) => ({
         supplier_id,
         invoice_id: invoice.id,
         product_name: item.product_name,
@@ -40,11 +55,11 @@ export async function POST(request: Request) {
     // Actualizar resumen de gastos
     const byMonth = new Map<string, { quantity: number; cost: number; count: number }>();
 
-    items.forEach((item: any) => {
-      const yearMonth = item.invoice_date.substring(0, 7); // YYYY-MM
+    items.forEach((item: InvoiceLine) => {
+      const yearMonth = (item.invoice_date ?? "").substring(0, 7); // YYYY-MM
       const current = byMonth.get(yearMonth) || { quantity: 0, cost: 0, count: 0 };
-      current.quantity += item.quantity;
-      current.cost += item.total_price;
+      current.quantity += item.quantity ?? 0;
+      current.cost += item.total_price ?? 0;
       current.count += 1;
       byMonth.set(yearMonth, current);
     });
@@ -99,7 +114,7 @@ export async function GET(request: Request) {
     }
 
     // Agrupar por factura
-    const invoicesMap = new Map<string, any>();
+    const invoicesMap = new Map<string, GroupedInvoice>();
     data?.forEach((item: { invoice_id: string; invoice_date: string; total_price?: number }) => {
       if (!invoicesMap.has(item.invoice_id)) {
         invoicesMap.set(item.invoice_id, {
@@ -109,9 +124,9 @@ export async function GET(request: Request) {
           total: 0,
         });
       }
-      const invoice = invoicesMap.get(item.invoice_id);
+      const invoice = invoicesMap.get(item.invoice_id)!;
       invoice.items.push(item);
-      invoice.total += item.total_price;
+      invoice.total += item.total_price ?? 0;
     });
 
     return NextResponse.json({

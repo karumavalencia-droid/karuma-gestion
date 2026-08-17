@@ -11,7 +11,7 @@ interface Notification {
   is_read: boolean;
   created_at: string;
   supplier_id?: number;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export function NotificationCenter({ userId = "admin" }: { userId?: string }) {

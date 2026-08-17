@@ -42,7 +42,7 @@ export function NotificationPreferences({ userId = "admin" }: { userId?: string 
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: boolean | string) => {
     if (preferences) {
       setPreferences({
         ...preferences,

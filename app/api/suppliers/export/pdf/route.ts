@@ -3,6 +3,29 @@ import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 const supabase = getLegacySupabaseAdmin()!;
 
+type SpendingRow = {
+  year_month: string;
+  total_quantity: number;
+  total_cost: number;
+  avg_unit_cost: number;
+};
+
+type ReportData = {
+  title?: string;
+  date?: string;
+  totalSpending?: number;
+  transactionCount?: number;
+  activeAlerts?: number;
+  potentialSavings?: number;
+  spending?: SpendingRow[];
+  totalCost?: number;
+  productCount?: number;
+  supplier?: { supplier_name?: string } | null;
+  totalRecommendations?: number;
+  totalPotentialSavings?: number;
+  avgConfidence?: number | string;
+};
+
 export async function GET(request: NextRequest) {
   try {
     if (!getLegacySupabaseAdmin()) {
@@ -14,7 +37,7 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get("period") || "6";
 
     // Obtener datos según tipo de reporte
-    let reportData: any = {};
+    let reportData: ReportData = {};
 
     if (reportType === "summary") {
       // Reporte ejecutivo
@@ -138,7 +161,7 @@ async function generateRecommendationsReport() {
   };
 }
 
-function generateHTML(reportData: any, reportType: string): string {
+function generateHTML(reportData: ReportData, reportType: string): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -192,7 +215,7 @@ function generateHTML(reportData: any, reportType: string): string {
             <th>Costo Total</th>
             <th>Costo Promedio/Unidad</th>
           </tr>
-          ${reportData.spending.map((s: any) => `
+          ${(reportData.spending ?? []).map((s) => `
             <tr>
               <td>${s.year_month}</td>
               <td>${s.total_quantity}</td>

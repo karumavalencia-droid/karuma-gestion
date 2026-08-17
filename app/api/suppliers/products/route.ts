@@ -39,6 +39,14 @@ export async function GET(request: Request) {
   }
 }
 
+type SupplierProductInput = {
+  product_name?: string;
+  quantity?: number | string;
+  unit?: string;
+  rango?: string;
+  invoice_date?: string;
+};
+
 export async function POST(request: Request) {
   try {
     const supabase = getLegacySupabaseAdmin();
@@ -56,7 +64,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("supplier_products")
       .insert(
-        products.map((p: any) => ({
+        products.map((p: SupplierProductInput) => ({
           supplier_id,
           product_name: p.product_name,
           quantity: p.quantity,

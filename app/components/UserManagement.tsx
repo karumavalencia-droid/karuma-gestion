@@ -246,7 +246,7 @@ export function UserManagement() {
                     <select
                       value={user.role}
                       onChange={(e) =>
-                        updateUser(user.id, { role: e.target.value as any })
+                        updateUser(user.id, { role: e.target.value })
                       }
                       className={`px-3 py-1 rounded text-sm font-semibold ${getRoleColor(user.role)}`}
                     >

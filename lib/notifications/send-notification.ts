@@ -3,6 +3,26 @@ import { isSupabaseConfigured } from "@/lib/supabase/admin";
 
 const supabase = getLegacySupabaseAdmin()!;
 
+/** Preferencias de notificación del usuario (tabla notification_preferences). */
+type NotificationPrefs = {
+  email?: string | null;
+  slack_webhook?: string | null;
+  email_alerts?: boolean | null;
+  slack_enabled?: boolean | null;
+};
+
+/** Datos de entrada para generar una recomendación de compra. */
+type RecommendationInsights = {
+  data_points?: number;
+  current_cost?: number;
+  savings_percent?: number;
+  title?: string;
+  description?: string;
+  priority?: number;
+  /** Texto de la acción necesaria (columna action_required es TEXT). */
+  action_required?: string;
+};
+
 interface NotificationPayload {
   user_id: string;
   supplier_id?: number;
@@ -10,7 +30,7 @@ interface NotificationPayload {
   title: string;
   message: string;
   priority?: "low" | "normal" | "high" | "urgent";
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export async function sendNotification(payload: NotificationPayload) {
@@ -64,7 +84,7 @@ export async function sendNotification(payload: NotificationPayload) {
   }
 }
 
-async function sendEmail(payload: NotificationPayload, prefs: any) {
+async function sendEmail(payload: NotificationPayload, prefs: NotificationPrefs) {
   try {
     // Usar Resend, SendGrid, o similar
     const response = await fetch("https://api.resend.com/emails", {
@@ -110,7 +130,7 @@ async function sendEmail(payload: NotificationPayload, prefs: any) {
   }
 }
 
-async function sendSlack(payload: NotificationPayload, prefs: any) {
+async function sendSlack(payload: NotificationPayload, prefs: NotificationPrefs) {
   try {
     const color =
       payload.priority === "urgent"
@@ -119,7 +139,7 @@ async function sendSlack(payload: NotificationPayload, prefs: any) {
           ? "ff9900"
           : "0099ff";
 
-    const response = await fetch(prefs.slack_webhook, {
+    const response = await fetch(prefs.slack_webhook ?? "", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -163,7 +183,7 @@ async function sendSlack(payload: NotificationPayload, prefs: any) {
 export async function generateRecommendation(
   supplier_id: number,
   recommendation_type: string,
-  insights: Record<string, any>,
+  insights: RecommendationInsights,
 ) {
   try {
     if (!isSupabaseConfigured()) throw new Error("Supabase no está configurado");
@@ -171,9 +191,9 @@ export async function generateRecommendation(
     const confidence =
       insights.data_points && insights.data_points > 6 ? 0.9 : 0.75;
 
-    // Calcular ahorro potencial
+    // Calcular ahorro potencial (0 si falta algún dato)
     const potential_savings =
-      insights.current_cost * (insights.savings_percent / 100);
+      (insights.current_cost ?? 0) * ((insights.savings_percent ?? 0) / 100);
 
     const { data, error } = await supabase
       .from("supplier_recommendations")
@@ -198,9 +218,9 @@ export async function generateRecommendation(
       user_id: "admin", // O el user_id correspondiente
       supplier_id,
       notification_type: "recommendation",
-      title: `Recomendación: ${insights.title}`,
-      message: insights.description,
-      priority: insights.priority > 7 ? "high" : "normal",
+      title: `Recomendación: ${insights.title ?? ""}`,
+      message: insights.description ?? "",
+      priority: (insights.priority ?? 0) > 7 ? "high" : "normal",
       data: {
         potential_savings: potential_savings.toFixed(2),
         confidence: (confidence * 100).toFixed(0) + "%",

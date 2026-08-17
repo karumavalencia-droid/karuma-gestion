@@ -126,7 +126,7 @@ export function PurchaseOrderGenerator({ supplierId }: { supplierId?: number }) 
 
       {!generated && (
         <div className="text-center py-8 text-gray-500">
-          Haz clic en "Generar Órdenes" para crear órdenes de compra automáticas
+          Haz clic en &quot;Generar Órdenes&quot; para crear órdenes de compra automáticas
           basadas en alertas de stock bajo.
         </div>
       )}

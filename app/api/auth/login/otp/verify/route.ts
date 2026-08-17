@@ -46,6 +46,7 @@ import {
   getOrCreateSession,
 } from "@/lib/auth/supabase-auth";
 import { createSessionToken } from "@/lib/auth/session";
+import type { Role } from "@/lib/auth/permissions";
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
     const sessionToken = await createSessionToken({
       name: account.display_name,
       email: account.auth_user_id, // Usar auth_user_id como email provisional
-      role: (account.role_id as any) || "staff", // Cast según tipos actuales
+      role: (account.role_id ? String(account.role_id) : "staff") as Role, // Cast según tipos actuales
       employeeId: null, // Por ahora, solo cuentas de usuario, no de empleado
     });
 

@@ -1,4 +1,5 @@
 import { getCominportPrice } from "@/src/data/cominportPrices";
+import * as cominportPricesModule from "@/src/data/cominportPrices";
 
 export async function GET() {
   return Response.json({
@@ -9,6 +10,6 @@ export async function GET() {
       "203577": getCominportPrice("203577"),
       "999999": getCominportPrice("999999"),
     },
-    totalPricesAvailable: Object.keys(require("@/src/data/cominportPrices")).length,
+    totalPricesAvailable: Object.keys(cominportPricesModule).length,
   });
 }

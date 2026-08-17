@@ -9,6 +9,8 @@ interface Supplier {
   avg_cost: number;
   total_cost: number;
   avg_quantity: number;
+  /** Agregación `supplier_products(count)` devuelta por /api/suppliers. */
+  supplier_products?: Array<{ count?: number }>;
 }
 
 export function SupplierBenchmark() {
@@ -29,7 +31,7 @@ export function SupplierBenchmark() {
 
       // Para cada proveedor, obtener gastos
       const benchmarkData = await Promise.all(
-        suppliersData.suppliers.map(async (supplier: any) => {
+        suppliersData.suppliers.map(async (supplier: Supplier) => {
           const spendingRes = await fetch(
             `/api/suppliers/spending?supplier_id=${supplier.id}`,
           );

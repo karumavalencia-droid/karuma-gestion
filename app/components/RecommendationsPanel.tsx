@@ -103,7 +103,7 @@ export function RecommendationsPanel({ supplierId }: { supplierId?: number }) {
         </div>
       ) : recommendations.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          No hay recomendaciones disponibles. Haz clic en "Generar" para crearlas.
+          No hay recomendaciones disponibles. Haz clic en &quot;Generar&quot; para crearlas.
         </div>
       ) : (
         <div className="space-y-3">

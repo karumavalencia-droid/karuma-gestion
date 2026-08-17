@@ -244,7 +244,7 @@ export function CustomizableDashboard() {
 
       {!editing && (
         <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-800">
-          💡 Tip: Haz clic en "Personalizar" para agregar/quitar widgets o restaurar la configuración por defecto.
+          💡 Tip: Haz clic en &quot;Personalizar&quot; para agregar/quitar widgets o restaurar la configuración por defecto.
         </div>
       )}
     </div>
