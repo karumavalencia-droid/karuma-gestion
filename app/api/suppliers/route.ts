@@ -19,10 +19,17 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      suppliers: data || [],
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        suppliers: data || [],
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error desconocido" },

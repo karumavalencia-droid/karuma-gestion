@@ -1,4 +1,4 @@
-import { Minus, Phone, Plus, Save, Send, ShoppingCart, Trash2 } from "lucide-react";
+import { MessageCircle, Minus, Phone, Plus, Save, Send, ShoppingCart, Trash2 } from "lucide-react";
 import type { CominportCartItem } from "@/src/data/cominportProducts";
 import { getCominportInvoiceMeta } from "@/src/data/cominportInvoiceRanking";
 
@@ -9,6 +9,7 @@ interface CartProps {
   totalQuantity: number;
   observations: string;
   whatsappNumber: string;
+  wechatId: string;
   configMessage: string;
   onQuantityChange: (codigo: string, cantidad: number) => void;
   onRemove: (codigo: string) => void;
@@ -16,6 +17,9 @@ interface CartProps {
   onWhatsappNumberChange: (value: string) => void;
   onSaveWhatsappNumber: () => void;
   onSend: () => void;
+  onWechatIdChange: (value: string) => void;
+  onSaveWechatId: () => void;
+  onSendWechat: () => void;
 }
 
 export function Cart({
@@ -25,6 +29,7 @@ export function Cart({
   totalQuantity,
   observations,
   whatsappNumber,
+  wechatId,
   configMessage,
   onQuantityChange,
   onRemove,
@@ -32,6 +37,9 @@ export function Cart({
   onWhatsappNumberChange,
   onSaveWhatsappNumber,
   onSend,
+  onWechatIdChange,
+  onSaveWechatId,
+  onSendWechat,
 }: CartProps) {
   const canSend = items.length > 0 && whatsappNumber.replace(/\D/g, "").length >= 6;
   const observationsId = `${idPrefix}-observations`;
@@ -69,14 +77,14 @@ export function Cart({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                        {item.nombre}
+                        {item.nombreEs ?? item.nombre}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {item.codigo} · {item.formato}
                       </p>
                       {invoiceMeta && (
                         <p className="text-xs font-medium text-karuma-700 dark:text-karuma-300">
-                          Unidad pedido: {invoiceMeta.unidadPedido}
+                        Unidad de pedido: {invoiceMeta.unidadPedido}
                         </p>
                       )}
                     </div>
@@ -189,6 +197,39 @@ export function Cart({
           <Send className="h-4 w-4" />
           Enviar pedido por WhatsApp
         </button>
+        <div className="rounded-lg bg-green-50 p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-green-700" />
+            <p className="text-xs font-semibold text-green-900">Pedido por WeChat</p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={wechatId}
+              onChange={(event) => onWechatIdChange(event.target.value)}
+              placeholder="WeChat ID del proveedor (opcional)"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+              aria-label={`WeChat del proveedor ${supplierName}`}
+            />
+            <button
+              type="button"
+              onClick={onSaveWechatId}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-green-200 bg-white px-3 text-sm font-medium text-green-800 hover:bg-green-100"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-green-800">Copia el pedido en español para pegarlo en WeChat.</p>
+          <button
+            type="button"
+            onClick={onSendWechat}
+            disabled={items.length === 0}
+            className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Copiar pedido para WeChat
+          </button>
+        </div>
       </div>
     </section>
   );

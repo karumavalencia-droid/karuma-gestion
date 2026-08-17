@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -34,6 +35,7 @@ import {
   genId,
   getAlertasStock,
   loadCompras,
+  ensureCoreProveedores,
   parsePedidoForm,
   parseProveedorForm,
   pedidoToForm,
@@ -120,14 +122,21 @@ function Field({
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-karuma-500 focus:outline-none focus:ring-1 focus:ring-karuma-500";
 
-export function ComprasPanel() {
+function proveedorDetailPath(nombre: string) {
+  const key = nombre.trim().toLocaleLowerCase("es");
+  if (key === "kanyo") return "/compras/kanyo";
+  if (key.startsWith("yongxing")) return "/compras/yongxing";
+  return null;
+}
+
+export function ComprasPanel({ initialSearch = "" }: { initialSearch?: string }) {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([]);
   const [contadorPedido, setContadorPedido] = useState(1);
   const [productosInv, setProductosInv] = useState<ProductoInventario[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("proveedores");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<ModalKind>(null);
   const [editProvId, setEditProvId] = useState<string | null>(null);
@@ -142,15 +151,59 @@ export function ComprasPanel() {
   }, []);
 
   useEffect(() => {
-    try {
-      const store = loadCompras();
-      setProveedores(store.proveedores);
-      setPedidos(store.pedidos);
-      setContadorPedido(store.contadorPedido);
-      refreshInventario();
-    } finally {
-      setLoaded(true);
-    }
+    let active = true;
+    const store = loadCompras();
+    const localProveedores = ensureCoreProveedores(store.proveedores);
+    setProveedores(localProveedores);
+    setPedidos(store.pedidos);
+    setContadorPedido(store.contadorPedido);
+    refreshInventario();
+
+    void fetch(`/api/suppliers?refresh=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: unknown) => {
+        if (!active || !payload || typeof payload !== "object") return;
+        const raw = (payload as { suppliers?: unknown }).suppliers;
+        if (!Array.isArray(raw)) return;
+
+        const remote = raw.flatMap((value): Proveedor[] => {
+          if (!value || typeof value !== "object") return [];
+          const item = value as Record<string, unknown>;
+          const nombre = String(item.name ?? "").trim();
+          if (!nombre) return [];
+          return [{
+            id: `supabase-${String(item.id ?? nombre)}`,
+            nombre,
+            contacto: String(item.contact_email ?? ""),
+            telefono: String(item.phone ?? ""),
+            email: String(item.contact_email ?? ""),
+            categoria: "Distribución",
+            estado: "activo",
+          }];
+        });
+        const merged = [...localProveedores];
+        const seen = new Set(merged.map((provider) => provider.nombre.trim().toLocaleLowerCase("es")));
+        for (const provider of remote) {
+          const key = provider.nombre.trim().toLocaleLowerCase("es");
+          if (!seen.has(key)) {
+            merged.push(provider);
+            seen.add(key);
+          }
+        }
+        setProveedores(merged);
+        saveCompras({ proveedores: merged, pedidos: store.pedidos, contadorPedido: store.contadorPedido });
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [refreshInventario]);
 
   const showToast = useCallback((msg: string) => {
@@ -479,9 +532,18 @@ export function ComprasPanel() {
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold text-gray-900">
-                        {prov.nombre}
-                      </h3>
+                      {proveedorDetailPath(prov.nombre) ? (
+                        <Link
+                          href={proveedorDetailPath(prov.nombre)!}
+                          className="block truncate text-base font-semibold text-karuma-700 hover:text-karuma-900 hover:underline"
+                        >
+                          {prov.nombre}
+                        </Link>
+                      ) : (
+                        <h3 className="truncate text-base font-semibold text-gray-900">
+                          {prov.nombre}
+                        </h3>
+                      )}
                       <p className="text-xs text-gray-500">{prov.categoria}</p>
                     </div>
                     <StatusBadge variant={prov.estado === "activo" ? "success" : "danger"}>
@@ -505,6 +567,14 @@ export function ComprasPanel() {
                   </dl>
 
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    {proveedorDetailPath(prov.nombre) && (
+                      <Link
+                        href={proveedorDetailPath(prov.nombre)!}
+                        className="inline-flex min-h-9 items-center rounded-lg border border-karuma-200 px-3 text-sm font-medium text-karuma-700 hover:bg-karuma-50"
+                      >
+                        Abrir proveedor
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

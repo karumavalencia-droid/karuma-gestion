@@ -29,8 +29,9 @@ export function ProductCard({
             {product.codigo}
           </p>
           <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-            {product.nombre}
+            {product.nombreEs ?? product.nombre}
           </h3>
+          {product.nombreEs && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{product.nombre}</p>}
         </div>
         <button
           type="button"

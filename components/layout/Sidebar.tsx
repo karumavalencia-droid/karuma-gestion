@@ -96,6 +96,12 @@ const SUPPLIER_LINKS = [
   },
 ] as const;
 
+const SUPPLIER_DIRECTORY_LINKS = [
+  { href: "/compras", label: "Todos los proveedores" },
+  { href: "/compras/kanyo", label: "Kanyo" },
+  { href: "/compras/yongxing", label: "Yongxing (永兴食品)" },
+] as const;
+
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
@@ -211,6 +217,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 id="supplier-ordering-menu"
                 className="ml-5 mt-1 space-y-1 border-l border-gray-700 pl-2"
               >
+                {SUPPLIER_DIRECTORY_LINKS.map(({ href, label }, index) => (
+                  <Link
+                    key={`${href}-${label}`}
+                    href={href}
+                    onClick={onClose}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      index === 0 && pathname === "/compras"
+                        ? "bg-karuma-600 text-white"
+                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    }`}
+                  >
+                    <Package className="h-4 w-4 shrink-0 opacity-90" />
+                    {label}
+                  </Link>
+                ))}
                 {SUPPLIER_LINKS.map(({ href, labelKey, icon: Icon }) => {
                   const isActive = pathname === href || pathname.startsWith(`${href}/`);
                   return (

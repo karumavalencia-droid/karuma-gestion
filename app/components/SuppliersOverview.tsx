@@ -36,7 +36,11 @@ export function SuppliersOverview() {
   async function fetchSuppliers() {
     try {
       setLoading(true);
-      const response = await fetch("/api/suppliers");
+      setError(null);
+      const response = await fetch(`/api/suppliers?refresh=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
 
       if (!response.ok) {
         throw new Error("Error al cargar proveedores");
@@ -89,12 +93,20 @@ export function SuppliersOverview() {
     <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Proveedores</h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          {showAddForm ? "Cancelar" : "Agregar Proveedor"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchSuppliers}
+            className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-100"
+          >
+            Actualizar
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            {showAddForm ? "Cancelar" : "Agregar Proveedor"}
+          </button>
+        </div>
       </div>
 
       {error && (

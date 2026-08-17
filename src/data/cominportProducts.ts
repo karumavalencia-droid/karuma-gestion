@@ -1,6 +1,7 @@
 export interface CominportProduct {
   codigo: string;
   nombre: string;
+  nombreEs?: string;
   categoria: string;
   formato: string;
   precio?: number;
@@ -10,7 +11,7 @@ export interface CominportCartItem extends CominportProduct {
   cantidad: number;
 }
 
-export type CominportOrderStatus = "enviado_whatsapp";
+export type CominportOrderStatus = "enviado_whatsapp" | "enviado_wechat";
 
 export interface CominportOrder {
   id: string;

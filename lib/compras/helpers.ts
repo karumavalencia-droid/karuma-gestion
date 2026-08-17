@@ -112,7 +112,32 @@ function seedProveedores(): Proveedor[] {
       categoria: "Bebidas",
       estado: "activo",
     },
+    {
+      id: "prov-kanyo",
+      nombre: "Kanyo",
+      contacto: "",
+      telefono: "",
+      email: "",
+      categoria: "Distribución",
+      estado: "activo",
+    },
+    {
+      id: "prov-cominport",
+      nombre: "Cominport",
+      contacto: "Catálogo de compras",
+      telefono: "+34 699 503 780",
+      email: "",
+      categoria: "Distribución",
+      estado: "activo",
+    },
   ];
+}
+
+/** Añade proveedores de catálogo que también deben aparecer en Compras aunque
+ * el navegador ya tenga un store antiguo en localStorage. */
+export function ensureCoreProveedores(proveedores: Proveedor[]): Proveedor[] {
+  const keys = new Set(proveedores.map((p) => p.nombre.trim().toLocaleLowerCase("es")));
+  return [...proveedores, ...seedProveedores().filter((p) => !keys.has(p.nombre.toLocaleLowerCase("es")))];
 }
 
 function resolveProveedorNombre(compraProveedor: string, producto: string): string {

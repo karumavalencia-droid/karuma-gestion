@@ -29,6 +29,7 @@ import type {
 
 type Tab = "catalogo" | "ranking" | "favoritos" | "historial" | "carrito";
 const CATALOG_PAGE_SIZE = 48;
+type SyncStatus = "loading" | "synced" | "offline";
 
 interface SupplierCatalogPageProps {
   supplierName: string;
@@ -36,6 +37,7 @@ interface SupplierCatalogPageProps {
   whatsappStorageKey: string;
   /** Número usado si no hay ninguno guardado en este navegador. */
   defaultWhatsappNumber?: string;
+  defaultFavorites?: string[];
   products: CominportProduct[];
   stockAlerts: CominportStockAlert[];
 }
@@ -75,7 +77,7 @@ function buildWhatsappMessage(
       (item) => {
         const invoiceMeta = getCominportInvoiceMeta(item.codigo);
 
-        return `Código: ${item.codigo}\nProducto: ${item.nombre}\nUnidad: ${
+        return `Código: ${item.codigo}\nProducto: ${item.nombreEs ?? item.nombre}\nUnidad: ${
           invoiceMeta?.unidadPedido ?? "unidad"
         }\nCantidad: ${item.cantidad}`;
       },
@@ -103,15 +105,20 @@ export function SupplierCatalogPage({
   storagePrefix,
   whatsappStorageKey,
   defaultWhatsappNumber = "",
+  defaultFavorites = [],
   products,
   stockAlerts,
 }: SupplierCatalogPageProps) {
   const favoritesStorageKey = `${storagePrefix}_favorites`;
   const historyStorageKey = `${storagePrefix}_order_history`;
+  const cartStorageKey = `${storagePrefix}_cart`;
+  const wechatStorageKey = `${storagePrefix}_wechat`;
+  const syncEndpoint = `/api/supplier-catalog-state/${encodeURIComponent(storagePrefix)}`;
   const [cart, setCart] = useState<CominportCartItem[]>([]);
   const [favoriteCodes, setFavoriteCodes] = useState<string[]>([]);
   const [orders, setOrders] = useState<CominportOrder[]>([]);
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [wechatId, setWechatId] = useState("");
   const [observations, setObservations] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas");
@@ -119,14 +126,25 @@ export function SupplierCatalogPage({
   const [configMessage, setConfigMessage] = useState("");
   const [toast, setToast] = useState("");
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
+  const [syncReady, setSyncReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
 
   useEffect(() => {
+    let active = true;
     const validCodes = new Set(products.map((product) => product.codigo));
     const storedFavorites = readStoredArray<unknown>(favoritesStorageKey)
       .filter((value): value is string => typeof value === "string")
       .filter((codigo) => validCodes.has(codigo));
 
-    setFavoriteCodes(storedFavorites);
+    const storedCart = readStoredArray<CominportCartItem>(cartStorageKey).flatMap((item) => {
+      const product = products.find((candidate) => candidate.codigo === item?.codigo);
+      const quantity = Number(item?.cantidad);
+      return product && Number.isFinite(quantity)
+        ? [{ ...product, cantidad: Math.max(1, Math.min(999, Math.floor(quantity))) }]
+        : [];
+    });
+    setCart(storedCart);
+    setFavoriteCodes(storedFavorites.length > 0 ? storedFavorites : defaultFavorites.filter((codigo) => validCodes.has(codigo)));
     setOrders(readStoredArray<CominportOrder>(historyStorageKey));
 
     try {
@@ -136,13 +154,87 @@ export function SupplierCatalogPage({
     } catch {
       setWhatsappNumber(defaultWhatsappNumber);
     }
+    try {
+      setWechatId(window.localStorage.getItem(wechatStorageKey) || "");
+    } catch {
+      setWechatId("");
+    }
+
+    void fetch(syncEndpoint, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`sync_${response.status}`);
+        return (await response.json()) as { state?: unknown };
+      })
+      .then((payload) => {
+        if (!active || !payload.state || typeof payload.state !== "object") return;
+        const state = payload.state as Record<string, unknown>;
+        const remoteCart = Array.isArray(state.cart)
+          ? state.cart.flatMap((item) => {
+              if (!item || typeof item !== "object") return [];
+              const raw = item as Partial<CominportCartItem>;
+              const product = products.find((candidate) => candidate.codigo === raw.codigo);
+              const quantity = Number(raw.cantidad);
+              return product && Number.isFinite(quantity)
+                ? [{ ...product, cantidad: Math.max(1, Math.min(999, Math.floor(quantity))) }]
+                : [];
+            })
+          : [];
+        const remoteFavorites = Array.isArray(state.favorites)
+          ? state.favorites.filter((value): value is string => typeof value === "string" && validCodes.has(value))
+          : [];
+        const remoteOrders = Array.isArray(state.orders) ? state.orders as CominportOrder[] : [];
+        setCart(remoteCart);
+        setFavoriteCodes(remoteFavorites);
+        setOrders(remoteOrders);
+        if (typeof state.whatsappNumber === "string") setWhatsappNumber(state.whatsappNumber);
+        if (typeof state.wechatId === "string") setWechatId(state.wechatId);
+        if (typeof state.observations === "string") setObservations(state.observations);
+      })
+      .then(() => {
+        if (!active) return;
+        setSyncStatus("synced");
+        setSyncReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSyncStatus("offline");
+        setSyncReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [
+    cartStorageKey,
     defaultWhatsappNumber,
+    defaultFavorites,
     favoritesStorageKey,
     historyStorageKey,
     products,
     whatsappStorageKey,
+    syncEndpoint,
   ]);
+
+  useEffect(() => {
+    if (!syncReady) return;
+    const timer = window.setTimeout(() => {
+      const state = { cart, favorites: favoriteCodes, orders, whatsappNumber, wechatId, observations };
+      saveStoredValue(cartStorageKey, cart);
+      saveStoredValue(favoritesStorageKey, favoriteCodes);
+      saveStoredValue(historyStorageKey, orders);
+      void fetch(syncEndpoint, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(`sync_${response.status}`);
+          setSyncStatus("synced");
+        })
+        .catch(() => setSyncStatus("offline"));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [cart, cartStorageKey, favoriteCodes, favoritesStorageKey, historyStorageKey, observations, orders, syncEndpoint, syncReady, wechatId, whatsappNumber]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -281,6 +373,16 @@ export function SupplierCatalogPage({
     }
   };
 
+  const saveWechatId = () => {
+    try {
+      window.localStorage.setItem(wechatStorageKey, wechatId.trim());
+      setWechatId(wechatId.trim());
+      setConfigMessage("WeChat guardado correctamente.");
+    } catch {
+      setConfigMessage("No se pudo guardar el WeChat en este navegador.");
+    }
+  };
+
   const sendWhatsappOrder = () => {
     const normalizedNumber = whatsappNumber.replace(/\D/g, "");
     if (cart.length === 0) return;
@@ -315,6 +417,28 @@ export function SupplierCatalogPage({
     showToast("Pedido guardado en el historial");
   };
 
+  const sendWechatOrder = async () => {
+    if (cart.length === 0) return;
+    const message = buildWhatsappMessage(cart, observations);
+    try {
+      await navigator.clipboard.writeText(message);
+      const order: CominportOrder = {
+        id: createOrderId(storagePrefix),
+        fecha: new Date().toISOString(),
+        productos: cart.map((item) => ({ ...item })),
+        cantidadTotal: totalQuantity,
+        estado: "enviado_wechat",
+        observaciones: observations.trim(),
+      };
+      setOrders((current) => [order, ...current].slice(0, 100));
+      setCart([]);
+      setObservations("");
+      showToast("Pedido copiado: pégalo en WeChat");
+    } catch {
+      setConfigMessage("No se pudo copiar el pedido. Revisa los permisos del navegador.");
+    }
+  };
+
   const addOrderAgain = (order: CominportOrder) => {
     addItems(order.productos);
     showToast("Pedido añadido de nuevo al carrito");
@@ -326,6 +450,7 @@ export function SupplierCatalogPage({
     totalQuantity,
     observations,
     whatsappNumber,
+    wechatId,
     configMessage,
     onQuantityChange: updateQuantity,
     onRemove: removeFromCart,
@@ -336,6 +461,12 @@ export function SupplierCatalogPage({
     },
     onSaveWhatsappNumber: saveWhatsappNumber,
     onSend: sendWhatsappOrder,
+    onWechatIdChange: (value: string) => {
+      setWechatId(value);
+      setConfigMessage("");
+    },
+    onSaveWechatId: saveWechatId,
+    onSendWechat: sendWechatOrder,
   };
   const hasInvoiceRanking = invoiceRankedProducts.length > 0;
   const mobileTabs: Array<{
@@ -380,6 +511,11 @@ export function SupplierCatalogPage({
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
             Busca productos, prepara la compra y envíala directamente por WhatsApp.
+          </p>
+          <p className={`mt-2 text-xs ${syncStatus === "offline" ? "text-amber-600" : "text-emerald-600"}`}>
+            {syncStatus === "loading" && "Cargando datos sincronizados…"}
+            {syncStatus === "synced" && "✓ Carrito y lista sincronizados entre dispositivos"}
+            {syncStatus === "offline" && "Modo sin conexión: se guardará en este dispositivo"}
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:min-w-[330px]">

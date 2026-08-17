@@ -1,5 +1,8 @@
-import { PurchasesErpPanel } from "@/components/erp-v1/PurchasesErpPanel";
+import { ComprasPanel } from "@/components/compras/ComprasPanel";
 
 export default function PurchasesPage() {
-  return <PurchasesErpPanel />;
+  // /purchases is the legacy English route. Keep it as an alias of the
+  // complete Spanish purchasing module so supplier data is not split between
+  // two different screens.
+  return <ComprasPanel />;
 }
