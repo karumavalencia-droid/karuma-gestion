@@ -1,4 +1,8 @@
-/** Temporalmente sin bloqueo por permisos de ruta. */
+/**
+ * Permisos por rol y módulo. La validación se aplica en middleware.ts para
+ * páginas y para APIs: una API sin módulo registrado queda restringida al rol
+ * owner (misma regla que las páginas sin módulo).
+ */
 export const PERMISSIONS_ENABLED = true;
 
 export type Role =
@@ -78,6 +82,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     { module: "staff" },
     { module: "schedule" },
     { module: "inventory" },
+    { module: "purchases" },
     { module: "reviews" },
   ],
   kitchen: [{ module: "recipes" }, { module: "ingredients" }, { module: "schedule" }],
@@ -113,6 +118,10 @@ export const ROUTE_MODULES: Record<string, Module> = {
   "/ingredients": "ingredients",
   "/invoices": "invoices",
   "/purchases": "purchases",
+  "/compras": "purchases",
+  "/suppliers": "purchases",
+  "/stock": "inventory",
+  "/supplier-catalog-state": "purchases",
   "/roles": "roles",
   "/settings": "settings",
 };

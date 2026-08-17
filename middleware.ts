@@ -183,6 +183,21 @@ export async function middleware(request: NextRequest) {
       }
       return NextResponse.redirect(new URL("/my-attendance", request.url));
     }
+    // API sin módulo registrado: solo el rol owner (misma regla que las
+    // páginas sin módulo). Evita que cuentas de gestión accedan a endpoints
+    // sensibles que nunca se mapearon (users, facturas, suppliers, stock,
+    // test-prices, integrations...). Los endpoints que sí usan las cuentas de
+    // gestión deben registrarse en ROUTE_MODULES.
+    if (
+      pathname.startsWith("/api/") &&
+      !getModuleForRoute(permissionPath) &&
+      (user.role !== "owner" || user.employeeId)
+    ) {
+      return NextResponse.json(
+        { error: "No tienes permiso para este módulo" },
+        { status: 403 },
+      );
+    }
     return NextResponse.next();
   }
 
