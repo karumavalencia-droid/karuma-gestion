@@ -18,10 +18,14 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { PortalTabs } from "@/components/portal/PortalTabs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type {
+  AttendanceCorrection,
   AttendanceEvent,
   AttendanceEventType,
 } from "@/lib/attendance/types";
-import { getKioskDeviceId } from "@/lib/kiosk/offline";
+import {
+  createAttendanceRequestId,
+  getKioskDeviceId,
+} from "@/lib/kiosk/offline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type PersonalAttendancePayload = {
@@ -55,6 +59,16 @@ type ColleaguesPayload = {
   colleagues: ColleagueAttendance[];
 };
 
+type AttendanceHistoryDay = {
+  date: string;
+  status: "present" | "missing" | "off";
+  planned: boolean;
+  scheduleLabel: string;
+  eventCount: number;
+  firstIn: string | null;
+  lastOut: string | null;
+};
+
 const copy = {
   es: {
     title: "Mi fichaje",
@@ -81,32 +95,58 @@ const copy = {
     logout: "Cerrar sesión",
     insideOnly: "Solo funciona dentro del restaurante",
     configMissing: "El administrador todavía no ha configurado la ubicación del restaurante.",
+    correctionTitle: "¿Te falta un fichaje?",
+    correctionHelp: "Solicita una corrección y tu responsable la revisará.",
+    correctionReason: "Motivo",
+    correctionSubmit: "Enviar solicitud",
+    correctionSent: "Solicitud enviada",
+    correctionPending: "Pendiente",
+    correctionApproved: "Aprobada",
+    correctionRejected: "Rechazada",
+    historyTitle: "Histórico de asistencia",
+    historyHelp: "Últimos 31 días según tu horario.",
+    historyPresent: "Con fichaje",
+    historyMissing: "Sin fichaje",
+    historyOff: "Descanso / sin turno",
+    historyEvents: "fichajes",
   },
   zh: {
-    title: "Mi fichaje",
-    subtitle: "Debes estar en el restaurante y permitir la ubicación.",
-    loading: "Cargando tu fichaje…",
-    unavailable: "No se pudo cargar el sistema de fichaje.",
-    entrance: "Entrada",
-    exit: "Salida",
-    nextEntrance: "Registrar entrada",
-    nextExit: "Registrar salida",
-    locating: "Comprobando ubicación…",
-    sending: "Guardando fichaje…",
-    ready: "Ubicación verificada",
-    locationNeeded: "La ubicación se comprueba al pulsar el botón.",
-    locationDenied:
-      "Activa la ubicación para este sitio en los ajustes del navegador.",
-    locationUnavailable:
-      "No se pudo obtener una ubicación precisa. Acércate a una ventana y vuelve a intentar.",
-    offline: "Necesitas conexión a internet para validar el fichaje.",
-    success: "Fichaje registrado correctamente",
-    today: "Fichajes de hoy",
-    noEvents: "Todavía no has fichado hoy.",
-    refresh: "Actualizar",
-    logout: "Cerrar sesión",
-    insideOnly: "Solo funciona dentro del restaurante",
-    configMissing: "El administrador todavía no ha configurado la ubicación del restaurante.",
+    title: "我的打卡",
+    subtitle: "请在餐厅内并允许浏览器使用定位。",
+    loading: "正在加载打卡记录…",
+    unavailable: "暂时无法连接打卡系统。",
+    entrance: "上班",
+    exit: "下班",
+    nextEntrance: "登记上班",
+    nextExit: "登记下班",
+    locating: "正在确认位置…",
+    sending: "正在保存打卡…",
+    ready: "位置已确认",
+    locationNeeded: "点击按钮后才会检查位置。",
+    locationDenied: "请在浏览器设置中允许此网站使用位置。",
+    locationUnavailable: "无法取得准确位置。请靠近窗边后重试。",
+    offline: "需要联网才能验证打卡。",
+    success: "打卡成功",
+    today: "今天的打卡记录",
+    noEvents: "今天还没有打卡记录。",
+    refresh: "刷新",
+    logout: "退出登录",
+    insideOnly: "仅限在餐厅内使用",
+    configMissing: "管理员尚未配置餐厅位置。",
+    correctionTitle: "漏打卡？",
+    correctionHelp: "提交更正申请，负责人审核后会补入记录。",
+    correctionReason: "原因",
+    correctionSubmit: "提交申请",
+    correctionSent: "申请已提交",
+    correctionPending: "待审核",
+    correctionApproved: "已通过",
+    correctionRejected: "已拒绝",
+    historyTitle: "考勤历史",
+    historyHelp: "根据排班显示最近 31 天记录。",
+    historyPresent: "已打卡",
+    historyMissing: "没有打卡",
+    historyOff: "休息 / 无排班",
+    historyEvents: "次打卡",
   },
 } as const;
 
@@ -129,6 +169,32 @@ function geolocationErrorMessage(
     : text.locationUnavailable;
 }
 
+function getCurrentPositionWithRetry(): Promise<GeolocationPosition> {
+  const locate = (options: PositionOptions) =>
+    new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+
+  return locate({ enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 })
+    .catch((error) => {
+      // Indoors, a fresh GPS fix may time out even though a recent network
+      // location is accurate enough for the server-side geofence.
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error.code === 2 || error.code === 3)
+      ) {
+        return locate({
+          enableHighAccuracy: false,
+          timeout: 10_000,
+          maximumAge: 60_000,
+        });
+      }
+      throw error;
+    });
+}
+
 export default function MyAttendancePage() {
   const { user, logout } = useAuth();
   const { locale } = useLanguage();
@@ -140,13 +206,20 @@ export default function MyAttendancePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [distance, setDistance] = useState<number | null>(null);
+  const [corrections, setCorrections] = useState<AttendanceCorrection[]>([]);
+  const [correctionType, setCorrectionType] = useState<AttendanceEventType>("in");
+  const [correctionAt, setCorrectionAt] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionSending, setCorrectionSending] = useState(false);
+  const [history, setHistory] = useState<AttendanceHistoryDay[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [attendanceRes, colleaguesRes] = await Promise.all([
+      const [attendanceRes, colleaguesRes, historyRes] = await Promise.all([
         fetch("/api/attendance/me", { cache: "no-store" }),
         fetch("/api/attendance/colleagues", { cache: "no-store" }),
+        fetch("/api/attendance/me/history?days=31", { cache: "no-store" }),
       ]);
 
       const payload = (await attendanceRes.json()) as PersonalAttendancePayload & {
@@ -154,6 +227,17 @@ export default function MyAttendancePage() {
       };
       if (!attendanceRes.ok) throw new Error(payload.error ?? text.unavailable);
       setData(payload);
+
+      if (historyRes.ok) {
+        const historyPayload = (await historyRes.json()) as { days?: AttendanceHistoryDay[] };
+        setHistory(historyPayload.days ?? []);
+      }
+
+      const correctionsRes = await fetch("/api/attendance/corrections", { cache: "no-store" });
+      if (correctionsRes.ok) {
+        const correctionsPayload = (await correctionsRes.json()) as { requests?: AttendanceCorrection[] };
+        setCorrections(correctionsPayload.requests ?? []);
+      }
 
       if (colleaguesRes.ok) {
         const colleaguesData = (await colleaguesRes.json()) as ColleaguesPayload;
@@ -169,6 +253,32 @@ export default function MyAttendancePage() {
       setLoading(false);
     }
   }, [text.unavailable]);
+
+  const submitCorrection = async () => {
+    if (correctionSending || !correctionAt || correctionReason.trim().length < 3) return;
+    setCorrectionSending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/attendance/corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: correctionType,
+          occurredAt: new Date(correctionAt).toISOString(),
+          reason: correctionReason.trim(),
+        }),
+      });
+      const result = (await response.json()) as { correction?: AttendanceCorrection; error?: string };
+      if (!response.ok || !result.correction) throw new Error(result.error ?? text.unavailable);
+      setCorrections((current) => [result.correction!, ...current]);
+      setCorrectionReason("");
+      setMessage(text.correctionSent);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : text.unavailable);
+    } finally {
+      setCorrectionSending(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -193,19 +303,13 @@ export default function MyAttendancePage() {
     }
 
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 15_000,
-          maximumAge: 0,
-        });
-      });
+      const position = await getCurrentPositionWithRetry();
 
       const response = await fetch("/api/attendance/me", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestId: crypto.randomUUID(),
+          requestId: createAttendanceRequestId(),
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
@@ -259,6 +363,23 @@ export default function MyAttendancePage() {
   };
 
   const nextIsIn = data?.nextAction !== "out";
+
+  const historyDateLabel = (iso: string) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString(locale === "zh" ? "zh-CN" : "es-ES", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "Europe/Madrid",
+    });
+
+  const historyTimeLabel = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("es-ES", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/Madrid",
+        })
+      : "—";
 
   return (
     <main className="min-h-[100dvh] bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 px-4 py-5 pb-24 text-white sm:py-8">
@@ -449,6 +570,96 @@ export default function MyAttendancePage() {
                         {text.noEvents}
                       </p>
                     )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                  <h3 className="text-sm font-semibold text-gray-800">{text.correctionTitle}</h3>
+                  <p className="mt-1 text-xs text-gray-500">{text.correctionHelp}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <select
+                      value={correctionType}
+                      onChange={(event) => setCorrectionType(event.target.value as AttendanceEventType)}
+                      className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                    >
+                      <option value="in">{text.entrance}</option>
+                      <option value="out">{text.exit}</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={correctionAt}
+                      onChange={(event) => setCorrectionAt(event.target.value)}
+                      className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                    />
+                  </div>
+                  <input
+                    value={correctionReason}
+                    onChange={(event) => setCorrectionReason(event.target.value)}
+                    placeholder={text.correctionReason}
+                    maxLength={500}
+                    className="mt-2 min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void submitCorrection()}
+                    disabled={correctionSending || !correctionAt || correctionReason.trim().length < 3}
+                    className="mt-2 min-h-11 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {correctionSending ? text.sending : text.correctionSubmit}
+                  </button>
+                  {corrections.length > 0 && (
+                    <div className="mt-3 space-y-1 text-xs text-gray-600">
+                      {corrections.slice(0, 3).map((correction) => (
+                        <div key={correction.id} className="flex justify-between gap-2 rounded-lg bg-white px-3 py-2">
+                          <span>{correction.type === "in" ? text.entrance : text.exit} · {correction.businessDate}</span>
+                          <span className="font-medium">
+                            {correction.status === "pending" ? text.correctionPending : correction.status === "approved" ? text.correctionApproved : text.correctionRejected}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-end justify-between gap-3">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                        <Clock3 className="h-4 w-4" />
+                        {text.historyTitle}
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">{text.historyHelp}</p>
+                    </div>
+                    <div className="text-right text-[11px] text-gray-500">
+                      <div>{text.historyPresent}: {history.filter((day) => day.status === "present").length}</div>
+                      <div className="text-red-600">{text.historyMissing}: {history.filter((day) => day.status === "missing").length}</div>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {history.map((day) => {
+                      const statusLabel = day.status === "present"
+                        ? text.historyPresent
+                        : day.status === "missing"
+                          ? text.historyMissing
+                          : text.historyOff;
+                      const statusClass = day.status === "present"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : day.status === "missing"
+                          ? "border-red-200 bg-red-50"
+                          : "border-gray-200 bg-gray-50";
+                      return (
+                        <div key={day.date} className={`rounded-xl border px-3 py-2.5 ${statusClass}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-gray-800">{historyDateLabel(day.date)}</span>
+                            <span className="text-xs font-semibold text-gray-600">{statusLabel}</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+                            <span>{day.planned ? `${historyTimeLabel(day.firstIn)} – ${historyTimeLabel(day.lastOut)}` : day.scheduleLabel}</span>
+                            {day.eventCount > 0 && <span>{day.eventCount} {text.historyEvents}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </>

@@ -1,5 +1,23 @@
 export type AttendanceEventType = "in" | "out";
 
+export type AttendanceCorrectionStatus = "pending" | "approved" | "rejected";
+
+export type AttendanceCorrection = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: AttendanceEventType;
+  occurredAt: string;
+  businessDate: string;
+  reason: string;
+  status: AttendanceCorrectionStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  appliedEventId: string | null;
+  createdAt: string;
+};
+
 export type AttendanceEvent = {
   id: string;
   requestId: string;

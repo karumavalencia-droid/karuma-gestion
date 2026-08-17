@@ -107,6 +107,33 @@ export type DbAttendanceEventInsert = {
   distance_from_store?: number | null;
 };
 
+export type DbAttendanceCorrection = {
+  id: string;
+  employee_key: string;
+  employee_name: string;
+  event_type: "in" | "out";
+  occurred_at: string;
+  business_date: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  applied_event_id: string | null;
+  created_at: string;
+};
+
+export type DbAttendanceCorrectionInsert = {
+  id?: string;
+  employee_key: string;
+  employee_name: string;
+  event_type: "in" | "out";
+  occurred_at: string;
+  business_date: string;
+  reason: string;
+  status?: "pending" | "approved" | "rejected";
+};
+
 export type TurnoServicio = "Comida" | "Cena" | "Descanso";
 
 export type DbTurno = {
@@ -885,6 +912,12 @@ export type Database = {
         Row: DbAttendanceEvent;
         Insert: DbAttendanceEventInsert;
         Update: Partial<DbAttendanceEventInsert>;
+        Relationships: [];
+      };
+      attendance_correction_requests: {
+        Row: DbAttendanceCorrection;
+        Insert: DbAttendanceCorrectionInsert;
+        Update: Partial<DbAttendanceCorrection>;
         Relationships: [];
       };
       turnos: {

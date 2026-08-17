@@ -14,6 +14,7 @@ import { PageContent } from "@/components/layout/PageContent";
 import { StatCard } from "@/components/ui/StatCard";
 import type {
   AttendanceAnomaly,
+  AttendanceCorrection,
   AttendanceDayReport,
 } from "@/lib/attendance/types";
 import { madridTimeLabel, minutesToDuration } from "@/lib/attendance/time";
@@ -104,6 +105,8 @@ export default function AttendancePage() {
   const [report, setReport] = useState<AttendanceDayReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [corrections, setCorrections] = useState<AttendanceCorrection[]>([]);
+  const [reviewing, setReviewing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +116,13 @@ export default function AttendancePage() {
       });
       if (!response.ok) throw new Error("attendance unavailable");
       setReport((await response.json()) as AttendanceDayReport);
+      const correctionsResponse = await fetch("/api/attendance/corrections/admin?status=pending", {
+        cache: "no-store",
+      });
+      if (correctionsResponse.ok) {
+        const payload = (await correctionsResponse.json()) as { requests?: AttendanceCorrection[] };
+        setCorrections(payload.requests ?? []);
+      }
       setError("");
     } catch {
       setError(text.error);
@@ -120,6 +130,27 @@ export default function AttendancePage() {
       setLoading(false);
     }
   }, [date, text.error]);
+
+  const reviewCorrection = async (correction: AttendanceCorrection, status: "approved" | "rejected") => {
+    setReviewing(correction.id);
+    try {
+      const response = await fetch("/api/attendance/corrections/admin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: correction.id, status }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? text.error);
+      }
+      setCorrections((current) => current.filter((item) => item.id !== correction.id));
+      await load();
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : text.error);
+    } finally {
+      setReviewing(null);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -187,6 +218,43 @@ export default function AttendancePage() {
 
       {error && (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      )}
+
+      {corrections.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-amber-950">Solicitudes de corrección</h2>
+              <p className="text-xs text-amber-800">Revisa el motivo antes de incorporarlas al registro oficial.</p>
+            </div>
+            <span className="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-900">{corrections.length} pendientes</span>
+          </div>
+          <div className="space-y-2">
+            {corrections.map((correction) => (
+              <div key={correction.id} className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-gray-700">
+                  <p className="font-semibold text-gray-900">{correction.employeeName} · {correction.type === "in" ? "Entrada" : "Salida"}</p>
+                  <p>{new Date(correction.occurredAt).toLocaleString("es-ES", { timeZone: "Europe/Madrid" })} · {correction.businessDate}</p>
+                  <p className="mt-1 text-xs text-gray-500">Motivo: {correction.reason}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    disabled={reviewing === correction.id}
+                    onClick={() => void reviewCorrection(correction, "rejected")}
+                    className="min-h-10 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 disabled:opacity-50"
+                  >Rechazar</button>
+                  <button
+                    type="button"
+                    disabled={reviewing === correction.id}
+                    onClick={() => void reviewCorrection(correction, "approved")}
+                    className="min-h-10 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50"
+                  >Aprobar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

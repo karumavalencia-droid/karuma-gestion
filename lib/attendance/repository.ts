@@ -1,13 +1,21 @@
 import { getSupabaseAdmin, isSupabaseConfigured } from "../supabase/admin";
 import type {
+  DbAttendanceCorrection,
+  DbAttendanceCorrectionInsert,
   DbAttendanceCredential,
   DbAttendanceEvent,
   DbAttendanceEventInsert,
 } from "../supabase/types";
-import type { AttendanceEvent, AttendanceEventType } from "./types";
+import type {
+  AttendanceCorrection,
+  AttendanceCorrectionStatus,
+  AttendanceEvent,
+  AttendanceEventType,
+} from "./types";
 
 type MemoryStore = {
   events: AttendanceEvent[];
+  corrections: AttendanceCorrection[];
 };
 
 const globalStore = globalThis as typeof globalThis & {
@@ -16,9 +24,136 @@ const globalStore = globalThis as typeof globalThis & {
 
 function memoryStore(): MemoryStore {
   if (!globalStore.__karumaAttendanceMemory) {
-    globalStore.__karumaAttendanceMemory = { events: [] };
+    globalStore.__karumaAttendanceMemory = { events: [], corrections: [] };
   }
   return globalStore.__karumaAttendanceMemory;
+}
+
+function mapCorrection(row: DbAttendanceCorrection): AttendanceCorrection {
+  return {
+    id: row.id,
+    employeeId: row.employee_key,
+    employeeName: row.employee_name,
+    type: row.event_type,
+    occurredAt: row.occurred_at,
+    businessDate: row.business_date,
+    reason: row.reason,
+    status: row.status,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+    appliedEventId: row.applied_event_id,
+    createdAt: row.created_at,
+  };
+}
+
+export async function listAttendanceCorrections(options?: {
+  employeeId?: string;
+  status?: AttendanceCorrectionStatus;
+}): Promise<AttendanceCorrection[]> {
+  requirePersistentStore();
+  if (!isSupabaseConfigured()) {
+    return memoryStore().corrections
+      .filter((row) => !options?.employeeId || row.employeeId === options.employeeId)
+      .filter((row) => !options?.status || row.status === options.status)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+  let query = supabase
+    .from("attendance_correction_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (options?.employeeId) query = query.eq("employee_key", options.employeeId);
+  if (options?.status) query = query.eq("status", options.status);
+  const { data, error } = await query.returns<DbAttendanceCorrection[]>();
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapCorrection);
+}
+
+export async function createAttendanceCorrection(input: {
+  employeeId: string;
+  employeeName: string;
+  type: AttendanceEventType;
+  occurredAt: string;
+  businessDate: string;
+  reason: string;
+}): Promise<AttendanceCorrection> {
+  requirePersistentStore();
+  const now = new Date().toISOString();
+  if (!isSupabaseConfigured()) {
+    const correction: AttendanceCorrection = {
+      id: crypto.randomUUID(),
+      ...input,
+      status: "pending",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewNote: null,
+      appliedEventId: null,
+      createdAt: now,
+    };
+    memoryStore().corrections.push(correction);
+    return correction;
+  }
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+  const row: DbAttendanceCorrectionInsert = {
+    employee_key: input.employeeId,
+    employee_name: input.employeeName,
+    event_type: input.type,
+    occurred_at: input.occurredAt,
+    business_date: input.businessDate,
+    reason: input.reason,
+  };
+  const { data, error } = await supabase
+    .from("attendance_correction_requests")
+    .insert(row)
+    .select("*")
+    .single()
+    .returns<DbAttendanceCorrection>();
+  if (error) throw new Error(error.message);
+  return mapCorrection(data);
+}
+
+export async function reviewAttendanceCorrection(input: {
+  id: string;
+  status: Exclude<AttendanceCorrectionStatus, "pending">;
+  reviewedBy: string;
+  reviewNote?: string | null;
+  appliedEventId?: string | null;
+}): Promise<AttendanceCorrection | null> {
+  requirePersistentStore();
+  const reviewedAt = new Date().toISOString();
+  if (!isSupabaseConfigured()) {
+    const row = memoryStore().corrections.find((item) => item.id === input.id);
+    if (!row) return null;
+    Object.assign(row, {
+      status: input.status,
+      reviewedBy: input.reviewedBy,
+      reviewedAt,
+      reviewNote: input.reviewNote ?? null,
+      appliedEventId: input.appliedEventId ?? null,
+    });
+    return row;
+  }
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Base de datos no configurada");
+  const { data, error } = await supabase
+    .from("attendance_correction_requests")
+    .update({
+      status: input.status,
+      reviewed_by: input.reviewedBy,
+      reviewed_at: reviewedAt,
+      review_note: input.reviewNote ?? null,
+      applied_event_id: input.appliedEventId ?? null,
+    })
+    .eq("id", input.id)
+    .eq("status", "pending")
+    .select("*")
+    .maybeSingle()
+    .returns<DbAttendanceCorrection>();
+  if (error) throw new Error(error.message);
+  return data ? mapCorrection(data) : null;
 }
 
 function canUseMemoryStore(): boolean {

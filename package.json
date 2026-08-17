@@ -9,7 +9,7 @@
     "lint": "next lint",
     "check:features": "node scripts/feature-regression-check.mjs",
     "admin:password": "node scripts/hash-admin-password.mjs",
-    "test:attendance": "node --import tsx --test tests/attendance-rules.test.ts tests/attendance-geofence.test.ts tests/attendance-mobile-api.test.ts",
+    "test:attendance": "node --import tsx --test tests/attendance-rules.test.ts tests/attendance-geofence.test.ts tests/attendance-mobile-api.test.ts tests/attendance-corrections.test.ts tests/attendance-history.test.ts",
     "test:portal": "node --import tsx --test tests/schedule-portal.test.ts tests/schedule-me-api.test.ts",
     "test:reservas": "node --import tsx --test tests/reservas-local-store.test.ts tests/reservas-table-combinations.test.ts",
     "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts",

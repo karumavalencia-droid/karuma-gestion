@@ -21,6 +21,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   getKioskDeviceId,
+  createAttendanceRequestId,
   listPendingPunches,
   queuePendingPunch,
   removePendingPunch,
@@ -255,7 +256,7 @@ export default function KioskPage() {
     const action = selected.nextAction;
     const clientOccurredAt = new Date().toISOString();
     const punch: PendingPunch = {
-      requestId: crypto.randomUUID(),
+      requestId: createAttendanceRequestId(),
       employeeId: selected.employeeId,
       pin,
       type: action,
