@@ -7,6 +7,7 @@ import {
   getMonthSalesSummary,
   getProfitSummary,
   getReviewsSummary,
+  getSalesSummary,
   getSalesByDate,
   getStaffSchedule,
   getTodayReservations,
@@ -53,25 +54,16 @@ type CeoAttachment = {
 const tools: OpenAI.Responses.Tool[] = [
   {
     type: "function",
-    name: "get_today_sales",
-    description: "Consultar las ventas de hoy en Karuma.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
-    strict: true,
-  },
-  {
-    type: "function",
-    name: "get_sales_by_date",
+    name: "get_sales_summary",
     description:
-      "Consultar las ventas de una fecha concreta en Karuma. Usar siempre para ayer o cuando el usuario mencione un día específico.",
+      "Consultar el importe real de ventas netas en sales_daily para un rango inclusivo. Usar para hoy, ayer, esta semana, este mes, un mes concreto o cualquier rango de fechas.",
     parameters: {
       type: "object",
       properties: {
-        date: {
-          type: "string",
-          description: "Fecha de negocio en formato YYYY-MM-DD.",
-        },
+        startDate: { type: "string", description: "Inicio inclusivo en formato YYYY-MM-DD." },
+        endDate: { type: "string", description: "Fin inclusivo en formato YYYY-MM-DD." },
       },
-      required: ["date"],
+      required: ["startDate", "endDate"],
       additionalProperties: false,
     },
     strict: true,
@@ -87,13 +79,6 @@ const tools: OpenAI.Responses.Tool[] = [
     type: "function",
     name: "get_today_reservations",
     description: "Consultar el estado de las reservas de hoy.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
-    strict: true,
-  },
-  {
-    type: "function",
-    name: "get_month_sales_summary",
-    description: "Consultar el resumen de ventas del mes actual.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     strict: true,
   },
@@ -538,6 +523,18 @@ function toResponseAttachment(
 function buildInsightCards(toolState: Record<string, unknown>): CeoInsightCard[] {
   const cards: CeoInsightCard[] = [];
 
+  const salesSummary = toolState.get_sales_summary as
+    | { found?: boolean; totalSales?: number; startDate?: string; endDate?: string; recordCount?: number }
+    | undefined;
+  if (salesSummary) {
+    cards.push({
+      title: "Ventas consultadas",
+      value: `€${Number(salesSummary.totalSales ?? 0).toLocaleString("es-ES", { maximumFractionDigits: 2 })}`,
+      detail: `${salesSummary.startDate ?? ""} → ${salesSummary.endDate ?? ""} · ${Number(salesSummary.recordCount ?? 0)} registros`,
+      tone: salesSummary.found ? "positive" : "neutral",
+    });
+  }
+
   const todaySales = toolState.get_today_sales as
     | { found?: boolean; netSales?: number; customers?: number; orders?: number; averageTicket?: number }
     | undefined;
@@ -785,6 +782,13 @@ async function runCeoTool(
 ): Promise<string> {
   try {
     switch (name) {
+      case "get_sales_summary": {
+        const args = JSON.parse(rawArguments) as { startDate?: unknown; endDate?: unknown };
+        if (typeof args.startDate !== "string" || typeof args.endDate !== "string") {
+          return JSON.stringify({ available: false, error: "Rango de fechas no válido." });
+        }
+        return JSON.stringify(await getSalesSummary({ startDate: args.startDate, endDate: args.endDate }));
+      }
       case "get_today_sales":
         return JSON.stringify(await getTodaySales());
       case "get_sales_by_date": {

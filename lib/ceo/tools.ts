@@ -22,6 +22,52 @@ export function getCeoReferenceDates() {
   };
 }
 
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function dateDistanceInDays(startDate: string, endDate: string): number {
+  return Math.floor(
+    (Date.parse(`${endDate}T00:00:00.000Z`) - Date.parse(`${startDate}T00:00:00.000Z`)) / 86_400_000,
+  );
+}
+
+/** Read-only sales summary for an inclusive date range. */
+export async function getSalesSummary({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase no configurado");
+  if (!isValidIsoDate(startDate) || !isValidIsoDate(endDate) || startDate > endDate) {
+    throw new Error("Rango de fechas de ventas no válido");
+  }
+  if (dateDistanceInDays(startDate, endDate) > 365) {
+    throw new Error("El rango máximo de consulta es de 366 días");
+  }
+
+  const { data, error } = await supabase
+    .from("sales_daily")
+    .select("business_date, net_sales")
+    .gte("business_date", startDate)
+    .lte("business_date", endDate)
+    .order("business_date", { ascending: true })
+    .returns<Array<Pick<DbSalesDaily, "business_date" | "net_sales">>>();
+  if (error) throw new Error(error.message);
+
+  const rows = data ?? [];
+  const totalSales = Math.round(rows.reduce((sum, row) => sum + Number(row.net_sales ?? 0), 0) * 100) / 100;
+  return {
+    found: rows.length > 0,
+    totalSales,
+    recordCount: rows.length,
+    currency: "EUR" as const,
+    startDate,
+    endDate,
+    source: "Supabase · sales_daily.net_sales",
+    amountField: "net_sales",
+  };
+}
+
 export async function getSalesByDate(date: string) {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase no configurado");
@@ -256,7 +302,8 @@ export function buildCeoSystemPrompt(user: SessionUser): string {
     "Mantén la respuesta clara, directa y natural en el idioma elegido.",
     `Fecha actual en Europe/Madrid: ${dates.today}. Ayer fue ${dates.yesterday}.`,
     "Usa solo datos reales devueltos por herramientas o indicados explícitamente.",
-    "Para preguntas sobre ayer o una fecha concreta, usa get_sales_by_date; no intentes deducir ese día desde el resumen mensual.",
+    "Para cualquier pregunta sobre营业额, ventas, facturación o cuánto se hizo, usa get_sales_summary con el rango inclusivo correcto. La respuesta debe incluir importe, rango consultado, número de registros y fuente. Si found es false, indica claramente que no hay registros; nunca inventes un importe.",
+    "Para ayer o una fecha concreta, también usa get_sales_summary con startDate y endDate iguales; no uses el resumen mensual para deducir un importe.",
     "Si falta un dato, dilo con honestidad.",
     "No inventes cifras, reservas, turnos ni ventas.",
     "No ejecutes acciones de escritura; solo análisis y borradores.",
