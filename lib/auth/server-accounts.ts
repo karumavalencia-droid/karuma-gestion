@@ -18,6 +18,11 @@ const ADMIN_USERNAME = (process.env.KARUMA_ADMIN_USERNAME ?? "").trim().toLowerC
 const ADMIN_PASSWORD_HASH = process.env.KARUMA_ADMIN_PASSWORD_HASH ?? "";
 const ADMIN_PHONE = (process.env.KARUMA_ADMIN_PHONE ?? "").trim();
 
+// Cuenta operativa de Oficina. La contraseña se guarda únicamente como hash;
+// sin KARUMA_OFICINA_PASSWORD_HASH la cuenta queda desactivada (igual que admin).
+const OFICINA_USERNAME = "oficina";
+const OFICINA_PASSWORD_HASH = process.env.KARUMA_OFICINA_PASSWORD_HASH ?? "";
+
 export function getAdminPhone(): string | null {
   return /^\+\d{10,15}$/.test(ADMIN_PHONE) ? ADMIN_PHONE : null;
 }
@@ -34,6 +39,24 @@ export async function verifyAdminCredentials(
   if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) return false;
   if (username.trim().toLowerCase() !== ADMIN_USERNAME) return false;
   return bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+}
+
+export async function verifyOficinaCredentials(
+  username: string,
+  password: string,
+): Promise<boolean> {
+  if (!OFICINA_PASSWORD_HASH) return false;
+  if (username.trim().toLowerCase() !== OFICINA_USERNAME) return false;
+  return bcrypt.compare(password, OFICINA_PASSWORD_HASH);
+}
+
+export function oficinaSessionUser(): SessionUser {
+  return {
+    name: "Oficina Karuma",
+    email: "oficina@karuma.local",
+    role: "manager",
+    employeeId: null,
+  };
 }
 
 export function adminSessionUser(): SessionUser {

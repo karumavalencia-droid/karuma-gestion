@@ -1,5 +1,5 @@
 /** Temporalmente sin bloqueo por permisos de ruta. */
-export const PERMISSIONS_ENABLED = false;
+export const PERMISSIONS_ENABLED = true;
 
 export type Role =
   | "owner"
@@ -97,6 +97,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 /** Ruta -> módulo de permisos */
 export const ROUTE_MODULES: Record<string, Module> = {
+  "/empleado": "schedule",
+  "/oficina": "dashboard",
+  "/admin": "roles",
   "/dashboard": "dashboard",
   "/attendance": "staff",
   "/sales": "sales",

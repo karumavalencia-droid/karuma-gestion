@@ -8,6 +8,7 @@ import {
   adminSessionUser,
   getAdminPhone,
   maskPhone,
+  verifyOficinaCredentials,
   verifyAdminCredentials,
 } from "@/lib/auth/server-accounts";
 import {
@@ -59,6 +60,15 @@ export async function POST(request: Request) {
 
   if (!username || !password) {
     return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
+  }
+
+  if (await verifyOficinaCredentials(username, password)) {
+    return createLoginResponse({
+      name: "Oficina Karuma",
+      email: "oficina@karuma.local",
+      role: "manager",
+      employeeId: null,
+    });
   }
 
   if (await verifyAdminCredentials(username, password)) {

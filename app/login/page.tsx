@@ -34,6 +34,8 @@ export default function LoginPage() {
   const [adminCode, setAdminCode] = useState("");
   const [adminPhoneHint, setAdminPhoneHint] = useState("");
   const [adminExpiresIn, setAdminExpiresIn] = useState<number | null>(null);
+  const [officeUser, setOfficeUser] = useState("");
+  const [officePass, setOfficePass] = useState("");
 
   useEffect(() => {
     if (ready && user) {
@@ -96,6 +98,34 @@ export default function LoginPage() {
       setError("Error de conexión. Intenta de nuevo.");
     } finally {
       setOtpLoading(false);
+    }
+  };
+
+  const handleOfficeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/auth/login/oficina", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: officeUser, password: officePass }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Usuario o contraseña incorrectos");
+        return;
+      }
+      if (!data.role) {
+        setError("Respuesta inesperada del servidor");
+        return;
+      }
+      window.location.assign(getDefaultRoute(data.role, data.employeeId ?? null));
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -219,9 +249,7 @@ export default function LoginPage() {
     mode === "empleado"
       ? handleEmployeeSubmit
       : mode === "oficina"
-        ? otpStep === "phone"
-          ? handleRequestOtp
-          : handleVerifyOtp
+        ? handleOfficeSubmit
         : adminStep === "creds"
           ? handleAdminCreds
           : handleAdminVerify;
@@ -231,25 +259,28 @@ export default function LoginPage() {
     : mode === "empleado"
       ? "Entrar"
       : mode === "oficina"
-        ? otpStep === "phone"
-          ? "Enviar código"
-          : "Verificar"
+        ? "Entrar en Oficina"
         : adminStep === "creds"
           ? "Continuar"
           : "Verificar";
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#10151c] p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-700 bg-[#19212b] text-white shadow-2xl lg:grid lg:grid-cols-[.8fr_1.2fr]">
+        <div className="hidden flex-col justify-between bg-[#263441] p-10 lg:flex">
+          <div><div className="mb-8 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e05a3f] text-xl font-bold">K</div><p className="text-xs uppercase tracking-[0.25em] text-slate-400">Karuma ERP</p><h2 className="mt-5 text-4xl font-semibold leading-tight">Todo lo que necesitas para que el servicio fluya.</h2></div>
+          <p className="text-sm leading-6 text-slate-400">Acceso seguro para el equipo Karuma.<br />Tu rol determina las herramientas disponibles.</p>
+        </div>
+        <div className="p-6 sm:p-10">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-karuma-600 text-lg font-bold text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e05a3f] text-lg font-bold text-white lg:hidden">
             K
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Karuma ERP</h1>
-          <p className="mt-1 text-sm text-gray-500">Elige cómo quieres entrar</p>
+          <h1 className="text-xl font-bold text-white">Acceso interno</h1>
+          <p className="mt-1 text-sm text-slate-400">Elige tu espacio de trabajo</p>
         </div>
 
-        <div className="mb-5 flex gap-1 rounded-xl bg-gray-100 p-1">
+        <div className="mb-5 flex gap-1 rounded-xl bg-[#10151c] p-1">
           {(
             [
               { id: "empleado" as Mode, label: "Empleado" },
@@ -266,8 +297,8 @@ export default function LoginPage() {
               }}
               className={`min-h-[44px] flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 mode === t.id
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#e05a3f] text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
               {t.label}
@@ -279,7 +310,7 @@ export default function LoginPage() {
           {mode === "empleado" ? (
             <>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
+                <span className="text-sm font-medium text-slate-200">PIN de empleado</span>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -287,112 +318,91 @@ export default function LoginPage() {
                   maxLength={8}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-center text-2xl tracking-[0.5em] text-white`}
                   placeholder="••••"
                   autoComplete="off"
                   required
                 />
               </label>
-              <p className="text-center text-xs text-gray-500">
+              <p className="text-center text-xs text-slate-400">
                 Entra con tu PIN para fichar y ver tu horario.
               </p>
             </>
           ) : mode === "oficina" ? (
-            otpStep === "phone" ? (
-              <>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-gray-700">Número de teléfono</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={inputClass}
-                    placeholder="+34 600 123 456"
-                    required
-                  />
-                </label>
-                <p className="text-center text-xs text-gray-500">
-                  Recibirás un código de 6 dígitos por SMS.
-                </p>
-              </>
-            ) : (
-              <>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-gray-700">Código de verificación</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                    className={`${inputClass} text-center text-3xl tracking-[0.3em] font-mono`}
-                    placeholder="000000"
-                    autoComplete="one-time-code"
-                    required
-                  />
-                </label>
-                <p className="text-center text-xs text-gray-500">
-                  {otpExpiresIn ? `Válido por ${otpExpiresIn}s` : "Código expirado, solicita uno nuevo"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpStep("phone");
-                    setOtpCode("");
-                    setOtpExpiresIn(null);
-                  }}
-                  className="w-full text-center text-xs text-karuma-600 hover:text-karuma-700 underline"
-                >
-                  ← Cambiar número
-                </button>
-              </>
-            )
-          ) : adminStep === "creds" ? (
             <>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Usuario</span>
+                <span className="text-sm font-medium text-slate-200">Cuenta de Oficina</span>
                 <input
                   type="text"
-                  value={adminUser}
-                  onChange={(e) => setAdminUser(e.target.value)}
-                  className={inputClass}
+                  value={officeUser}
+                  onChange={(e) => setOfficeUser(e.target.value)}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-white`}
+                  placeholder="oficina"
                   autoComplete="username"
                   required
                 />
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Contraseña</span>
+                <span className="text-sm font-medium text-slate-200">Contraseña</span>
                 <input
                   type="password"
-                  value={adminPass}
-                  onChange={(e) => setAdminPass(e.target.value)}
-                  className={inputClass}
+                  value={officePass}
+                  onChange={(e) => setOfficePass(e.target.value)}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-white`}
+                  placeholder="••••••••••"
                   autoComplete="current-password"
                   required
                 />
               </label>
-              <p className="text-center text-xs text-gray-500">
+              <p className="text-center text-xs text-slate-400">
+                Acceso operativo para reservas, inventario y gestión diaria.
+              </p>
+            </>
+          ) : adminStep === "creds" ? (
+            <>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-200">Usuario</span>
+                <input
+                  type="text"
+                  value={adminUser}
+                  onChange={(e) => setAdminUser(e.target.value)}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-white`}
+                  autoComplete="username"
+                  required
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-200">Contraseña</span>
+                <input
+                  type="password"
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-white`}
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              <p className="text-center text-xs text-slate-400">
                 Tras la contraseña recibirás un código SMS de verificación.
               </p>
             </>
           ) : (
             <>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Código SMS</span>
+                <span className="text-sm font-medium text-slate-200">Código SMS</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={6}
                   value={adminCode}
                   onChange={(e) => setAdminCode(e.target.value.replace(/\D/g, ""))}
-                  className={`${inputClass} text-center text-3xl tracking-[0.3em] font-mono`}
+                  className={`${inputClass} border-slate-600 bg-[#10151c] text-center text-3xl tracking-[0.3em] font-mono text-white`}
                   placeholder="000000"
                   autoComplete="one-time-code"
                   required
                 />
               </label>
-              <p className="text-center text-xs text-gray-500">
+              <p className="text-center text-xs text-slate-400">
                 Código enviado a {adminPhoneHint || "tu teléfono"}.
                 {adminExpiresIn ? ` Válido por ${adminExpiresIn}s.` : " Código expirado, vuelve a empezar."}
               </p>
@@ -418,12 +428,13 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting || otpLoading}
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-karuma-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-karuma-700 disabled:opacity-60"
+            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-[#e05a3f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#c94731] disabled:opacity-60"
           >
             {submitLabel}
           </button>
         </form>
       </div>
+    </div>
     </div>
   );
 }
