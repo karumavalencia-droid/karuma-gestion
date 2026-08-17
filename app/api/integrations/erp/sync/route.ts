@@ -25,10 +25,20 @@ function getSupabase() {
 /**
  * POST /api/integrations/erp/sync
  * @description Sincronizar datos con sistema ERP (SAP, NetSuite, etc)
+ * @auth Authorization: Bearer ERP_SYNC_SECRET (servidor a servidor)
  * @body { erp_type, supplier_data, product_data }
  */
 export async function POST(request: NextRequest) {
   try {
+    // Autenticación servidor a servidor: sin el secreto el endpoint se niega.
+    // El middleware lo deja pasar a propósito (no hay sesión de navegador);
+    // esta comprobación es la única puerta.
+    const erpSecret = process.env.ERP_SYNC_SECRET ?? "";
+    const auth = request.headers.get("authorization") ?? "";
+    if (!erpSecret || auth !== `Bearer ${erpSecret}`) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
     const supabase = getSupabase();
     if (!supabase) {
       return NextResponse.json(

@@ -18,6 +18,9 @@ const PUBLIC_PATHS = new Set([
   // login, para avisar de que hay una versión nueva. No expone nada nuevo (ese
   // id ya viaja en la query ?dpl= de los assets).
   "/api/version",
+  // Sincronización ERP servidor a servidor: el endpoint valida
+  // `Authorization: Bearer ERP_SYNC_SECRET`; sin sesión de navegador aquí.
+  "/api/integrations/erp/sync",
 ]);
 
 // Módulos confidenciales: SOLO la sesión de Admin (usuario + contraseña + SMS).
