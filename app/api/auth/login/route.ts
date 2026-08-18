@@ -26,6 +26,12 @@ type LoginUser = Pick<
   "email" | "name" | "role_id" | "password_hash" | "employee_key"
 >;
 
+const OFFICE_USERNAME = "oficina";
+// bcrypt hash for the shared Oficina password. Keep the plain password out of source.
+const OFFICE_PASSWORD_HASH =
+  process.env.KARUMA_OFFICE_PASSWORD_HASH ??
+  "$2b$12$QNOYQVf6EliFd6lNg96AKOe0mrE0bHQ1lDYxGQ7crneN5dt6vuSei";
+
 async function createLoginResponse(user: SessionUser) {
   try {
     const token = await createSessionToken(user);
@@ -59,6 +65,21 @@ export async function POST(request: Request) {
 
   if (!username || !password) {
     return NextResponse.json({ error: "Usuario y contraseña son obligatorios" }, { status: 400 });
+  }
+
+  // Shared office account: intentionally limited to manager permissions.
+  if (username === OFFICE_USERNAME) {
+    const validOfficePassword = await bcrypt.compare(password, OFFICE_PASSWORD_HASH);
+    if (!validOfficePassword) {
+      return NextResponse.json({ error: "Usuario o contraseña incorrectos" }, { status: 401 });
+    }
+
+    return createLoginResponse({
+      name: "Oficina",
+      email: "oficina@karuma.local",
+      role: "manager",
+      employeeId: null,
+    });
   }
 
   if (await verifyAdminCredentials(username, password)) {
