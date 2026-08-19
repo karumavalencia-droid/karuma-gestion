@@ -100,6 +100,11 @@ export function Cart({
                       <p className="truncate text-sm font-medium text-gray-900">
                         {item.nombre}
                       </p>
+                      {item.nombreEs && (
+                        <p className="truncate text-xs font-medium text-gray-600">
+                          {item.nombreEs}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500">
                         {item.codigo} · {item.formato}
                       </p>
