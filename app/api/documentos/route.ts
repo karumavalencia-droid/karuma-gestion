@@ -1,21 +1,47 @@
 /**
- * Documentos confidenciales (solo owner). Bucket privado "documentos".
+ * Documentos confidenciales (solo owner).
  *
  * GET  /api/documentos?categoria=...  → lista
  * POST /api/documentos                → subida (multipart/form-data)
  *   campos: file, categoria, notas?
+ *
+ * Los documentos generales se guardan en el bucket privado "documentos".
+ * Las facturas se guardan en el bucket privado "facturas" y se deduplican por SHA-256.
  */
 
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth/owner-guard";
 import {
-  DOCUMENTOS_BUCKET,
   DOCUMENTO_CATEGORIAS as CATEGORIAS,
+  getDocumentoBucket,
+  type DocumentoCategoria,
 } from "@/lib/documentos/constants";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import type { DbDocumentoCategoria } from "@/lib/supabase/types";
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB por archivo
+
+const DOCUMENTO_SELECT = [
+  "id",
+  "nombre",
+  "categoria",
+  "mime_type",
+  "tamano_bytes",
+  "notas",
+  "created_at",
+  "tipo_documento",
+  "proveedor",
+  "nif_proveedor",
+  "fecha_documento",
+  "numero_documento",
+  "subtotal",
+  "iva",
+  "total",
+  "moneda",
+  "source_type",
+  "processing_status",
+  "extraction_confidence",
+].join(", ");
 
 export async function GET(request: NextRequest) {
   const guard = await requireOwner(request);
@@ -29,11 +55,12 @@ export async function GET(request: NextRequest) {
   const categoria = request.nextUrl.searchParams.get("categoria");
   let query = supabase
     .from("documentos")
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
+    .select(DOCUMENTO_SELECT)
+    .order("fecha_documento", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
-  if (categoria && CATEGORIAS.includes(categoria as DbDocumentoCategoria)) {
-    query = query.eq("categoria", categoria as DbDocumentoCategoria);
+  if (categoria && CATEGORIAS.includes(categoria as DocumentoCategoria)) {
+    query = query.eq("categoria", categoria);
   }
 
   const { data, error } = await query.limit(500);
@@ -70,25 +97,52 @@ export async function POST(request: NextRequest) {
   }
 
   const categoriaRaw = String(form.get("categoria") ?? "otros");
-  const categoria = CATEGORIAS.includes(categoriaRaw as DbDocumentoCategoria)
-    ? (categoriaRaw as DbDocumentoCategoria)
+  const categoria: DocumentoCategoria = CATEGORIAS.includes(categoriaRaw as DocumentoCategoria)
+    ? (categoriaRaw as DocumentoCategoria)
     : "otros";
   const notas = String(form.get("notas") ?? "").trim() || null;
-
-  // Ruta única en el bucket: <categoria>/<timestamp>-<nombre saneado>
-  const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-120) || "documento";
-  const storagePath = `${categoria}/${Date.now()}-${safeName}`;
+  const esFactura = categoria === "facturas";
+  const bucket = getDocumentoBucket(categoria);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { error: uploadError } = await supabase.storage
-    .from(DOCUMENTOS_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
+  const fileSha256 = createHash("sha256").update(buffer).digest("hex");
+
+  // Evita guardar dos veces exactamente el mismo archivo, venga del origen que venga.
+  const { data: duplicate, error: duplicateError } = await supabase
+    .from("documentos")
+    .select("id, nombre, categoria")
+    .eq("file_sha256", fileSha256)
+    .maybeSingle();
+
+  if (duplicateError) {
+    console.error("[documentos] Error comprobando duplicado:", duplicateError);
+    return NextResponse.json({ error: "Error comprobando duplicados" }, { status: 500 });
+  }
+
+  if (duplicate) {
+    return NextResponse.json(
+      {
+        error: "Este archivo ya está guardado",
+        duplicate_of: duplicate.id,
+        documento: duplicate,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Ruta única: <categoria>/<YYYY-MM>/<timestamp>-<nombre saneado>
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-120) || "documento";
+  const now = new Date();
+  const yearMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const storagePath = `${categoria}/${yearMonth}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, buffer, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
 
   if (uploadError) {
-    console.error("[documentos] Error subiendo a storage:", uploadError);
+    console.error(`[documentos] Error subiendo a storage (${bucket}):`, uploadError);
     return NextResponse.json({ error: "Error subiendo el archivo" }, { status: 500 });
   }
 
@@ -101,13 +155,18 @@ export async function POST(request: NextRequest) {
       mime_type: file.type || null,
       tamano_bytes: file.size,
       notas,
+      tipo_documento: esFactura ? "factura" : null,
+      source_type: "upload",
+      file_sha256: fileSha256,
+      processing_status: esFactura ? "needs_review" : "stored",
+      metadata: { storage_bucket: bucket },
     })
-    .select("id, nombre, categoria, mime_type, tamano_bytes, notas, created_at")
+    .select(DOCUMENTO_SELECT)
     .single();
 
   if (error) {
     // Limpieza: si falla la metadata, no dejar el archivo huérfano.
-    await supabase.storage.from(DOCUMENTOS_BUCKET).remove([storagePath]);
+    await supabase.storage.from(bucket).remove([storagePath]);
     console.error("[documentos] Error guardando metadata:", error);
     return NextResponse.json({ error: "Error guardando el documento" }, { status: 500 });
   }
