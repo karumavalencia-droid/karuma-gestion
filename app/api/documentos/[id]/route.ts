@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth/owner-guard";
-import { DOCUMENTOS_BUCKET } from "@/lib/documentos/constants";
+import { getDocumentoBucket } from "@/lib/documentos/constants";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(
@@ -23,7 +23,7 @@ export async function GET(
   const { id } = await params;
   const { data: doc, error } = await supabase
     .from("documentos")
-    .select("storage_path, nombre")
+    .select("storage_path, nombre, categoria")
     .eq("id", id)
     .maybeSingle();
 
@@ -31,12 +31,13 @@ export async function GET(
     return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
   }
 
+  const bucket = getDocumentoBucket(doc.categoria);
   const { data: signed, error: signError } = await supabase.storage
-    .from(DOCUMENTOS_BUCKET)
+    .from(bucket)
     .createSignedUrl(doc.storage_path, 60 * 5, { download: doc.nombre });
 
   if (signError || !signed?.signedUrl) {
-    console.error("[documentos] Error firmando URL:", signError);
+    console.error(`[documentos] Error firmando URL (${bucket}):`, signError);
     return NextResponse.json({ error: "Error generando descarga" }, { status: 500 });
   }
 
@@ -58,7 +59,7 @@ export async function DELETE(
   const { id } = await params;
   const { data: doc } = await supabase
     .from("documentos")
-    .select("storage_path")
+    .select("storage_path, categoria")
     .eq("id", id)
     .maybeSingle();
 
@@ -66,11 +67,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
   }
 
-  const { error: storageError } = await supabase.storage
-    .from(DOCUMENTOS_BUCKET)
-    .remove([doc.storage_path]);
+  const bucket = getDocumentoBucket(doc.categoria);
+  const { error: storageError } = await supabase.storage.from(bucket).remove([doc.storage_path]);
   if (storageError) {
-    console.error("[documentos] Error borrando archivo:", storageError);
+    console.error(`[documentos] Error borrando archivo (${bucket}):`, storageError);
     return NextResponse.json({ error: "Error borrando el archivo" }, { status: 500 });
   }
 
