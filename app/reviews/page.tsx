@@ -1,288 +1,161 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Clock, MessageSquare, Star, MessagesSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock, MessageSquare, RefreshCw, Star, WifiOff } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
-
-type ReviewStatus = "pending" | "awaiting" | "published";
+import { generateAiReply } from "@/lib/google-reviews/ai-reply";
 
 type Review = {
-  id: number;
   name: string;
+  id: string;
+  reviewerName: string;
   rating: number;
   comment: string;
-  date: string;
-  status: ReviewStatus;
-  aiReply: string;
+  createTime: string;
+  updateTime: string;
+  reply: string | null;
+  replyState: string | null;
+  policyViolation: string | null;
+  replyUrl: string | null;
 };
-
-const REVIEWS_SEED: Review[] = [
-  {
-    id: 1,
-    name: "Juan Perez",
-    rating: 5,
-    comment: "Excelente buffet de sushi.",
-    date: "2026-06-10",
-    status: "pending",
-    aiReply: "",
-  },
-  {
-    id: 2,
-    name: "Emily Smith",
-    rating: 4,
-    comment: "Good food and friendly staff.",
-    date: "2026-06-09",
-    status: "pending",
-    aiReply: "",
-  },
-  {
-    id: 3,
-    name: "Carlos Ruiz",
-    rating: 1,
-    comment: "Servicio lento.",
-    date: "2026-06-08",
-    status: "pending",
-    aiReply: "",
-  },
-];
-
-const STATUS_LABEL: Record<ReviewStatus, string> = {
-  pending: "Sin responder",
-  awaiting: "Pendiente",
-  published: "Respondida",
-};
-
-const STATUS_STYLE: Record<ReviewStatus, string> = {
-  pending: "bg-gray-50 text-gray-600 ring-gray-500/20",
-  awaiting: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  published: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-};
-
-function buildAiReply(rating: number, comment: string): string {
-  if (!comment.trim()) {
-    return "Muchas gracias por tu valoración.";
-  }
-  if (rating >= 5) {
-    return "Muchas gracias por tu valoración. Nos alegra saber que disfrutaste de Karuma Sushi & Grill. ¡Te esperamos pronto!";
-  }
-  if (rating === 4) {
-    return "Muchas gracias por tu visita y por tu valoración. Seguiremos mejorando para ofrecerte una experiencia aún mejor.";
-  }
-  if (rating === 3) {
-    return "Gracias por compartir tu opinión. Nos gustaría saber qué podríamos mejorar para ofrecerte una mejor experiencia la próxima vez.";
-  }
-  return "Lamentamos mucho que tu experiencia no haya sido la esperada. Nos gustaría revisar lo ocurrido y mejorar. Puedes contactarnos directamente para poder ayudarte.";
-}
 
 function Stars({ rating }: { rating: number }) {
   return (
     <span className="inline-flex gap-0.5">
       {[1, 2, 3, 4, 5].map((n) => (
-        <Star
-          key={n}
-          className={`h-4 w-4 sm:h-5 sm:w-5 ${
-            n <= rating ? "fill-amber-400 text-amber-400" : "text-gray-200"
-          }`}
-        />
+        <Star key={n} className={`h-4 w-4 sm:h-5 sm:w-5 ${n <= rating ? "fill-amber-400 text-amber-400" : "text-gray-200"}`} />
       ))}
     </span>
   );
 }
 
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<Review[]>(REVIEWS_SEED);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editText, setEditText] = useState("");
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
-  const total = reviews.length;
-  const unreplied = reviews.filter((r) => r.status === "pending").length;
-  const bad = reviews.filter((r) => r.rating <= 2).length;
-  const awaiting = reviews.filter((r) => r.status === "awaiting").length;
+  const loadReviews = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/reviews", { cache: "no-store" });
+      const data = (await response.json()) as { configured?: boolean; reviews?: Review[]; error?: string };
+      setConfigured(Boolean(data.configured));
+      if (!response.ok) throw new Error(data.error || "No se pudieron cargar las reseñas");
+      setReviews(data.reviews || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error cargando reseñas");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleGenerate = (id: number) => {
-    setReviews((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const aiReply = buildAiReply(r.rating, r.comment);
-        return { ...r, aiReply, status: "awaiting" };
-      }),
-    );
-  };
+  useEffect(() => {
+    void loadReviews();
+  }, [loadReviews]);
 
-  const handleSaveEdit = (id: number) => {
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, aiReply: editText, status: "awaiting" } : r,
-      ),
-    );
-    setEditingId(null);
-  };
+  const stats = useMemo(() => ({
+    total: reviews.length,
+    unreplied: reviews.filter((r) => !r.reply).length,
+    bad: reviews.filter((r) => r.rating <= 2).length,
+    awaiting: reviews.filter((r) => !r.reply && r.rating <= 3).length,
+  }), [reviews]);
 
-  const handlePublish = (id: number) => {
-    setReviews((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const reply =
-          editingId === id && editText.trim() ? editText.trim() : r.aiReply;
-        return { ...r, aiReply: reply, status: "published" };
-      }),
-    );
-    setEditingId(null);
-  };
+  function draftFor(review: Review) {
+    return drafts[review.id] ?? generateAiReply(review.rating, review.comment);
+  }
+
+  async function publish(review: Review) {
+    const comment = draftFor(review).trim();
+    if (!comment) return;
+    setPublishingId(review.id);
+    setError("");
+    try {
+      const response = await fetch("/api/reviews/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewName: review.name, comment }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "No se pudo publicar la respuesta");
+      setReviews((current) => current.map((item) => item.id === review.id ? { ...item, reply: comment } : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error publicando respuesta");
+    } finally {
+      setPublishingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">Asistente de respuestas Google · datos mock locales</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-gray-500">Google Business Profile · reseñas reales</p>
+          <p className="mt-1 text-xs text-gray-400">4–5 estrellas pueden automatizarse; 1–3 estrellas quedan para revisión humana.</p>
+        </div>
+        <button type="button" onClick={() => void loadReviews()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Actualizar
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard
-          title="Total reseñas"
-          value={String(total)}
-          icon={MessagesSquare}
-          iconColor="bg-karuma-50 text-karuma-600"
-        />
-        <StatCard
-          title="Sin responder"
-          value={String(unreplied)}
-          icon={MessageSquare}
-          iconColor="bg-gray-100 text-gray-600"
-        />
-        <StatCard
-          title="Reseñas negativas"
-          value={String(bad)}
-          icon={AlertTriangle}
-          iconColor="bg-red-50 text-red-600"
-        />
-        <StatCard
-          title="Pendientes"
-          value={String(awaiting)}
-          icon={Clock}
-          iconColor="bg-amber-50 text-amber-600"
-        />
+        <StatCard title="Total reseñas" value={String(stats.total)} icon={MessageSquare} iconColor="bg-karuma-50 text-karuma-600" />
+        <StatCard title="Sin responder" value={String(stats.unreplied)} icon={Clock} iconColor="bg-gray-100 text-gray-600" />
+        <StatCard title="Reseñas negativas" value={String(stats.bad)} icon={AlertTriangle} iconColor="bg-red-50 text-red-600" />
+        <StatCard title="Revisión humana" value={String(stats.awaiting)} icon={CheckCircle2} iconColor="bg-amber-50 text-amber-600" />
       </div>
 
-      <div className="space-y-4">
-        {reviews.map((review) => (
-          <article
-            key={review.id}
-            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
-              <div className="space-y-1">
-                <Stars rating={review.rating} />
-                <p className="text-base font-semibold text-gray-900">{review.name}</p>
-                <p className="text-sm text-gray-500">{review.date}</p>
-              </div>
-              <span
-                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLE[review.status]}`}
-              >
-                {STATUS_LABEL[review.status]}
-              </span>
-            </div>
+      {configured === false && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex gap-3"><WifiOff className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">Google todavía no está autorizado</p><p className="mt-1">El código ya está preparado. Falta añadir las credenciales OAuth de la cuenta que administra la ficha de Karuma.</p></div></div>
+        </div>
+      )}
 
-            <div className="space-y-4 pt-4">
-              <div>
-                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Contenido de la reseña
-                </p>
-                <p className="text-sm leading-relaxed text-gray-800">
-                  {review.comment.trim() || (
-                    <span className="italic text-gray-400">(Sin texto, solo puntuación)</span>
-                  )}
-                </p>
-              </div>
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
-              {(review.aiReply || editingId === review.id) && (
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Respuesta sugerida por IA
-                  </p>
-                  {editingId === review.id ? (
-                    <textarea
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20"
-                      rows={4}
-                    />
+      {loading && reviews.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">Cargando reseñas de Google…</div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((review) => {
+            const draft = draftFor(review);
+            const needsHumanReview = review.rating <= 3;
+            return (
+              <article key={review.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
+                  <div className="space-y-1"><Stars rating={review.rating} /><p className="text-base font-semibold text-gray-900">{review.reviewerName}</p><p className="text-sm text-gray-500">{review.createTime ? new Date(review.createTime).toLocaleDateString("es-ES") : ""}</p></div>
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${review.reply ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20" : needsHumanReview ? "bg-amber-50 text-amber-700 ring-amber-600/20" : "bg-karuma-50 text-karuma-700 ring-karuma-600/20"}`}>{review.reply ? "Respondida" : needsHumanReview ? "Revisar antes de publicar" : "Lista para responder"}</span>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  <div><p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">Reseña</p><p className="text-sm leading-relaxed text-gray-800">{review.comment.trim() || <span className="italic text-gray-400">(Sin texto, solo puntuación)</span>}</p></div>
+
+                  {review.reply ? (
+                    <div><p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">Respuesta publicada</p><p className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm leading-relaxed text-emerald-900">{review.reply}</p>{review.policyViolation && <p className="mt-2 text-xs text-red-600">Google marcó una incidencia de política: {review.policyViolation}</p>}</div>
                   ) : (
-                    <p
-                      className={`rounded-lg border px-3 py-2.5 text-sm leading-relaxed ${
-                        review.status === "published"
-                          ? "border-emerald-100 bg-emerald-50 text-emerald-900"
-                          : "border-karuma-100 bg-karuma-50/50 text-gray-800"
-                      }`}
-                    >
-                      {review.aiReply}
-                    </p>
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between gap-3"><p className="text-xs font-medium uppercase tracking-wide text-gray-400">Respuesta sugerida</p>{needsHumanReview && <span className="text-xs font-medium text-amber-700">Revisión humana obligatoria</span>}</div>
+                      <textarea value={draft} onChange={(e) => setDrafts((current) => ({ ...current, [review.id]: e.target.value }))} rows={4} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20" />
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        <button type="button" onClick={() => setDrafts((current) => ({ ...current, [review.id]: generateAiReply(review.rating, review.comment) }))} className="inline-flex min-h-10 items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Regenerar borrador</button>
+                        <button type="button" onClick={() => void publish(review)} disabled={publishingId === review.id} className="inline-flex min-h-10 items-center rounded-lg bg-karuma-600 px-4 py-2 text-sm font-medium text-white hover:bg-karuma-700 disabled:opacity-50">{publishingId === review.id ? "Publicando…" : "Publicar en Google"}</button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-
-              {review.status !== "published" && (
-                <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-4">
-                  {review.status === "pending" && (
-                    <button
-                      type="button"
-                      onClick={() => handleGenerate(review.id)}
-                      className="inline-flex min-h-[40px] items-center rounded-lg bg-karuma-600 px-4 py-2 text-sm font-medium text-white hover:bg-karuma-700"
-                    >
-                      Generar respuesta
-                    </button>
-                  )}
-                  {review.status === "awaiting" && editingId !== review.id && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(review.id);
-                          setEditText(review.aiReply);
-                        }}
-                        className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Editar respuesta
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePublish(review.id)}
-                        className="inline-flex min-h-[40px] items-center rounded-lg border border-karuma-200 bg-karuma-50 px-4 py-2 text-sm font-medium text-karuma-700 hover:bg-karuma-100"
-                      >
-                        Confirmar publicación
-                      </button>
-                    </>
-                  )}
-                  {review.status === "awaiting" && editingId === review.id && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveEdit(review.id)}
-                        className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Guardar edición
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePublish(review.id)}
-                        className="inline-flex min-h-[40px] items-center rounded-lg border border-karuma-200 bg-karuma-50 px-4 py-2 text-sm font-medium text-karuma-700 hover:bg-karuma-100"
-                      >
-                        Confirmar publicación
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+              </article>
+            );
+          })}
+          {!loading && configured && reviews.length === 0 && <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">Google no devolvió reseñas para esta ubicación.</div>}
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <p className="mb-2 text-sm font-semibold text-gray-900">Estado de integración Google API</p>
-        <ul className="space-y-1 text-sm text-gray-600">
-          <li>Modo actual: datos mock</li>
-          <li>Siguiente paso: conectar Google Business Profile API</li>
-          <li>Permiso necesario: business.manage</li>
-          <li>La ficha del restaurante debe estar verificada</li>
-        </ul>
+        <p className="mb-2 text-sm font-semibold text-gray-900">Automatización segura</p>
+        <ul className="space-y-1 text-sm text-gray-600"><li>4–5 estrellas: auto-respuesta disponible mediante cron.</li><li>1–3 estrellas: nunca se publican automáticamente.</li><li>La respuesta puede editarse antes de enviarla.</li><li>Los rechazos de política de Google se muestran cuando la API los devuelve.</li></ul>
       </div>
     </div>
   );
