@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/reservas-recordatorio",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/google-reviews",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
