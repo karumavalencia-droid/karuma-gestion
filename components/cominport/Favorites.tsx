@@ -51,7 +51,12 @@ export function Favorites({ products, onAdd, onAddAll, onRemove }: FavoritesProp
                 <p className="text-xs font-semibold text-karuma-600 dark:text-karuma-400">
                   {product.codigo}
                 </p>
-                <h3 className="font-semibold text-gray-900 dark:text-white">{product.nombre}</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {product.nombreEs ?? product.nombre}
+                </h3>
+                {product.nombreEs && product.nombreEs !== product.nombre && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{product.nombre}</p>
+                )}
                 <p className="text-sm text-gray-500 dark:text-gray-400">{product.formato}</p>
                 {invoiceMeta && (
                   <p className="text-xs font-medium text-karuma-700 dark:text-karuma-300">
