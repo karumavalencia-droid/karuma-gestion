@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   LoaderCircle,
   LocateFixed,
@@ -104,11 +106,14 @@ const copy = {
     correctionApproved: "Aprobada",
     correctionRejected: "Rechazada",
     historyTitle: "Histórico de asistencia",
-    historyHelp: "Últimos 31 días según tu horario.",
+    historyHelp: "Vista mensual de los últimos 31 días según tu horario.",
     historyPresent: "Con fichaje",
     historyMissing: "Sin fichaje",
     historyOff: "Descanso / sin turno",
     historyEvents: "fichajes",
+    previousMonth: "Mes anterior",
+    nextMonth: "Mes siguiente",
+    noHistory: "Sin datos para este día",
   },
   zh: {
     title: "我的打卡",
@@ -142,13 +147,40 @@ const copy = {
     correctionApproved: "已通过",
     correctionRejected: "已拒绝",
     historyTitle: "考勤历史",
-    historyHelp: "根据排班显示最近 31 天记录。",
+    historyHelp: "按月查看最近 31 天的排班和打卡。",
     historyPresent: "已打卡",
     historyMissing: "没有打卡",
     historyOff: "休息 / 无排班",
     historyEvents: "次打卡",
+    previousMonth: "上个月",
+    nextMonth: "下个月",
+    noHistory: "当天暂无数据",
   },
 } as const;
+
+const spanishWeekdays = ["L", "M", "X", "J", "V", "S", "D"];
+const chineseWeekdays = ["一", "二", "三", "四", "五", "六", "日"];
+
+function monthKey(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+function shiftMonth(value: string, offset: number): string {
+  const [year, month] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 7);
+}
+
+function monthCalendarDates(value: string): Array<string | null> {
+  const [year, month] = value.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mondayOffset = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+  const cells: Array<string | null> = Array.from({ length: mondayOffset }, () => null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(`${value}-${String(day).padStart(2, "0")}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
 
 function timeLabel(iso: string, locale: "es" | "zh") {
   void locale;
@@ -212,6 +244,14 @@ export default function MyAttendancePage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [correctionSending, setCorrectionSending] = useState(false);
   const [history, setHistory] = useState<AttendanceHistoryDay[]>([]);
+  const [displayedMonth, setDisplayedMonth] = useState(() =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+    }).format(new Date()),
+  );
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -230,7 +270,12 @@ export default function MyAttendancePage() {
 
       if (historyRes.ok) {
         const historyPayload = (await historyRes.json()) as { days?: AttendanceHistoryDay[] };
-        setHistory(historyPayload.days ?? []);
+        const historyDays = historyPayload.days ?? [];
+        setHistory(historyDays);
+        if (historyDays[0]) {
+          setDisplayedMonth(monthKey(historyDays[0].date));
+          setSelectedHistoryDate((current) => current ?? historyDays[0].date);
+        }
       }
 
       const correctionsRes = await fetch("/api/attendance/corrections", { cache: "no-store" });
@@ -363,6 +408,33 @@ export default function MyAttendancePage() {
   };
 
   const nextIsIn = data?.nextAction !== "out";
+
+  const historyByDate = useMemo(
+    () => new Map(history.map((day) => [day.date, day])),
+    [history],
+  );
+  const calendarDates = useMemo(
+    () => monthCalendarDates(displayedMonth),
+    [displayedMonth],
+  );
+  const selectedHistory = selectedHistoryDate
+    ? historyByDate.get(selectedHistoryDate) ?? null
+    : null;
+  const availableMonths = useMemo(
+    () => [...new Set(history.map((day) => monthKey(day.date)))].sort(),
+    [history],
+  );
+  const monthTitle = new Date(`${displayedMonth}-01T12:00:00Z`).toLocaleDateString(
+    locale === "zh" ? "zh-CN" : "es-ES",
+    { month: "long", year: "numeric", timeZone: "Europe/Madrid" },
+  );
+  const showMonth = (offset: number) => {
+    const targetMonth = shiftMonth(displayedMonth, offset);
+    setDisplayedMonth(targetMonth);
+    setSelectedHistoryDate(
+      history.find((day) => monthKey(day.date) === targetMonth)?.date ?? null,
+    );
+  };
 
   const historyDateLabel = (iso: string) =>
     new Date(`${iso}T12:00:00Z`).toLocaleDateString(locale === "zh" ? "zh-CN" : "es-ES", {
@@ -635,31 +707,97 @@ export default function MyAttendancePage() {
                       <div className="text-red-600">{text.historyMissing}: {history.filter((day) => day.status === "missing").length}</div>
                     </div>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {history.map((day) => {
-                      const statusLabel = day.status === "present"
-                        ? text.historyPresent
-                        : day.status === "missing"
-                          ? text.historyMissing
-                          : text.historyOff;
-                      const statusClass = day.status === "present"
-                        ? "border-emerald-200 bg-emerald-50"
-                        : day.status === "missing"
-                          ? "border-red-200 bg-red-50"
-                          : "border-gray-200 bg-gray-50";
-                      return (
-                        <div key={day.date} className={`rounded-xl border px-3 py-2.5 ${statusClass}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-gray-800">{historyDateLabel(day.date)}</span>
-                            <span className="text-xs font-semibold text-gray-600">{statusLabel}</span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
-                            <span>{day.planned ? `${historyTimeLabel(day.firstIn)} – ${historyTimeLabel(day.lastOut)}` : day.scheduleLabel}</span>
-                            {day.eventCount > 0 && <span>{day.eventCount} {text.historyEvents}</span>}
-                          </div>
+                  <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-3 py-3">
+                      <button
+                        type="button"
+                        aria-label={text.previousMonth}
+                        disabled={!availableMonths.includes(shiftMonth(displayedMonth, -1))}
+                        onClick={() => showMonth(-1)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-25"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <h4 className="capitalize text-base font-bold text-gray-900">{monthTitle}</h4>
+                      <button
+                        type="button"
+                        aria-label={text.nextMonth}
+                        disabled={!availableMonths.includes(shiftMonth(displayedMonth, 1))}
+                        onClick={() => showMonth(1)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-25"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 border-b border-gray-100 px-2 py-2">
+                      {(locale === "zh" ? chineseWeekdays : spanishWeekdays).map((weekday) => (
+                        <div key={weekday} className="text-center text-[11px] font-semibold text-gray-400">
+                          {weekday}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-y-1 p-2">
+                      {calendarDates.map((date, index) => {
+                        if (!date) return <div key={`empty-${index}`} className="aspect-square" />;
+                        const day = historyByDate.get(date);
+                        const selected = selectedHistoryDate === date;
+                        return (
+                          <button
+                            key={date}
+                            type="button"
+                            disabled={!day}
+                            onClick={() => setSelectedHistoryDate(date)}
+                            className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition ${
+                              selected
+                                ? "bg-gray-900 font-bold text-white"
+                                : day
+                                  ? "text-gray-800 hover:bg-gray-100"
+                                  : "text-gray-300"
+                            }`}
+                          >
+                            <span>{Number(date.slice(-2))}</span>
+                            {day && (
+                              <span
+                                className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${
+                                  day.status === "present"
+                                    ? "bg-emerald-500"
+                                    : day.status === "missing"
+                                      ? "bg-red-500"
+                                      : "bg-gray-300"
+                                }`}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-3 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-500">
+                      <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-500" />{text.historyPresent}</span>
+                      <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-red-500" />{text.historyMissing}</span>
+                      <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-gray-300" />{text.historyOff}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 rounded-xl bg-gray-50 px-3 py-3 text-sm">
+                    {selectedHistory ? (
+                      <>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-gray-800">{historyDateLabel(selectedHistory.date)}</span>
+                          <span className={`text-xs font-semibold ${selectedHistory.status === "missing" ? "text-red-600" : selectedHistory.status === "present" ? "text-emerald-700" : "text-gray-500"}`}>
+                            {selectedHistory.status === "present" ? text.historyPresent : selectedHistory.status === "missing" ? text.historyMissing : text.historyOff}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+                          <span>{selectedHistory.planned ? `${historyTimeLabel(selectedHistory.firstIn)} – ${historyTimeLabel(selectedHistory.lastOut)}` : selectedHistory.scheduleLabel}</span>
+                          {selectedHistory.eventCount > 0 && <span>{selectedHistory.eventCount} {text.historyEvents}</span>}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-center text-xs text-gray-400">{text.noHistory}</p>
+                    )}
                   </div>
                 </div>
               </>
