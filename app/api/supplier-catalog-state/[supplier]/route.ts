@@ -14,7 +14,7 @@ function normalizeStringArray(value: unknown, max: number): string[] {
   return [...new Set(value.filter((item): item is string => typeof item === "string" && item.length <= 200))].slice(0, max);
 }
 
-function normalizeState(value: unknown): Record<string, unknown> {
+function normalizeState(value: unknown, previousState: Record<string, unknown> = {}): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const raw = value as Record<string, unknown>;
   const state: Record<string, unknown> = {
@@ -24,6 +24,11 @@ function normalizeState(value: unknown): Record<string, unknown> {
     whatsappNumber: typeof raw.whatsappNumber === "string" ? raw.whatsappNumber.replace(/\D/g, "").slice(0, 20) : "",
     wechatId: typeof raw.wechatId === "string" ? raw.wechatId.slice(0, 100) : "",
     observations: typeof raw.observations === "string" ? raw.observations.slice(0, 2000) : "",
+    pendingWechatOrders: Array.isArray(raw.pendingWechatOrders)
+      ? raw.pendingWechatOrders.slice(0, 10)
+      : Array.isArray(previousState.pendingWechatOrders)
+        ? previousState.pendingWechatOrders.slice(0, 10)
+        : [],
   };
   return JSON.stringify(state).length <= MAX_STATE_BYTES ? state : {};
 }
@@ -72,7 +77,16 @@ export async function PUT(
   if ("error" in context) return context.error;
 
   const body = await request.json().catch(() => null) as { state?: unknown } | null;
-  const state = normalizeState(body?.state);
+  const previous = await context.supabase
+    .from("supplier_catalog_state")
+    .select("state")
+    .eq("user_email", context.user.email.toLowerCase())
+    .eq("supplier_slug", supplier.toLowerCase())
+    .maybeSingle();
+  const previousState = previous.data?.state && typeof previous.data.state === "object"
+    ? previous.data.state as Record<string, unknown>
+    : {};
+  const state = normalizeState(body?.state, previousState);
   const { error } = await context.supabase
     .from("supplier_catalog_state")
     .upsert(

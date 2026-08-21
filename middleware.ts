@@ -78,6 +78,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/reservas/") ||
     pathname.startsWith("/api/reservas/") ||
     pathname.startsWith("/api/cron/") ||
+    pathname.startsWith("/api/wechat-bridge/") ||
     pathname === "/" ||
     pathname === "/menu" ||
     pathname === "/restaurante" ||

@@ -224,7 +224,7 @@ export function Cart({
               <Save className="h-4 w-4" />
             </button>
           </div>
-          <p className="mt-2 text-xs text-green-800">Copia el pedido en español para pegarlo en WeChat.</p>
+          <p className="mt-2 text-xs text-green-800">Envía el pedido a la tableta WeChat; si no está conectada, lo copia para pegarlo manualmente.</p>
           <button
             type="button"
             onClick={onSendWechat}
@@ -232,7 +232,7 @@ export function Cart({
             className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <MessageCircle className="h-4 w-4" />
-            Copiar pedido para WeChat
+            Enviar a la tableta WeChat
           </button>
         </div>
       </div>

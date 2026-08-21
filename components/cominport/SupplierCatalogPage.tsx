@@ -420,22 +420,37 @@ export function SupplierCatalogPage({
   const sendWechatOrder = async () => {
     if (cart.length === 0) return;
     const message = buildWhatsappMessage(cart, observations);
+    const order: CominportOrder = {
+      id: createOrderId(storagePrefix),
+      fecha: new Date().toISOString(),
+      productos: cart.map((item) => ({ ...item })),
+      cantidadTotal: totalQuantity,
+      estado: "pendiente_wechat",
+      observaciones: observations.trim(),
+    };
+
     try {
-      await navigator.clipboard.writeText(message);
-      const order: CominportOrder = {
-        id: createOrderId(storagePrefix),
-        fecha: new Date().toISOString(),
-        productos: cart.map((item) => ({ ...item })),
-        cantidadTotal: totalQuantity,
-        estado: "enviado_wechat",
-        observaciones: observations.trim(),
-      };
+      const response = await fetch("/api/wechat-bridge/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier: storagePrefix, message, order }),
+      });
+      if (!response.ok) throw new Error(`queue_${response.status}`);
       setOrders((current) => [order, ...current].slice(0, 100));
       setCart([]);
       setObservations("");
-      showToast("Pedido copiado: pégalo en WeChat");
+      showToast("Pedido enviado a la cola de la tableta WeChat");
     } catch {
-      setConfigMessage("No se pudo copiar el pedido. Revisa los permisos del navegador.");
+      try {
+        await navigator.clipboard.writeText(message);
+        const fallbackOrder = { ...order, estado: "enviado_wechat" as const };
+        setOrders((current) => [fallbackOrder, ...current].slice(0, 100));
+        setCart([]);
+        setObservations("");
+        showToast("Pedido copiado: pégalo en WeChat");
+      } catch {
+        setConfigMessage("No se pudo poner el pedido en cola ni copiarlo.");
+      }
     }
   };
 
