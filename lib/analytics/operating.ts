@@ -1,4 +1,6 @@
 import { getDocumentoAdmin } from "@/lib/documentos/repository";
+import { readDailySalesStore } from "@/lib/sales-sync/storage";
+import type { DailySalesRecord } from "@/lib/sales-sync/types";
 
 type SalesRow = Record<string, unknown>;
 type DocumentoInvoiceRow = Record<string, unknown>;
@@ -175,6 +177,20 @@ function toRounded(value: number) {
   return Number(value.toFixed(2));
 }
 
+function legacySalesRows(records: DailySalesRecord[], start: string, end: string): SalesRow[] {
+  return records
+    .filter((record) => record.date >= start && record.date <= end)
+    .map((record) => ({
+      business_date: record.date,
+      net_sales: record.netSales,
+      customers: record.customers,
+      orders: record.orders,
+      average_ticket: record.averageTicket,
+      drink_sales: record.drinkSales,
+      delivery_sales: record.deliverySales,
+    }));
+}
+
 export function describeOperatingEvidence(analytics: OperatingAnalytics): string {
   const lines: string[] = [];
   const { metrics, range, anomalies } = analytics;
@@ -206,8 +222,29 @@ export async function buildOperatingAnalytics(input: { start: string; end: strin
     settle<Array<Record<string, unknown>>>(supabase.from("document_duplicate_candidates").select("id").eq("status", "pending")),
   ]);
 
-  const currentSalesRows = salesCurrent.data || [];
-  const previousSalesRows = salesPrevious.data || [];
+  let currentSalesRows = salesCurrent.data || [];
+  let previousSalesRows = salesPrevious.data || [];
+  let salesFallbackNote: string | undefined;
+
+  // Hay instalaciones que todavía conservan el histórico real de RestoSuite
+  // en el almacén JSON anterior. El Centro de Datos no debe mostrarlo como
+  // ausente mientras se completa la migración a sales_daily.
+  if (currentSalesRows.length === 0 || previousSalesRows.length === 0) {
+    try {
+      const legacyStore = await readDailySalesStore();
+      if (currentSalesRows.length === 0) {
+        currentSalesRows = legacySalesRows(legacyStore.records, input.start, input.end);
+      }
+      if (previousSalesRows.length === 0) {
+        previousSalesRows = legacySalesRows(legacyStore.records, previous.start, previous.end);
+      }
+      if (currentSalesRows.length > 0 || previousSalesRows.length > 0) {
+        salesFallbackNote = "Histórico RestoSuite leído del almacenamiento anterior; pendiente de migración automática a sales_daily.";
+      }
+    } catch (legacyError) {
+      console.error("[analytics] legacy sales fallback failed", legacyError);
+    }
+  }
   const currentSales = currentSalesRows.reduce((sum, row) => sum + numberValue(row.net_sales), 0);
   const priorSales = previousSalesRows.reduce((sum, row) => sum + numberValue(row.net_sales), 0);
   const customers = currentSalesRows.reduce((sum, row) => sum + numberValue(row.customers), 0);
@@ -292,7 +329,7 @@ export async function buildOperatingAnalytics(input: { start: string; end: strin
 
   const itemRecords = currentItems.data?.length || 0;
   const sources: AnalyticsSource[] = [
-    { key: "sales", label: "Ventas RestoSuite / sales_daily", status: statusForQuery(salesCurrent.error, currentSalesRows.length), records: currentSalesRows.length, href: `/api/sales/daily?startDate=${input.start}&endDate=${input.end}`, note: salesCurrent.error || undefined },
+    { key: "sales", label: salesFallbackNote ? "Ventas RestoSuite / histórico" : "Ventas RestoSuite / sales_daily", status: currentSalesRows.length ? "confirmed" : "missing", records: currentSalesRows.length, href: `/api/sales/daily?startDate=${input.start}&endDate=${input.end}`, note: salesFallbackNote || salesCurrent.error || undefined },
     { key: "purchases_confirmed", label: "Facturas confirmadas", status: statusForQuery(invoices.error, confirmedInvoices.length), records: confirmedInvoices.length, href: "/documento?type=invoice", note: invoices.error || undefined },
     { key: "purchases_ai", label: "Facturas AI sin confirmar", status: unconfirmedInvoices.length ? "unconfirmed" : "missing", records: unconfirmedInvoices.length, href: "/documento?type=invoice" },
     { key: "purchase_lines", label: "Líneas de factura confirmadas", status: statusForQuery(currentItems.error, itemRecords), records: itemRecords, href: "/documento?type=invoice", note: currentItems.error || undefined },
@@ -301,7 +338,14 @@ export async function buildOperatingAnalytics(input: { start: string; end: strin
     { key: "platform_commissions", label: "Comisiones de plataformas", status: "missing", records: 0, href: "/datos", note: "La fuente actual solo conserva ventas delivery, no las comisiones liquidadas." },
     { key: "payment_reconciliation", label: "Conciliación pagos / facturas", status: "missing", records: 0, href: "/documento", note: "Todavía no hay una relación de pago confirmada con factura." },
   ];
-  const confirmedSources = sources.filter((source) => source.status === "confirmed").length;
+  const completenessWeight: Record<AnalyticsDataStatus, number> = {
+    confirmed: 1,
+    partial: 0.75,
+    unconfirmed: 0.5,
+    estimated: 0.25,
+    missing: 0,
+  };
+  const completenessScore = sources.reduce((sum, source) => sum + completenessWeight[source.status], 0);
 
   return {
     range: { ...input, previous },
@@ -326,9 +370,15 @@ export async function buildOperatingAnalytics(input: { start: string; end: strin
       revenuePerEmployeeHour: null,
     },
     metricStatus: {
-      revenue: statusForQuery(salesCurrent.error, currentSalesRows.length),
-      customers: statusForQuery(salesCurrent.error, currentSalesRows.length),
-      purchases: statusForQuery(invoices.error, confirmedInvoices.length),
+      revenue: currentSalesRows.length ? "confirmed" : "missing",
+      customers: currentSalesRows.length ? "confirmed" : "missing",
+      purchases: invoices.error
+        ? "missing"
+        : confirmedInvoices.length
+          ? "confirmed"
+          : unconfirmedInvoices.length
+            ? "unconfirmed"
+            : "missing",
       foodCost: foodCostRate == null ? "missing" : "confirmed",
       partialOperatingProfit: partialOperatingProfit == null ? "missing" : "partial",
       operatingProfit: "missing",
@@ -347,6 +397,6 @@ export async function buildOperatingAnalytics(input: { start: string; end: strin
       unconfirmedInvoiceIds: unconfirmedInvoices.map((row) => String(row.id)),
       topSupplierTotals: supplierAnalysis.map((supplier) => ({ supplierId: supplier.supplierId, amount: supplier.total })),
     },
-    dataCompleteness: Math.round((confirmedSources / sources.length) * 100),
+    dataCompleteness: Math.round((completenessScore / sources.length) * 100),
   };
 }

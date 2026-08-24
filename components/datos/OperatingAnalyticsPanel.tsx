@@ -153,7 +153,19 @@ export function OperatingAnalyticsPanel() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Metric label="Ventas netas" value={money(analytics.metrics.revenue)} detail={analytics.metrics.revenueChangePct == null ? "Sin comparación suficiente" : `${analytics.metrics.revenueChangePct >= 0 ? "+" : ""}${analytics.metrics.revenueChangePct}% vs. periodo anterior`} status={analytics.metricStatus.revenue} icon={<TrendingUp className="h-3.5 w-3.5 text-amber-400" />} />
           <Metric label="Clientes" value={analytics.metrics.customers == null ? "—" : number.format(analytics.metrics.customers)} detail={analytics.metrics.averageTicket == null ? "Sin ticket medio" : `Ticket medio ${money(analytics.metrics.averageTicket)}`} status={analytics.metricStatus.customers} icon={<Users className="h-3.5 w-3.5 text-amber-400" />} />
-          <Metric label="Compras" value={money(analytics.metrics.purchaseConfirmed)} detail={analytics.metrics.purchaseUnconfirmed == null ? "Solo facturas confirmadas" : `${money(analytics.metrics.purchaseUnconfirmed)} AI sin confirmar`} status={analytics.metricStatus.purchases} icon={<ShoppingBag className="h-3.5 w-3.5 text-amber-400" />} />
+          <Metric
+            label="Compras"
+            value={money(analytics.metrics.purchaseConfirmed ?? analytics.metrics.purchaseUnconfirmed)}
+            detail={
+              analytics.metrics.purchaseConfirmed == null && analytics.metrics.purchaseUnconfirmed != null
+                ? "Importe extraído por AI; confirma las facturas para convertirlo en coste confirmado"
+                : analytics.metrics.purchaseUnconfirmed == null
+                  ? "Solo facturas confirmadas"
+                  : `${money(analytics.metrics.purchaseUnconfirmed)} adicionales sin confirmar`
+            }
+            status={analytics.metricStatus.purchases}
+            icon={<ShoppingBag className="h-3.5 w-3.5 text-amber-400" />}
+          />
           <Metric label="Coste de compras" value={analytics.metrics.foodCostRate == null ? "—" : `${analytics.metrics.foodCostRate}%`} detail="Compras confirmadas ÷ ventas netas" status={analytics.metricStatus.foodCost} icon={<BarChart3 className="h-3.5 w-3.5 text-amber-400" />} />
           <Metric label="Resultado parcial" value={money(analytics.metrics.operatingProfitPartial)} detail="Excluye personal, alquiler, suministros y comisiones" status={analytics.metricStatus.partialOperatingProfit} icon={<Wallet className="h-3.5 w-3.5 text-amber-400" />} />
           <Metric label="Delivery / bebidas" value={analytics.metrics.deliverySales == null && analytics.metrics.drinkSales == null ? "—" : `${money(analytics.metrics.deliverySales)} / ${money(analytics.metrics.drinkSales)}`} detail="Ventas delivery / bebidas declaradas" status={analytics.metricStatus.revenue} icon={<TrendingUp className="h-3.5 w-3.5 text-amber-400" />} />
