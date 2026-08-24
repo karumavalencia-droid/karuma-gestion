@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { ResumenServicios } from "@/components/reservas/ResumenServicios";
@@ -200,6 +200,9 @@ export default function MesaViewPage() {
   const [nMesaIds, setNMesaIds]       = useState<string[]>([]);
   const [nNotas, setNNotas]           = useState("");
   const [nError, setNError]           = useState("");
+  const [nSubmitting, setNSubmitting] = useState(false);
+  const nSubmittingRef = useRef(false);
+  const nIdempotencyKeyRef = useRef(crypto.randomUUID());
 
   // Bloquear mesa modal
   const [showBlock, setShowBlock] = useState(false);
@@ -361,6 +364,9 @@ export default function MesaViewPage() {
 
   // ── Nueva Reserva ────────────────────────────────────────────────────────────
   function openNueva() {
+    nSubmittingRef.current = false;
+    nIdempotencyKeyRef.current = crypto.randomUUID();
+    setNSubmitting(false);
     setNNombre(""); setNTelefono(""); setNEmail(""); setNPersonas(2);
     setNHora(defaultHoraPlano(fecha, servicio)); setNServicio(servicio); setNMesaIds([]);
     setNNotas(""); setNError(""); setShowNueva(true);
@@ -384,14 +390,22 @@ export default function MesaViewPage() {
   // Nueva reserva pre-rellenada para una mesa concreta. Si la mesa está ocupada
   // (walk-in / sentada), sugiere la primera hora en la que quedará libre.
   function openNuevaParaMesa(m: MesaConEstado) {
+    nSubmittingRef.current = false;
+    nIdempotencyKeyRef.current = crypto.randomUUID();
+    setNSubmitting(false);
     setNNombre(""); setNTelefono(""); setNEmail(""); setNPersonas(Math.min(m.capacidad, 2));
     setNHora(m.status === "occupied" ? (horaTrasOcupacion(m) ?? horaPlano) : horaPlano);
     setNServicio(servicio); setNMesaIds([m.id]);
     setNNotas(""); setNError(""); setShowNueva(true);
   }
   async function submitNueva() {
+    // useRef closes the tiny gap before React applies the disabled state, so a
+    // fast double click cannot start a second request.
+    if (nSubmittingRef.current) return;
     if (!nNombre.trim()) { setNError("El nombre es obligatorio"); return; }
     if (!nTelefono.trim()) { setNError("El teléfono es obligatorio para sincronizar la reserva."); return; }
+    nSubmittingRef.current = true;
+    setNSubmitting(true);
     setNError("");
     try {
       const response = await fetch("/api/reservas/crear", {
@@ -407,6 +421,7 @@ export default function MesaViewPage() {
           servicio: nServicio,
           notas: nNotas.trim(),
           origen: "manual",
+          idempotencyKey: nIdempotencyKeyRef.current,
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
@@ -432,6 +447,9 @@ export default function MesaViewPage() {
       );
     } catch {
       setNError("No se pudo crear la reserva.");
+    } finally {
+      nSubmittingRef.current = false;
+      setNSubmitting(false);
     }
   }
   function toggleNMesa(id: string) {
@@ -1450,9 +1468,9 @@ export default function MesaViewPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Notas</label>
             <textarea className={inp} rows={2} value={nNotas} onChange={(e) => setNNotas(e.target.value)} />
           </div>
-          <button onClick={submitNueva}
-            className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700">
-            Crear reserva
+          <button onClick={submitNueva} disabled={nSubmitting}
+            className="w-full rounded-xl bg-karuma-600 py-3 font-bold text-white hover:bg-karuma-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {nSubmitting ? "Guardando…" : "Crear reserva"}
           </button>
         </div>
       </Modal>
