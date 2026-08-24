@@ -28,6 +28,7 @@ export type SalesStatusPayload = {
   } | null;
   /** "api-auto" cuando está configurada la sesión de informes internos. */
   mode: "csv-manual" | "api-auto";
+  reauthRequired: boolean;
 };
 
 /**
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
     lastSyncedAt: null,
     lastImport: null,
     mode,
+    reauthRequired: false,
   };
 
   const supabase = getSupabaseAdmin();
@@ -155,6 +157,9 @@ export async function GET(request: NextRequest) {
       lastDate: lastRow.data?.business_date ?? null,
       lastSyncedAt: syncedRow.data?.synced_at ?? null,
       lastImport,
+      reauthRequired: Boolean(
+        lastImport?.errorMessage?.startsWith("RESTOSUITE_REAUTH_REQUIRED"),
+      ),
     } satisfies SalesStatusPayload,
     { headers: { "Cache-Control": "no-store" } },
   );
