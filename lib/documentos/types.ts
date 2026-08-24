@@ -75,6 +75,7 @@ export type DocumentoRow = {
   ai_model: string | null;
   ai_processing_error: string | null;
   supplier_id: number | null;
+  supplier_name: string | null;
   created_by_email: string | null;
   created_at: string;
   updated_at: string | null;

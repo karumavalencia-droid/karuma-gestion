@@ -59,6 +59,7 @@ export function mapDocumentoRow(row: Record<string, unknown>): DocumentoRow {
     ai_model: typeof row.ai_model === "string" ? row.ai_model : null,
     ai_processing_error: typeof row.ai_processing_error === "string" ? row.ai_processing_error : null,
     supplier_id: nullableNumber(row.supplier_id),
+    supplier_name: typeof row.proveedor === "string" ? row.proveedor : null,
     created_by_email: typeof row.created_by_email === "string" ? row.created_by_email : null,
     created_at: String(row.created_at ?? new Date().toISOString()),
     updated_at: typeof row.updated_at === "string" ? row.updated_at : null,

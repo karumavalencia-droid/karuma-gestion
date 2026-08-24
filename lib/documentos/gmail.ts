@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { getGmailAccessToken } from "@/lib/reservas/email";
 import { createProcessingRun, getDocumentoAdmin } from "./repository";
 import { uploadDocumentoObject, deleteDocumentoObject } from "./storage";
@@ -48,7 +48,7 @@ async function gmailJson<T>(url: string, accessToken: string): Promise<T> {
 export async function importDocumentoGmailAttachments(input: { actorEmail: string; query?: string; limit?: number }) {
   const accessToken = await getGmailAccessToken();
   if (!accessToken) throw new Error("Gmail no está configurado");
-  const limit = Math.min(Math.max(input.limit || 10, 1), 20);
+  const limit = Math.min(Math.max(input.limit || 20, 1), 100);
   const query = input.query?.trim() || process.env.DOCUMENTO_GMAIL_IMPORT_QUERY?.trim() || "has:attachment newer_than:30d";
   const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   listUrl.searchParams.set("q", query);
@@ -79,6 +79,13 @@ export async function importDocumentoGmailAttachments(input: { actorEmail: strin
         if (!attachment.data) throw new Error("Adjunto vacío");
         const bytes = decodeBase64Url(attachment.data);
         if (!bytes.length || bytes.length > DOCUMENTO_MAX_FILE_BYTES) throw new Error("Adjunto fuera de límite");
+        const sha256 = createHash("sha256").update(bytes).digest("hex");
+        const { data: existingHash } = await supabase.from("documentos").select("id").eq("sha256", sha256).is("deleted_at", null).limit(1).maybeSingle();
+        if (existingHash) {
+          await supabase.from("document_email_imports").update({ document_id: existingHash.id, status: "skipped", error_message: "Duplicado por contenido" }).eq("gmail_message_id", message.id).eq("gmail_attachment_id", attachmentId);
+          summary.skipped++;
+          continue;
+        }
         const documentId = randomUUID();
         const mimeType = part.mimeType || "application/octet-stream";
         const documentType = inferDocumentoType(mimeType, filename);
@@ -100,7 +107,7 @@ export async function importDocumentoGmailAttachments(input: { actorEmail: strin
           status: "uploaded",
           source: "gmail_attachment",
           source_email_id: `${message.id}:${attachmentId}`,
-          sha256: uploaded.sha256,
+          sha256,
           uploaded_at: new Date().toISOString(),
           created_by_email: input.actorEmail,
           metadata: { gmail_message_id: message.id, gmail_attachment_id: attachmentId, gmail_thread_id: message.threadId || null, gmail_subject: meta.subject, gmail_sender: meta.from },
