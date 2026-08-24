@@ -29,6 +29,7 @@ type SalesStatus = {
     errorMessage: string | null;
   } | null;
   mode: "csv-manual" | "api-auto";
+  reauthRequired: boolean;
 };
 
 function formatDateTime(iso: string | null): string {
@@ -88,8 +89,10 @@ export function SalesDataStatus({ refreshToken = 0 }: { refreshToken?: number })
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <StatusBadge variant={status?.mode === "api-auto" ? "info" : "warning"}>
-            {status?.mode === "api-auto"
+          <StatusBadge variant={status?.reauthRequired ? "warning" : status?.mode === "api-auto" ? "info" : "warning"}>
+            {status?.reauthRequired
+              ? "Sesión caducada"
+              : status?.mode === "api-auto"
               ? "Sincronización API"
               : "Importación manual CSV"}
           </StatusBadge>
@@ -116,6 +119,16 @@ export function SalesDataStatus({ refreshToken = 0 }: { refreshToken?: number })
         </p>
       ) : status ? (
         <>
+          {status.reauthRequired && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                <strong>RestoSuite dejó de sincronizar.</strong>{" "}
+                La última fecha disponible es {formatDate(status.lastDate)}. Vuelve a iniciar sesión en
+                RestoSuite y renueva la conexión; después el sistema podrá recuperar los días pendientes.
+              </span>
+            </div>
+          )}
           {!status.tableExists && (
             <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
