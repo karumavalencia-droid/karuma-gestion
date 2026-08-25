@@ -123,7 +123,12 @@ export function DocumentoHome() {
             <Search className="h-5 w-5 shrink-0 text-amber-400" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void load(); }} placeholder="Busca archivos, facturas, contratos, ideas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-500" />
           </div>
-          <Button variant="warning" onClick={() => setQuickAddOpen(true)} className="gap-2"><FileUp className="h-4 w-4" /> Añadir contenido</Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="warning" onClick={() => setQuickAddOpen(true)} className="gap-2"><FileUp className="h-4 w-4" /> Añadir contenido</Button>
+            <Button variant="outline" disabled={gmailBusy} onClick={() => void importGmail()} className="gap-2 border-amber-700/60 bg-zinc-950 text-amber-200 hover:bg-amber-500/10">
+              {gmailBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Sincronizar Gmail + Drive
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
