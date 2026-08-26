@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/guards";
 import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 import type { CominportOrder } from "@/src/data/cominportProducts";
 
-const SUPPLIER_SLUG = /^[a-z0-9-]{2,80}$/;
+const SUPPLIER_SLUG = /^[a-z0-9_-]{2,80}$/;
 const MAX_MESSAGE_LENGTH = 12_000;
 
 type PendingWechatOrder = {
@@ -100,14 +100,15 @@ export async function POST(request: NextRequest) {
 
   const user = await getSessionUser(request);
   if (!user) return jsonError("No has iniciado sesión", 401);
-  if (!process.env.WECHAT_BRIDGE_TOKEN?.trim() || !ownerEmail()) {
+  const queueEmail = ownerEmail();
+  if (!process.env.WECHAT_BRIDGE_TOKEN?.trim() || !queueEmail) {
     return jsonError("Puente WeChat no configurado", 503);
   }
   const supabase = getLegacySupabaseAdmin();
   if (!supabase) return jsonError("Sin conexión con la base de datos", 503);
 
   try {
-    const state = await readState(supabase, user.email.toLowerCase(), supplier) ?? {};
+    const state = await readState(supabase, queueEmail, supplier) ?? {};
     const order = readOrder(body.order);
     if (!order) return jsonError("Pedido no válido", 400);
     const pending = readPending(state).filter((item) => item.id !== order.id);
@@ -118,10 +119,11 @@ export async function POST(request: NextRequest) {
       order,
       createdAt: new Date().toISOString(),
     };
-    await writeState(supabase, user.email.toLowerCase(), supplier, {
+    await writeState(supabase, queueEmail, supplier, {
       ...state,
       pendingWechatOrders: [...pending, entry].slice(-10),
     });
+    console.info("[wechat-bridge] queued", { supplier, orderId: entry.id });
     return NextResponse.json({ ok: true, queued: true, orderId: entry.id });
   } catch (error) {
     console.error("[wechat-bridge] queue failed", error);

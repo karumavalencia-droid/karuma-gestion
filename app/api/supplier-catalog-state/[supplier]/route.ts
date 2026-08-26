@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth/guards";
 import { getLegacySupabaseAdmin } from "@/lib/supabase/legacy-client";
 
 const MAX_STATE_BYTES = 900_000;
-const SUPPLIER_SLUG = /^[a-z0-9-]{2,80}$/;
+const SUPPLIER_SLUG = /^[a-z0-9_-]{2,80}$/;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
