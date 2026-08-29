@@ -167,6 +167,21 @@ function applyLocale(root: Element, locale: Locale) {
   root.querySelectorAll("input, textarea, button, a").forEach((el) => translateElement(el, locale));
 }
 
+function hideIndividualDishPrices(root: Element) {
+  const menuSection = Array.from(root.querySelectorAll("section")).find((section) => {
+    const heading = section.querySelector("h2")?.textContent?.trim();
+    return heading === "Nuestra carta" || heading === "Our menu";
+  });
+  if (!menuSection) return;
+
+  menuSection.querySelectorAll("span").forEach((span) => {
+    const text = span.textContent?.trim() ?? "";
+    if (/^\d+(?:[.,]\d{2})?\s*€$/.test(text)) {
+      (span as HTMLElement).style.display = "none";
+    }
+  });
+}
+
 export default function ReservationLanguage() {
   const [locale, setLocale] = useState<Locale>("es");
 
@@ -180,6 +195,7 @@ export default function ReservationLanguage() {
 
     document.documentElement.lang = locale;
     applyLocale(root, locale);
+    hideIndividualDishPrices(root);
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -188,6 +204,7 @@ export default function ReservationLanguage() {
           if (added.nodeType === Node.ELEMENT_NODE) applyLocale(added as Element, locale);
         });
       }
+      hideIndividualDishPrices(root);
     });
     observer.observe(root, { childList: true, subtree: true });
     return () => observer.disconnect();
