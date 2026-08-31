@@ -370,9 +370,10 @@ export function getMesasConEstado(
       .filter((r) => r.mesaIds.includes(m.id))
       .sort((a, b) => toMin(a.hora) - toMin(b.hora));
     const ahora = agenda.filter(enMomento);
-    // Ocupada solo mientras dura la ocupación (finVentana extiende hasta que se
-    // libere): en franjas posteriores la mesa vuelve a mostrarse disponible.
-    const occ = ahora.find((r) => isOccupied(r));
+    // Una mesa sentada/walk-in está físicamente ocupada hasta que se libera.
+    // No depende del selector horario del plano: al pulsar "Sentar" debe pasar
+    // inmediatamente a verde oscuro y permanecer así hasta "Liberar mesa".
+    const occ = agenda.find((r) => isOccupied(r));
     const res = ahora.find((r) => isReserved(r));
     const joinedPreview = occ ?? res ?? agenda.find((r) => r.mesaIds.length > 1);
     const mesaVisible = mesaConGrupo(m, joinedPreview);
