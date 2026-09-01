@@ -341,6 +341,56 @@ function validarMesasLibres(
   return { ok: true, mesaIds: ids };
 }
 
+function validarMesasParaSentarManual(
+  mesaIds: string[],
+  fecha: string,
+  servicio: string,
+  excludeId?: string,
+): { ok: true; mesaIds: string[] } | { ok: false; error: string } {
+  const ids = uniqueMesaIds(mesaIds);
+  if (!ids.length) return { ok: false, error: "Selecciona al menos una mesa." };
+
+  const mesas = loadMesas();
+  if (ids.some((id) => !mesas.some((m) => m.id === id))) {
+    return { ok: false, error: "Una de las mesas seleccionadas no existe." };
+  }
+
+  // Operación humana: ignoramos por completo la ventana teórica de 90/120 min.
+  // Solo bloqueamos una mesa si YA está físicamente ocupada por otro cliente.
+  const ocupadasAhora = new Set<string>();
+  for (const reserva of loadReservas()) {
+    if (reserva.id === excludeId || !isActive(reserva)) continue;
+    if (reserva.fecha !== fecha || reserva.servicio !== servicio) continue;
+    if (isOccupied(reserva)) reserva.mesaIds.forEach((id) => ocupadasAhora.add(id));
+  }
+
+  if (ids.some((id) => ocupadasAhora.has(id))) {
+    return { ok: false, error: "Esta mesa está ocupada actualmente." };
+  }
+
+  return { ok: true, mesaIds: ids };
+}
+
+function asignarMesaParaSentarManual(
+  personas: number,
+  fecha: string,
+  servicio: string,
+  excludeId?: string,
+): string[] | null {
+  const ocupadasAhora = new Set<string>();
+  for (const reserva of loadReservas()) {
+    if (reserva.id === excludeId || !isActive(reserva)) continue;
+    if (reserva.fecha !== fecha || reserva.servicio !== servicio) continue;
+    if (isOccupied(reserva)) reserva.mesaIds.forEach((id) => ocupadasAhora.add(id));
+  }
+
+  const disponible = loadMesas()
+    .filter((m) => !ocupadasAhora.has(m.id) && m.capacidad >= personas)
+    .sort((a, b) => a.capacidad - b.capacidad || a.numero - b.numero)[0];
+
+  return disponible ? [disponible.id] : null;
+}
+
 export function asignarMesa(
   personas: number, fecha: string, hora: string, servicio: string, excludeId?: string,
 ): string[] | null {
@@ -493,16 +543,18 @@ export function sentarReserva(
   const r = list[idx];
   let mesaIds = r.mesaIds;
 
+  // Sentar es una acción humana: NO aplicamos el bloqueo teórico de 90/120 min.
+  // Solo impedimos sentar sobre una mesa que ya está físicamente ocupada.
   if (forceMesaIds && forceMesaIds.length) {
-    const validacion = validarMesasLibres(forceMesaIds, r.fecha, r.hora, r.servicio, r.personas, reservaId);
+    const validacion = validarMesasParaSentarManual(forceMesaIds, r.fecha, r.servicio, reservaId);
     if (!validacion.ok) return { ok: false, error: validacion.error };
     mesaIds = validacion.mesaIds;
   } else if (!mesaIds.length) {
-    const assigned = asignarMesa(r.personas, r.fecha, r.hora, r.servicio, reservaId);
-    if (!assigned) return { ok: false, error: "No hay mesas disponibles." };
+    const assigned = asignarMesaParaSentarManual(r.personas, r.fecha, r.servicio, reservaId);
+    if (!assigned) return { ok: false, error: "No hay mesas libres físicamente en este momento." };
     mesaIds = assigned;
   } else {
-    const validacion = validarMesasLibres(mesaIds, r.fecha, r.hora, r.servicio, r.personas, reservaId);
+    const validacion = validarMesasParaSentarManual(mesaIds, r.fecha, r.servicio, reservaId);
     if (!validacion.ok) return { ok: false, error: validacion.error };
     mesaIds = validacion.mesaIds;
   }
