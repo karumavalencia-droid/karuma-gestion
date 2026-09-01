@@ -92,6 +92,15 @@
   background-color: rgb(var(--c-superficie) / 0.95);
 }
 
+/* En el plano de mesas, la línea de metadatos de una reserva incluye hora y pax
+   (por ejemplo: "Reservada · 14:15 · 4p"). No la truncamos para que el número de
+   personas de las mesas verde claro quede siempre visible, incluso en tablet. */
+.mesa-page .mesa-card-detail-meta {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
