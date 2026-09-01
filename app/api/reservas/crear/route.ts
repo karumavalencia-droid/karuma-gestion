@@ -129,6 +129,10 @@ export async function POST(req: NextRequest) {
         const st = normalizeReservationStatus(r.estado);
         if (st === "sentado" || st === "walkin") r.mesa_ids.forEach((id) => ocupadas.add(id));
       }
+    } else if (origen === "manual") {
+      // El personal puede encadenar dos turnos sin el margen extra configurado.
+      // Se siguen bloqueando los solapamientos reales durante la duración de la reserva.
+      ocupadas = mesasOcupadasEnSlot(existentes, fecha, hora, duracion, 0);
     } else {
       ocupadas = mesasOcupadasEnSlot(existentes, fecha, hora, duracion, config.turno_gap_min ?? 30);
     }
@@ -137,13 +141,18 @@ export async function POST(req: NextRequest) {
         {
           error: isWalkIn
             ? "Esta mesa está ocupada o bloqueada ahora mismo."
-            : `Esta mesa necesita al menos ${config.turno_gap_min ?? 30} min entre dos turnos.`,
+            : origen === "manual"
+              ? "Esta mesa está ocupada durante ese horario."
+              : `Esta mesa necesita al menos ${config.turno_gap_min ?? 30} min entre dos turnos.`,
         },
         { status: 409 },
       );
     }
     mesaIds = forceMesaIds;
   } else if (origen !== "online") {
+    const assignmentConfig = origen === "manual"
+      ? { ...config, turno_gap_min: 0 }
+      : config;
     const assigned = asignarMesa(
       mesas as Mesa[],
       (reservasExistentes ?? []) as Reserva[],
@@ -151,7 +160,7 @@ export async function POST(req: NextRequest) {
       hora,
       duracion,
       personasReserva,
-      config,
+      assignmentConfig,
     );
     if (!assigned) {
       return NextResponse.json({ error: "No hay disponibilidad para ese horario" }, { status: 409 });
