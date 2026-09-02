@@ -56,6 +56,22 @@ const ADMIN_ONLY_ROUTES = new Set<ErpNavRoute>([
   "/documentos",
 ]);
 
+// Módulos todavía no utilizados: mantenemos sus páginas disponibles, pero
+// ocultamos sus accesos del menú hasta que el restaurante decida activarlos.
+const HIDDEN_NAV_ROUTES = new Set<ErpNavRoute>([
+  "/dashboard",
+  "/attendance",
+  "/marketing",
+  "/mensajes",
+  "/reviews",
+  "/delivery",
+  "/food-cost",
+  "/recetas",
+  "/cocina",
+  "/announcements",
+  "/coach",
+]);
+
 const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/ceo": Crown,
@@ -122,7 +138,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
   const isAdmin = isAdminSession(user);
   const visibleRoutes = ERP_NAV_ROUTES.filter(
-    (route) => isAdmin || !ADMIN_ONLY_ROUTES.has(route),
+    (route) =>
+      !HIDDEN_NAV_ROUTES.has(route) &&
+      (isAdmin || !ADMIN_ONLY_ROUTES.has(route)),
   );
   const isMesaView = pathname === "/dashboard/mesa-view";
   // Todo lo que cuelga de /compras abre el submenú: la lista y cada ficha.
