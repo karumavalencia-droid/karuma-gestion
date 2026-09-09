@@ -3,7 +3,7 @@
  *
  * GET  /api/documentos?categoria=...  → lista
  * POST /api/documentos                → subida (multipart/form-data)
- *   campos: file, categoria, notas?
+ *   campos: file, categoria, notas?, employee_id?, periodo?
  *
  * Los documentos generales se guardan en el bucket privado "documentos".
  * Las facturas se guardan en el bucket privado "facturas" y se deduplican por SHA-256.
@@ -19,7 +19,7 @@ import {
 } from "@/lib/documentos/constants";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB por archivo
+const MAX_BYTES = 25 * 1024 * 1024;
 
 const DOCUMENTO_SELECT = [
   "id",
@@ -41,6 +41,8 @@ const DOCUMENTO_SELECT = [
   "source_type",
   "processing_status",
   "extraction_confidence",
+  "employee_id",
+  "periodo",
 ].join(", ");
 
 export async function GET(request: NextRequest) {
@@ -101,13 +103,34 @@ export async function POST(request: NextRequest) {
     ? (categoriaRaw as DocumentoCategoria)
     : "otros";
   const notas = String(form.get("notas") ?? "").trim() || null;
+  const employeeIdRaw = String(form.get("employee_id") ?? "").trim();
+  const periodoRaw = String(form.get("periodo") ?? "").trim();
+  const employeeId = employeeIdRaw || null;
+  const periodo = /^(\d{4})-(0[1-9]|1[0-2])$/.test(periodoRaw) ? periodoRaw : null;
   const esFactura = categoria === "facturas";
   const bucket = getDocumentoBucket(categoria);
+
+  if (categoria === "nominas" && !employeeId) {
+    return NextResponse.json({ error: "employee_id es obligatorio para una nómina" }, { status: 400 });
+  }
+  if (categoria === "nominas" && !periodo) {
+    return NextResponse.json({ error: "periodo debe tener formato YYYY-MM" }, { status: 400 });
+  }
+
+  if (employeeId) {
+    const { data: employee, error: employeeError } = await supabase
+      .from("staff")
+      .select("id")
+      .eq("id", employeeId)
+      .maybeSingle();
+    if (employeeError || !employee) {
+      return NextResponse.json({ error: "Empleado no encontrado" }, { status: 400 });
+    }
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const fileSha256 = createHash("sha256").update(buffer).digest("hex");
 
-  // Evita guardar dos veces exactamente el mismo archivo, venga del origen que venga.
   const { data: duplicate, error: duplicateError } = await supabase
     .from("documentos")
     .select("id, nombre, categoria")
@@ -121,16 +144,11 @@ export async function POST(request: NextRequest) {
 
   if (duplicate) {
     return NextResponse.json(
-      {
-        error: "Este archivo ya está guardado",
-        duplicate_of: duplicate.id,
-        documento: duplicate,
-      },
+      { error: "Este archivo ya está guardado", duplicate_of: duplicate.id, documento: duplicate },
       { status: 409 },
     );
   }
 
-  // Ruta única: <categoria>/<YYYY-MM>/<timestamp>-<nombre saneado>
   const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-120) || "documento";
   const now = new Date();
   const yearMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -155,17 +173,24 @@ export async function POST(request: NextRequest) {
       mime_type: file.type || null,
       tamano_bytes: file.size,
       notas,
-      tipo_documento: esFactura ? "factura" : null,
+      empleado_id: employeeId,
+      periodo,
+      employee_id: employeeId,
+      tipo_documento: esFactura ? "factura" : categoria === "nominas" ? "employee_document" : null,
+      document_type: categoria === "nominas" ? "employee_document" : esFactura ? "invoice" : "other",
       source_type: "upload",
+      source: "upload",
       file_sha256: fileSha256,
+      sha256: fileSha256,
       processing_status: esFactura ? "needs_review" : "stored",
+      status: "uploaded",
+      storage_bucket: bucket,
       metadata: { storage_bucket: bucket },
     })
     .select(DOCUMENTO_SELECT)
     .single();
 
   if (error) {
-    // Limpieza: si falla la metadata, no dejar el archivo huérfano.
     await supabase.storage.from(bucket).remove([storagePath]);
     console.error("[documentos] Error guardando metadata:", error);
     return NextResponse.json({ error: "Error guardando el documento" }, { status: 500 });
