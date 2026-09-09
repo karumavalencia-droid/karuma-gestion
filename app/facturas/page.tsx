@@ -74,7 +74,7 @@ export default function FacturasPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/documentos?categoria=facturas", { cache: "no-store" });
+      const response = await fetch("/api/facturas/archive", { cache: "no-store" });
       const body = (await response.json()) as ApiResponse;
       if (!response.ok) throw new Error(body.error || "No se pudieron cargar las facturas");
       setFacturas(body.documentos ?? []);
@@ -101,7 +101,7 @@ export default function FacturasPage() {
     const q = search.trim().toLocaleLowerCase("es");
     return facturas.filter((factura) => {
       const facturaMonth = factura.fecha_documento?.slice(0, 7) ?? "";
-      if (month && facturaMonth !== month) return false;
+      if (month && facturaMonth && facturaMonth !== month) return false;
       if (supplier && factura.proveedor !== supplier) return false;
       if (!q) return true;
       return [factura.proveedor, factura.numero_documento, factura.nombre, factura.nif_proveedor]
@@ -119,14 +119,25 @@ export default function FacturasPage() {
   const usdTotal = useMemo(() => usd.reduce((sum, f) => sum + n(f.total), 0), [usd]);
 
   const handleDownload = async (factura: FacturaDocumento) => {
+    // Open synchronously while the click still has user activation. Safari
+    // otherwise treats window.open after the fetch as a blocked popup.
+    const popup = window.open("", "_blank");
+    if (popup) popup.opener = null;
+
     setDownloadingId(factura.id);
     setError("");
     try {
-      const response = await fetch(`/api/documentos/${factura.id}`);
+      const response = await fetch(`/api/facturas/archive/${factura.id}`);
       const body = (await response.json()) as { url?: string; error?: string };
       if (!response.ok || !body.url) throw new Error(body.error || "No se pudo abrir la factura");
-      window.open(body.url, "_blank", "noopener");
+
+      if (popup) {
+        popup.location.href = body.url;
+      } else {
+        window.location.assign(body.url);
+      }
     } catch (err) {
+      popup?.close();
       setError(err instanceof Error ? err.message : "Error descargando la factura");
     } finally {
       setDownloadingId(null);
@@ -233,7 +244,7 @@ export default function FacturasPage() {
                   const currency = factura.moneda || "EUR";
                   return (
                     <tr key={factura.id} className="hover:bg-gray-50/70">
-                      <td className="whitespace-nowrap px-2 py-3 text-gray-600">{dateLabel(factura.fecha_documento)}</td>
+                      <td className="whitespace-nowrap px-2 py-3 text-gray-600">{factura.fecha_documento ? dateLabel(factura.fecha_documento) : "Pendiente"}</td>
                       <td className="min-w-[220px] px-2 py-3">
                         <p className="font-medium text-gray-900">{factura.proveedor || "Sin proveedor"}</p>
                         {factura.nif_proveedor && <p className="mt-0.5 text-xs text-gray-500">{factura.nif_proveedor}</p>}
