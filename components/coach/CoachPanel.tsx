@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 
 const MAX_MESSAGE_CHARS = 2000;
+const PAYROLL_DOWNLOAD_PATTERN = /(\/api\/nominas\/[0-9a-f-]+\/download)/gi;
+const PAYROLL_DOWNLOAD_EXACT = /^\/api\/nominas\/[0-9a-f-]+\/download$/i;
 
 type ChatMessage = {
   id: string;
@@ -41,6 +43,7 @@ type ConversationSummary = {
 
 const QUICK_ACTIONS: { label: string; message: string; icon: typeof Bot }[] = [
   { label: "Mi horario", message: "¿Cuál es mi horario de esta semana?", icon: CalendarDays },
+  { label: "Mi nómina", message: "Quiero descargar mi última nómina.", icon: ClipboardList },
   { label: "Buscar una receta", message: "Quiero buscar una receta.", icon: ChefHat },
   { label: "Uso de Rational", message: "¿Cómo se usa el horno Rational?", icon: Flame },
   { label: "Reportar una incidencia", message: "Quiero reportar una incidencia.", icon: AlertTriangle },
@@ -63,6 +66,22 @@ function formatConversationDate(iso: string): string {
   return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
+function renderAssistantContent(content: string) {
+  return content.split(PAYROLL_DOWNLOAD_PATTERN).map((part, index) =>
+    PAYROLL_DOWNLOAD_EXACT.test(part) ? (
+      <a
+        key={`${part}-${index}`}
+        href={part}
+        className="my-1 inline-flex rounded-xl bg-karuma-600 px-3 py-2 font-semibold text-white no-underline shadow-sm hover:bg-karuma-700"
+      >
+        Descargar nómina PDF
+      </a>
+    ) : (
+      <span key={`text-${index}`}>{part}</span>
+    ),
+  );
+}
+
 export function CoachPanel() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,15 +94,12 @@ export function CoachPanel() {
   const [error, setError] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  // Sesión (nombre para el saludo) + reanudar la conversación más reciente.
   useEffect(() => {
     let cancelled = false;
 
     async function initialize() {
       try {
-        const sessionResponse = await fetch("/api/auth/session", {
-          cache: "no-store",
-        });
+        const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
         if (sessionResponse.ok) {
           const data = (await sessionResponse.json()) as {
             name?: string;
@@ -94,13 +110,9 @@ export function CoachPanel() {
           }
         }
 
-        const listResponse = await fetch("/api/coach/conversations", {
-          cache: "no-store",
-        });
+        const listResponse = await fetch("/api/coach/conversations", { cache: "no-store" });
         if (!listResponse.ok) return;
-        const list = (await listResponse.json()) as {
-          conversations?: ConversationSummary[];
-        };
+        const list = (await listResponse.json()) as { conversations?: ConversationSummary[] };
         const items = list.conversations ?? [];
         if (cancelled) return;
         setConversations(items);
@@ -126,9 +138,7 @@ export function CoachPanel() {
   }, [messages, sending]);
 
   async function openConversation(id: string, isCancelled?: () => boolean) {
-    const response = await fetch(`/api/coach/conversations/${id}`, {
-      cache: "no-store",
-    });
+    const response = await fetch(`/api/coach/conversations/${id}`, { cache: "no-store" });
     if (!response.ok) return;
     const payload = (await response.json()) as {
       messages?: { id: string; sender: "user" | "assistant"; content: string }[];
@@ -154,13 +164,9 @@ export function CoachPanel() {
 
   async function refreshConversations() {
     try {
-      const response = await fetch("/api/coach/conversations", {
-        cache: "no-store",
-      });
+      const response = await fetch("/api/coach/conversations", { cache: "no-store" });
       if (!response.ok) return;
-      const payload = (await response.json()) as {
-        conversations?: ConversationSummary[];
-      };
+      const payload = (await response.json()) as { conversations?: ConversationSummary[] };
       setConversations(payload.conversations ?? []);
     } catch {
       // La lista es informativa; no bloquea el chat.
@@ -221,11 +227,7 @@ export function CoachPanel() {
   return (
     <main className="flex min-h-[100dvh] flex-col bg-gray-100">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-karuma-700 px-3 py-3 text-white shadow-md">
-        <Link
-          href={backHref}
-          aria-label="Volver"
-          className="rounded-full p-2 transition hover:bg-white/10"
-        >
+        <Link href={backHref} aria-label="Volver" className="rounded-full p-2 transition hover:bg-white/10">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
@@ -233,24 +235,14 @@ export function CoachPanel() {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-base font-bold leading-tight">Karuma Coach</h1>
-          <p className="truncate text-xs text-karuma-100">
-            Asistente IA interno de Karuma
-          </p>
+          <p className="truncate text-xs text-karuma-100">Asistente IA interno de Karuma</p>
         </div>
         {session && !session.employeeId && (
           <>
-            <Link
-              href="/coach/knowledge"
-              aria-label="Base de conocimiento"
-              className="rounded-full p-2 transition hover:bg-white/10"
-            >
+            <Link href="/coach/knowledge" aria-label="Base de conocimiento" className="rounded-full p-2 transition hover:bg-white/10">
               <BookOpenText className="h-5 w-5" />
             </Link>
-            <Link
-              href="/coach/reports"
-              aria-label="Reportes de incidencias"
-              className="rounded-full p-2 transition hover:bg-white/10"
-            >
+            <Link href="/coach/reports" aria-label="Reportes de incidencias" className="rounded-full p-2 transition hover:bg-white/10">
               <ClipboardList className="h-5 w-5" />
             </Link>
           </>
@@ -259,43 +251,26 @@ export function CoachPanel() {
           type="button"
           onClick={() => setHistoryOpen((open) => !open)}
           aria-label="Historial de conversaciones"
-          className={`rounded-full p-2 transition hover:bg-white/10 ${
-            historyOpen ? "bg-white/15" : ""
-          }`}
+          className={`rounded-full p-2 transition hover:bg-white/10 ${historyOpen ? "bg-white/15" : ""}`}
         >
           <History className="h-5 w-5" />
         </button>
-        <button
-          type="button"
-          onClick={startNewConversation}
-          aria-label="Nueva conversación"
-          className="rounded-full p-2 transition hover:bg-white/10"
-        >
+        <button type="button" onClick={startNewConversation} aria-label="Nueva conversación" className="rounded-full p-2 transition hover:bg-white/10">
           <SquarePen className="h-5 w-5" />
         </button>
       </header>
 
       {historyOpen && (
         <div className="fixed inset-0 z-20 bg-tinta/40" onClick={() => setHistoryOpen(false)}>
-          <div
-            className="absolute inset-x-0 top-0 max-h-[70dvh] overflow-y-auto rounded-b-3xl bg-white p-4 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="absolute inset-x-0 top-0 max-h-[70dvh] overflow-y-auto rounded-b-3xl bg-white p-4 shadow-xl" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">Conversaciones</h2>
-              <button
-                type="button"
-                onClick={() => setHistoryOpen(false)}
-                aria-label="Cerrar historial"
-                className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
-              >
+              <button type="button" onClick={() => setHistoryOpen(false)} aria-label="Cerrar historial" className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100">
                 <X className="h-4 w-4" />
               </button>
             </div>
             {conversations.length === 0 ? (
-              <p className="py-4 text-center text-sm text-gray-500">
-                Todavía no hay conversaciones.
-              </p>
+              <p className="py-4 text-center text-sm text-gray-500">Todavía no hay conversaciones.</p>
             ) : (
               <ul className="space-y-1">
                 {conversations.map((conversation) => (
@@ -307,17 +282,11 @@ export function CoachPanel() {
                         void openConversation(conversation.id);
                       }}
                       className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-gray-100 ${
-                        conversation.id === conversationId
-                          ? "bg-karuma-50 text-karuma-800"
-                          : "text-gray-700"
+                        conversation.id === conversationId ? "bg-karuma-50 text-karuma-800" : "text-gray-700"
                       }`}
                     >
-                      <span className="truncate">
-                        {conversation.title || "Conversación"}
-                      </span>
-                      <span className="shrink-0 text-xs text-gray-400">
-                        {formatConversationDate(conversation.updatedAt)}
-                      </span>
+                      <span className="truncate">{conversation.title || "Conversación"}</span>
+                      <span className="shrink-0 text-xs text-gray-400">{formatConversationDate(conversation.updatedAt)}</span>
                     </button>
                   </li>
                 ))}
@@ -364,7 +333,9 @@ export function CoachPanel() {
                     : "self-start rounded-tl-sm bg-white text-gray-800"
                 }`}
               >
-                {message.content}
+                {message.sender === "assistant"
+                  ? renderAssistantContent(message.content)
+                  : message.content}
               </div>
             ))}
             {sending && (
@@ -377,17 +348,12 @@ export function CoachPanel() {
         )}
 
         {error && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-            {error}
-          </div>
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>
         )}
         <div ref={endRef} />
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white px-3 py-3"
-      >
+      <form onSubmit={onSubmit} className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white px-3 py-3">
         <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
           <textarea
             value={draft}
@@ -409,11 +375,7 @@ export function CoachPanel() {
             aria-label="Enviar"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-karuma-600 text-white shadow transition hover:bg-karuma-700 disabled:opacity-40"
           >
-            {sending ? (
-              <LoaderCircle className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
+            {sending ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
       </form>
