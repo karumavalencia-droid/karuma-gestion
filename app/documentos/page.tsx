@@ -81,13 +81,28 @@ export default function DocumentosPage() {
     }
   };
 
-  const handleDescargar = async (id: string) => {
-    const res = await fetch(`/api/documentos/${id}`);
-    const body = await res.json();
-    if (res.ok && body.url) {
-      window.open(body.url, "_blank", "noopener");
-    } else {
-      setError(body.error || "Error generando descarga");
+  const handleDescargar = async (doc: Documento) => {
+    setError("");
+    try {
+      const res = await fetch(`/api/documentos/${doc.id}`);
+      const body = await res.json();
+      if (!res.ok || !body.url) {
+        throw new Error(body.error || "Error generando descarga");
+      }
+
+      // The signed URL includes the filename for cross-origin downloads.
+      // Avoid opening a new window after awaiting the request (popup blockers).
+      const link = document.createElement("a");
+      link.href = body.url;
+      link.download = doc.nombre;
+      document.body.appendChild(link);
+      try {
+        link.click();
+      } finally {
+        link.remove();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error generando descarga");
     }
   };
 
@@ -200,7 +215,7 @@ export default function DocumentosPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void handleDescargar(doc.id)}
+                  onClick={() => void handleDescargar(doc)}
                   className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                   aria-label={`Descargar ${doc.nombre}`}
                 >
