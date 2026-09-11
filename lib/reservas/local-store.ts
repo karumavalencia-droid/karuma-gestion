@@ -289,7 +289,7 @@ function iniVentana(r: ReservaLocal): number {
       ini = Math.min(ini, seated.getHours() * 60 + seated.getMinutes());
     }
   }
-  return Math.floor(ini / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
+  return r.fecha === restaurantDate() ? Math.floor(ini / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN : ini;
 }
 // Fin efectivo de la ventana de una reserva. Para una sentada/walk-in de hoy,
 // la mesa sigue ocupada hasta que se libera aunque haya pasado su ventana

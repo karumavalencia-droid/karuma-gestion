@@ -174,3 +174,10 @@ test("selected table time excludes a later walk-in and ends the historical windo
   assert.equal(status("22:00"), "available");
   assert.equal(getMesasConEstado("2026-08-26", "cena").find(m => m.id === "T1")?.status, "occupied");
 });
+
+test("historical occupancy does not round a later arrival back into an earlier slot", () => {
+  storeCreatedReservation({ id: "arrival-between-slots", fecha: "2026-08-26", hora: "19:37", servicio: "cena", personas: 2, mesaIds: ["T1"], nombre: "Test", origen: "walkin" });
+  saveReservas(loadReservas().map(r => ({ ...r, seatedAt: "2026-08-26T17:37:00Z" })));
+  assert.equal(getMesasConEstado("2026-08-26", "cena", "19:30").find(m => m.id === "T1")?.status, "available");
+  assert.equal(getMesasConEstado("2026-08-26", "cena", "19:45").find(m => m.id === "T1")?.status, "occupied");
+});
