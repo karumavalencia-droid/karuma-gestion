@@ -8,7 +8,7 @@ import {
   DOCUMENTO_CATEGORIAS,
 } from "@/lib/documentos/constants";
 import type { DbDocumentoCategoria } from "@/lib/supabase/types";
-import { Download, FileText, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FileText, Trash2, Upload } from "lucide-react";
 
 type Documento = {
   id: string;
@@ -81,28 +81,23 @@ export default function DocumentosPage() {
     }
   };
 
-  const handleDescargar = async (doc: Documento) => {
+  const handleDocumento = async (id: string, action: "open" | "download") => {
     setError("");
+    // Open synchronously so browsers do not block the tab after the request.
+    const target = window.open("about:blank", "_blank");
+    if (!target) {
+      setError("Permite las ventanas emergentes para abrir o descargar el documento.");
+      return;
+    }
+    target.opener = null;
     try {
-      const res = await fetch(`/api/documentos/${doc.id}`);
+      const res = await fetch(`/api/documentos/${id}?action=${action}`, { cache: "no-store" });
       const body = await res.json();
-      if (!res.ok || !body.url) {
-        throw new Error(body.error || "Error generando descarga");
-      }
-
-      // The signed URL includes the filename for cross-origin downloads.
-      // Avoid opening a new window after awaiting the request (popup blockers).
-      const link = document.createElement("a");
-      link.href = body.url;
-      link.download = doc.nombre;
-      document.body.appendChild(link);
-      try {
-        link.click();
-      } finally {
-        link.remove();
-      }
+      if (!res.ok || !body.url) throw new Error(body.error || "Error abriendo el documento");
+      target.location.href = body.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error generando descarga");
+      target.close();
+      setError(err instanceof Error ? err.message : "Error abriendo el documento");
     }
   };
 
@@ -215,7 +210,16 @@ export default function DocumentosPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void handleDescargar(doc)}
+                  onClick={() => void handleDocumento(doc.id, "open")}
+                  className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  aria-label={`Abrir ${doc.nombre}`}
+                  title="Abrir"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDocumento(doc.id, "download")}
                   className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                   aria-label={`Descargar ${doc.nombre}`}
                 >

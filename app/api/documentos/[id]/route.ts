@@ -31,17 +31,29 @@ export async function GET(
     return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
   }
 
+  const preview = request.nextUrl.searchParams.get("action") === "open";
+  if (doc.storage_path.startsWith("drive://")) {
+    const fileId = doc.storage_path.slice("drive://".length);
+    if (!/^[a-zA-Z0-9_-]+$/.test(fileId)) {
+      return NextResponse.json({ error: "Referencia de Google Drive inválida" }, { status: 422 });
+    }
+    const url = preview
+      ? `https://drive.google.com/file/d/${fileId}/view`
+      : `https://drive.google.com/uc?export=download&id=${fileId}`;
+    return NextResponse.json({ url }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   const bucket = getDocumentoBucket(doc.categoria);
   const { data: signed, error: signError } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(doc.storage_path, 60 * 5, { download: doc.nombre });
+    .createSignedUrl(doc.storage_path, 60 * 5, preview ? {} : { download: doc.nombre });
 
   if (signError || !signed?.signedUrl) {
     console.error(`[documentos] Error firmando URL (${bucket}):`, signError);
     return NextResponse.json({ error: "Error generando descarga" }, { status: 500 });
   }
 
-  return NextResponse.json({ url: signed.signedUrl });
+  return NextResponse.json({ url: signed.signedUrl }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE(
