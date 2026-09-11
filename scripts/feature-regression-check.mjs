@@ -59,6 +59,7 @@ const INTENTIONALLY_UNLINKED = {
   "/kiosk": "acceso desde el pie del sidebar (Modo fichaje)",
   "/my-attendance": "portal empleado (redirección por rol)",
   "/my-schedule": "portal empleado (redirección por rol)",
+  "/my-payroll": "portal empleado de nóminas privadas (acceso por sesión de empleado)",
   "/reservas": "reserva pública (cliente, sin sidebar)",
   "/reservas/gestionar/:id":
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
@@ -94,6 +95,7 @@ const INTENTIONALLY_UNLINKED = {
   "/admin/suppliers/bi": "panel admin proveedores",
   "/admin/suppliers/bi-custom": "panel admin proveedores",
   "/admin/suppliers/notifications": "panel admin proveedores",
+  "/nominas": "panel owner para importar y gestionar nóminas",
 
   // ERP-v1 (set inglés paralelo) — nunca estuvo en el menú, se mantiene aislado
   "/inventory": "erp-v1 (set paralelo, no enlazado a propósito)",
