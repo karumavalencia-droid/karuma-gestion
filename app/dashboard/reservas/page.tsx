@@ -1,5 +1,6 @@
 "use client";
 
+import { restaurantDate } from "@/lib/reservas/view-time";
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, AlertCircle, X, CheckCircle, RefreshCw, Printer, Clock, Mail, MessageCircle } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
@@ -72,7 +73,7 @@ const CANAL_LABELS: Record<CanalLocal, string> = {
   otro:       "Otro",
 };
 
-function hoy() { return new Date().toISOString().split("T")[0]; }
+function hoy() { return restaurantDate(); }
 const FECHA_KEY = "karuma_shared_fecha";
 function getSharedFecha() {
   if (typeof window === "undefined") return hoy();
@@ -131,7 +132,7 @@ function canRequestReview(reserva: ReservaLocal): boolean {
   return Boolean(
     reserva.email &&
     !reserva.reviewEmailSentAt &&
-    (reserva.estado === "sentada" || reserva.estado === "walkin" || reserva.estado === "finished"),
+    reserva.estado === "finished",
   );
 }
 
@@ -139,7 +140,7 @@ function canRequestReview(reserva: ReservaLocal): boolean {
 function canWhatsappReview(reserva: ReservaLocal): boolean {
   return Boolean(
     reserva.telefono &&
-    (reserva.estado === "sentada" || reserva.estado === "walkin" || reserva.estado === "finished"),
+    reserva.estado === "finished",
   );
 }
 
@@ -579,6 +580,13 @@ export default function ReservasPage() {
   }
 
   // ── Nueva Reserva ──────────────────────────────────────────────────────────
+  function openNueva() {
+    const servicio = servicioPlano;
+    setNFecha(fecha); setNServicio(servicio);
+    setNHora(defaultHoraPlano(fecha, servicio));
+    setNError(""); setNExito(null); setShowNueva(true);
+  }
+
   async function submitNueva() {
     setNError("");
     if (!nFecha || !nHora) { setNError("Fecha y hora son obligatorias."); return; }
@@ -867,7 +875,7 @@ export default function ReservasPage() {
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600">
               Walk-In
             </button>
-            <button onClick={() => setShowNueva(true)}
+            <button onClick={openNueva}
               className="flex items-center gap-1.5 rounded-xl bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700">
               <Plus className="h-4 w-4" /> Nueva
             </button>
@@ -930,7 +938,8 @@ export default function ReservasPage() {
 
         {/* ── Filters ─────────────────────────────────────────────────────── */}
         <div className="mb-3 flex flex-wrap gap-2 no-print">
-          <input type="date" value={fecha} min={hoy()} max={maxFecha()}
+          <button onClick={() => { setFecha(hoy()); setSharedFecha(hoy()); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold">Hoy</button>
+          <input aria-label="Fecha de reservas" type="date" value={fecha}
             onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" />
 
@@ -1013,7 +1022,7 @@ export default function ReservasPage() {
         ) : filtradas.length === 0 ? (
           <div className="py-16 text-center no-print">
             <p className="text-gray-500">No hay reservas para este filtro.</p>
-            <button onClick={() => setShowNueva(true)}
+            <button onClick={openNueva}
               className="mt-4 rounded-xl bg-karuma-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-karuma-700">
               + Nueva Reserva
             </button>
@@ -1028,54 +1037,32 @@ export default function ReservasPage() {
               const canMove = canMoveLocalReservation(r);
               const canReview = !isBlock && canRequestReview(r);
               const canWhats = !isBlock && Boolean(reviewLink) && canWhatsappReview(r);
-              const canConfirmationEmail = !isBlock && Boolean(r.email);
+              const canConfirmationEmail = !isBlock && Boolean(r.email) && (r.estado === "pendiente" || r.estado === "confirmada");
               const confirmationSent = Boolean(r.confirmationEmailSentAt);
               const reviewSent = Boolean(r.reviewEmailSentAt);
               const showActions = isAct || canReview || canWhats || reviewSent || canConfirmationEmail;
               const visitas = isBlock ? 0 : getVisitasCliente(r.telefono);
               return (
-                <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-base font-bold">{r.hora}</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${st.bg} ${st.text}`}>{st.label}</span>
-                        {vistaServicio === "dia" && (
-                          <span className="text-xs text-gray-400 capitalize">{r.servicio}</span>
-                        )}
-                        {isBlock && (
-                          <span className="rounded-full bg-rose-700 px-2 py-0.5 text-[10px] font-bold text-white">Bloqueo mesa</span>
-                        )}
-                        {!isBlock && r.origen === "online" && (
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-600">🌐 Online</span>
-                        )}
-                        {!isBlock && r.canal && r.canal !== "presencial" && r.canal !== "otro" && (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">{CANAL_LABELS[r.canal]}</span>
-                        )}
+                <div key={r.id} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 w-full sm:w-auto sm:flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="w-12 text-sm font-bold tabular-nums">{r.hora}</span>
+                        <span className="min-w-24 flex-1 truncate font-semibold text-gray-900">{isBlock ? "Bloqueo mesa" : r.nombre || "Sin nombre"}</span>
+                        <span className="text-sm font-semibold">{isBlock ? duracionBloqueoLabel(r.duracionMin) : `${r.personas} pax`}</span>
+                        <span className="text-sm font-bold text-karuma-600">{mesa}</span>
+                        <span className={`rounded-full px-2 py-1 text-xs font-bold ${st.bg} ${st.text}`}>{st.label}</span>
+                        {vistaServicio === "dia" && <span className="text-xs text-gray-500">{r.servicio}</span>}
+                        {visitas > 1 && <span className="text-xs text-blue-600" title="Visitas">{visitas} visitas</span>}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2">
-                        <p className="font-semibold text-gray-900">{isBlock ? "Bloqueo mesa" : r.nombre}</p>
-                        {visitas > 1 && (
-                          <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black text-white" title={`${visitas} visitas`}>
-                            {visitas}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        {!isBlock && r.telefono && <span className="mr-3">{r.telefono}</span>}
-                        <span className={`font-bold ${isBlock ? "text-gray-500" : "text-karuma-600"}`}>
-                          {isBlock ? duracionBloqueoLabel(r.duracionMin) : `👥 ${r.personas} pax`}
-                        </span>
-                        {mesa !== "—" && <span className="ml-3 font-semibold text-karuma-600">{mesa}</span>}
-                      </p>
-                      {(() => {
-                        const c = infoCreado(r.creadoEn);
-                        return c ? (
-                          <p className={`mt-0.5 text-[10px] ${c.dias >= 3 ? "font-semibold text-amber-600" : "text-gray-400"}`}>
-                            Reservado: {c.label}
-                          </p>
-                        ) : null;
-                      })()}
+                      <details className="mt-1 text-xs text-gray-500">
+                        <summary className="cursor-pointer w-fit">Datos de la reserva</summary>
+                        <div className="flex flex-wrap gap-3 py-1">
+                          {!isBlock && <span>{r.telefono}</span>}
+                          {!isBlock && r.canal && <span>{CANAL_LABELS[r.canal]}</span>}
+                          <span>{infoCreado(r.creadoEn) ? `Reservado: ${infoCreado(r.creadoEn)!.label}` : ""}</span>
+                        </div>
+                      </details>
                       {r.notas && <p className="mt-1 text-xs italic text-gray-500">{r.notas}</p>}
                       {canConfirmationEmail && (
                         <p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${confirmationSent ? "text-emerald-600" : "text-amber-600"}`}>
@@ -1092,7 +1079,7 @@ export default function ReservasPage() {
                     </div>
 
                     {showActions && (
-                      <div className="flex flex-wrap gap-1.5 no-print">
+                      <div className="flex shrink-0 flex-wrap gap-1.5 no-print">
                         {isBlock && isAct && (
                           <button onClick={() => handleEstado(r, "cancelada")}
                             className="rounded-lg bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-600">
@@ -1107,13 +1094,13 @@ export default function ReservasPage() {
                                 Confirmar
                               </button>
                             )}
-                            {(r.estado === "confirmada" || r.estado === "pendiente") && (
+                            {r.estado === "confirmada" && (
                               <button onClick={() => handleEstado(r, "llegada")}
                                 className="rounded-lg bg-purple-700 px-2.5 py-1 text-xs font-semibold text-purple-200 hover:bg-purple-600">
                                 Llegada
                               </button>
                             )}
-                            {(r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada") && (
+                            {r.estado === "llegada" && (
                               <button onClick={() => openSeat(r)}
                                 className="rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-600">
                                 Sentar
@@ -1125,6 +1112,10 @@ export default function ReservasPage() {
                                 Liberar
                               </button>
                             )}
+                            <details className="relative">
+                              <summary className="cursor-pointer rounded-lg border border-gray-200 px-3 py-1 text-xs font-semibold">Más</summary>
+                              <div className="absolute right-0 z-20 mt-1 flex w-48 flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+                                {(r.estado === "pendiente" || r.estado === "confirmada") && <button onClick={() => openSeat(r)} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Sentar directamente</button>}
                             {r.estado === "sentada" && (
                               <button onClick={() => void handleDesSentar(r)}
                                 className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200">
@@ -1141,7 +1132,7 @@ export default function ReservasPage() {
                                 Cambiar mesa
                               </button>
                             )}
-                            {r.estado !== "no-show" && (
+                            {(r.estado === "pendiente" || r.estado === "confirmada" || r.estado === "llegada") && (
                               <button onClick={() => handleEstado(r, "no-show")}
                                 className="rounded-lg bg-yellow-900 px-2.5 py-1 text-xs font-semibold text-yellow-300 hover:bg-yellow-800">
                                 No Show
@@ -1160,6 +1151,8 @@ export default function ReservasPage() {
                                 Cancelar
                               </button>
                             )}
+                              </div>
+                            </details>
                           </>
                         )}
                         {canConfirmationEmail && (

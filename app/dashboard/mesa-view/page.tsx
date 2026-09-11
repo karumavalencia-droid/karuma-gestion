@@ -1,5 +1,6 @@
 "use client";
 
+import { restaurantDate } from "@/lib/reservas/view-time";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
@@ -67,7 +68,7 @@ const ESTADO_CORTO: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function hoy() { return new Date().toISOString().split("T")[0]; }
+function hoy() { return restaurantDate(); }
 function autoServicio(): ServicioLocal { return servicioActual(); }
 function fechaLarga(f: string): string {
   const s = new Date(f + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
@@ -82,9 +83,12 @@ function getSharedFecha() {
 function setSharedFecha(f: string) {
   if (typeof window !== "undefined") localStorage.setItem(FECHA_KEY, f);
 }
-function duracion(seatedAt?: string) {
+function duracion(seatedAt: string | undefined, fecha: string, hora: string) {
   if (!seatedAt) return "";
-  const mins = Math.floor((Date.now() - new Date(seatedAt).getTime()) / 60_000);
+  const start = new Date(seatedAt);
+  const reference = new Date(`${fecha}T${hora}:00`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(reference.getTime())) return "—";
+  const mins = Math.max(0, Math.floor((reference.getTime() - start.getTime()) / 60_000));
   return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 function duracionBloqueoLabel(minutos?: number) {
@@ -425,7 +429,7 @@ export default function MesaViewPage() {
           forceMesaIds: nMesaIds.length ? nMesaIds.map((id) => Number(id.replace("T", ""))) : undefined,
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[]; emailSent?: boolean };
       if (!response.ok || !json.ok) {
         setNError(json.error ?? "No se pudo crear la reserva.");
         return;
@@ -491,7 +495,7 @@ export default function MesaViewPage() {
           forceMesaIds: bMesaIds.map((id) => Number(id.replace("T", ""))),
         }),
       });
-      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[] };
+      const json = await response.json() as { ok?: boolean; error?: string; reservaId?: string; mesaIds?: number[]; emailSent?: boolean };
       if (!response.ok || !json.ok) {
         setBError(json.error ?? "No se pudo bloquear la mesa.");
         return;
@@ -772,9 +776,10 @@ export default function MesaViewPage() {
         <div className="mesa-tablet-toolbar mb-2 hidden shrink-0 flex-wrap items-center gap-2 rounded-2xl border border-white/80 bg-white p-2.5 shadow-sm">
           <div className="mr-auto min-w-[8rem]">
             <p className="text-base font-black leading-tight text-gray-900">Plano de mesas</p>
-            <p className="truncate text-[11px] font-medium text-gray-500">{fechaLarga(fecha)}</p>
+            <p className="truncate text-[11px] font-medium text-gray-500">{fechaLarga(fecha)} · Vista a las {horaPlano}</p>
           </div>
-          <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
+          <button onClick={() => { setFecha(hoy()); setSharedFecha(hoy()); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold">Hoy</button>
+          <input aria-label="Fecha del plano" type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold text-gray-700 focus:border-karuma-500 focus:outline-none" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
@@ -845,7 +850,8 @@ export default function MesaViewPage() {
 
         {/* ── Controles: fecha + servicio ────────────────────────────────────── */}
         <div className="mesa-tablet-hide mb-4 flex flex-wrap items-center gap-2">
-          <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
+          <button onClick={() => { setFecha(hoy()); setSharedFecha(hoy()); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold">Hoy</button>
+          <input aria-label="Fecha del plano" type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-karuma-500 focus:outline-none" />
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
@@ -1017,7 +1023,7 @@ export default function MesaViewPage() {
                     <p className="mesa-card-detail-name truncate text-base font-bold text-white">{r.nombre}</p>
                     <div className="mesa-card-detail-meta flex items-center gap-1.5 text-sm font-semibold text-emerald-100">
                       <Users className="h-4 w-4" />{r.personas}
-                      <Clock className="ml-1.5 h-4 w-4" />{r.estado === "walkin" ? `${r.hora} · ${duracion(r.seatedAt)}` : duracion(r.seatedAt)}
+                      <Clock className="ml-1.5 h-4 w-4" />{r.estado === "walkin" ? `${r.hora} · ${duracion(r.seatedAt, fecha, horaPlano)}` : duracion(r.seatedAt, fecha, horaPlano)}
                     </div>
                   </div>
                 )}
@@ -1175,7 +1181,7 @@ export default function MesaViewPage() {
                     <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Personas</span><span className="font-semibold">{focusR.personas}</span></div>
                   )}
                   {focusOcc && (
-                    <div className="flex justify-between"><span className="text-emerald-100">Tiempo</span><span className="font-bold text-white">{duracion(focusR.seatedAt)}</span></div>
+                    <div className="flex justify-between"><span className="text-emerald-100">Tiempo a las {horaPlano}</span><span className="font-bold text-white">{duracion(focusR.seatedAt, fecha, horaPlano)}</span></div>
                   )}
                   {!focusBlock && focusR.telefono && (
                     <div className="flex justify-between"><span className={focusOcc ? "text-emerald-100" : "text-gray-500"}>Tel.</span><span>{focusR.telefono}</span></div>

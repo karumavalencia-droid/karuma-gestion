@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 import {
+  getMesasConEstado,
+  saveReservas,
   createTableBlock,
   createReserva,
   editReserva,
@@ -160,4 +162,15 @@ test("table blocks reserve the selected table for their configured duration", ()
 
   const allowed = createReserva(reservaInput({ fecha, hora: "14:00", forceMesaIds: ["T2"] }));
   assert.equal(allowed.ok, true);
+});
+
+
+test("selected table time excludes a later walk-in and ends the historical window", () => {
+  storeCreatedReservation({ id: "historical-walkin", fecha: "2026-08-26", hora: "20:30", servicio: "cena", personas: 2, mesaIds: ["T1"], nombre: "Test", origen: "walkin" });
+  saveReservas(loadReservas().map(r => ({ ...r, seatedAt: "2026-08-26T18:30:00Z" })));
+  const status = (hora: string) => getMesasConEstado("2026-08-26", "cena", hora).find(m => m.id === "T1")?.status;
+  assert.equal(status("19:30"), "available");
+  assert.equal(status("20:30"), "occupied");
+  assert.equal(status("22:00"), "available");
+  assert.equal(getMesasConEstado("2026-08-26", "cena").find(m => m.id === "T1")?.status, "occupied");
 });

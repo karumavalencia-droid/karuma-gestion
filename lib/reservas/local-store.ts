@@ -1,3 +1,4 @@
+import { restaurantDate } from "./view-time";
 // ─── Karuma Reservas — localStorage engine v2 ────────────────────────────────
 // Keys: karuma_reservas_v1 / karuma_clientes_v1 / karuma_tables_v1
 import {
@@ -284,7 +285,7 @@ function iniVentana(r: ReservaLocal): number {
   if (!isOccupied(r)) return ini;
   if (r.seatedAt) {
     const seated = new Date(r.seatedAt);
-    if (seated.toISOString().split("T")[0] === r.fecha) {
+    if (restaurantDate(seated) === r.fecha) {
       ini = Math.min(ini, seated.getHours() * 60 + seated.getMinutes());
     }
   }
@@ -295,7 +296,7 @@ function iniVentana(r: ReservaLocal): number {
 // teórica: el fin nunca queda por detrás de "ahora" (+ un slot de margen).
 function finVentana(r: ReservaLocal): number {
   const fin = toMin(r.hora) + duracionReservaLocal(r);
-  if (!isOccupied(r) || r.fecha !== new Date().toISOString().split("T")[0]) return fin;
+  if (!isOccupied(r) || r.fecha !== restaurantDate()) return fin;
   const ahora = new Date();
   return Math.max(fin, ahora.getHours() * 60 + ahora.getMinutes() + SLOT_INTERVAL_MIN);
 }
@@ -343,7 +344,7 @@ export function slotsPlano(servicio: ServicioLocal): string[] {
 // Hora por defecto del plano: "ahora" si es hoy y dentro del servicio; si no, la apertura.
 export function defaultHoraPlano(fecha: string, servicio: ServicioLocal): string {
   const slots = slotsPlano(servicio);
-  const hoyStr = new Date().toISOString().split("T")[0];
+  const hoyStr = restaurantDate();
   if (fecha === hoyStr) {
     const now = new Date().toTimeString().slice(0, 5);
     const previos = slots.filter((s) => s <= now);
@@ -370,10 +371,8 @@ export function getMesasConEstado(
       .filter((r) => r.mesaIds.includes(m.id))
       .sort((a, b) => toMin(a.hora) - toMin(b.hora));
     const ahora = agenda.filter(enMomento);
-    // Una mesa sentada/walk-in está físicamente ocupada hasta que se libera.
-    // No depende del selector horario del plano: al pulsar "Sentar" debe pasar
-    // inmediatamente a verde oscuro y permanecer así hasta "Liberar mesa".
-    const occ = agenda.find((r) => isOccupied(r));
+    // A selected time must show occupancy only inside that reservation window.
+    const occ = ahora.find((r) => isOccupied(r));
     const res = ahora.find((r) => isReserved(r));
     const joinedPreview = occ ?? res ?? agenda.find((r) => r.mesaIds.length > 1);
     const mesaVisible = mesaConGrupo(m, joinedPreview);
@@ -569,7 +568,7 @@ export interface CreateReservaInput {
 export function createReserva(
   input: CreateReservaInput,
 ): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = restaurantDate();
   const max = new Date(); max.setDate(max.getDate() + MAX_DIAS);
   if (input.fecha < hoy) return { ok: false, error: "No se puede reservar en fechas pasadas." };
   if (input.fecha > max.toISOString().split("T")[0])
@@ -628,7 +627,7 @@ export interface CreateTableBlockInput {
 export function createTableBlock(
   input: CreateTableBlockInput,
 ): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = restaurantDate();
   const max = new Date(); max.setDate(max.getDate() + MAX_DIAS);
   if (input.fecha < hoy) return { ok: false, error: "No se puede bloquear una fecha pasada." };
   if (input.fecha > max.toISOString().split("T")[0])
@@ -666,7 +665,7 @@ export function createTableBlock(
 export function createWalkInForMesa(
   mesaId: string, personas: number, nombre: string, telefono: string, notas: string,
 ): { ok: true; reserva: ReservaLocal } | { ok: false; error: string } {
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = restaurantDate();
   const hora = new Date().toTimeString().slice(0, 5);
   const servicio: ServicioLocal = new Date().getHours() >= 17 ? "cena" : "comida";
 
@@ -771,7 +770,7 @@ export function cambiarMesas(
   const ids = uniqueMesaIds(newMesaIds);
   const mesas = loadMesas();
 
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = restaurantDate();
   const horaReferencia = isOccupied(r) && r.fecha === hoy
     ? new Date().toTimeString().slice(0, 5)
     : r.hora;
