@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { getSessionUser } from "@/lib/auth/guards";
 import type { SessionUser } from "@/lib/auth/session";
 import { getOwnConversation } from "@/lib/coach/conversations";
+import { PAYROLL_TOOL, runGetMyNomina } from "@/lib/coach/payroll-tool";
 import { buildCoachSystemPrompt } from "@/lib/coach/system-prompt";
 import {
   COACH_TOOLS,
@@ -34,11 +35,8 @@ const DEFAULT_MODEL = "gpt-4.1-mini";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Solo estos campos se aceptan del cliente. Todo lo demás se rechaza. */
 const ALLOWED_BODY_KEYS = new Set(["conversationId", "message"]);
 
-// Debe ser una función: un NextResponse solo puede enviarse una vez.
 function configError() {
   return NextResponse.json(
     {
@@ -108,7 +106,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // La clave de OpenAI SOLO existe en el servidor. Nunca NEXT_PUBLIC_*.
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error("[coach] configError: falta OPENAI_API_KEY en el runtime");
@@ -124,7 +121,6 @@ export async function POST(request: NextRequest) {
     return configError();
   }
 
-  // Conversación: cargar la propia o crear una nueva ligada a la sesión.
   let conversation: ConversationRow;
   if (conversationId) {
     const existing = await getOwnConversation(supabase, user, conversationId);
@@ -147,16 +143,12 @@ export async function POST(request: NextRequest) {
       .select("id, user_email, employee_id, title")
       .single<ConversationRow>();
     if (error || !data) {
-      console.error(
-        "[coach] configError: fallo al crear la conversación",
-        error?.message,
-      );
+      console.error("[coach] configError: fallo al crear la conversación", error?.message);
       return configError();
     }
     conversation = data;
   }
 
-  // Historial reciente (solo user/assistant; los mensajes tool son registro interno).
   const { data: historyRows } = await supabase
     .from("coach_messages")
     .select("sender, content, created_at")
@@ -167,7 +159,6 @@ export async function POST(request: NextRequest) {
     .returns<Pick<DbCoachMessage, "sender" | "content" | "created_at">[]>();
 
   const history = (historyRows ?? []).reverse();
-
   const pendingMessages: DbCoachMessageInsert[] = [
     { conversation_id: conversation.id, sender: "user", content: message },
   ];
@@ -188,13 +179,11 @@ export async function POST(request: NextRequest) {
         }),
     });
   } catch {
-    // Guarda al menos el mensaje del usuario para no perder el hilo.
     await supabase.from("coach_messages").insert(pendingMessages);
     return NextResponse.json(
       {
         error: "coach_unavailable",
-        message:
-          "Karuma Coach no ha podido responder. Inténtalo de nuevo en un momento.",
+        message: "Karuma Coach no ha podido responder. Inténtalo de nuevo en un momento.",
       },
       { status: 502 },
     );
@@ -242,9 +231,8 @@ async function runCoachModel(options: {
       model,
       instructions: buildCoachSystemPrompt(user),
       input,
-      tools: COACH_TOOLS,
+      tools: [...COACH_TOOLS, PAYROLL_TOOL],
       max_output_tokens: MAX_OUTPUT_TOKENS,
-      // Última ronda: sin herramientas para forzar una respuesta de texto.
       ...(round === MAX_TOOL_ROUNDS ? { tool_choice: "none" as const } : {}),
     });
 
@@ -259,9 +247,6 @@ async function runCoachModel(options: {
       throw new Error("empty_response");
     }
 
-    // La API acepta reenviar los items de salida (incluidos reasoning y
-    // function_call) como entrada del siguiente turno; el tipo del SDK no
-    // refleja aún esa equivalencia.
     input.push(...(response.output as unknown as OpenAI.Responses.ResponseInput));
 
     for (const call of functionCalls) {
@@ -284,11 +269,6 @@ async function runCoachModel(options: {
   throw new Error("tool_loop_exceeded");
 }
 
-/**
- * Ejecuta una herramienta con la identidad de la SESIÓN, nunca con la que
- * proponga el modelo o el cliente. El modelo no ejecuta SQL: cada herramienta
- * es una consulta fija del servidor.
- */
 async function executeCoachTool(
   call: OpenAI.Responses.ResponseFunctionToolCall,
   user: SessionUser,
@@ -304,6 +284,8 @@ async function executeCoachTool(
   switch (call.name) {
     case "get_my_schedule":
       return runGetMySchedule(user);
+    case "get_my_nomina":
+      return runGetMyNomina(args, user);
     case "search_knowledge":
       return runSearchKnowledge(args);
     case "create_incident_report":
