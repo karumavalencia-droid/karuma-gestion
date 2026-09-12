@@ -51,6 +51,7 @@ const ROLES_GESTION = new Set(["owner", "manager"]);
 const EMPLOYEE_PAGES = new Set([
   "/my-attendance",
   "/my-schedule",
+  "/my-payroll",
   "/announcements",
   "/coach",
 ]);
@@ -150,6 +151,7 @@ export async function middleware(request: NextRequest) {
     if (
       user.employeeId &&
       !EMPLOYEE_PAGES.has(pathname) &&
+      !(request.method === "GET" && (pathname === "/api/nominas" || /^\/api\/nominas\/[0-9a-f-]+(?:\/download)?$/i.test(pathname))) &&
       !EMPLOYEE_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))
     ) {
       if (pathname.startsWith("/api/")) {
