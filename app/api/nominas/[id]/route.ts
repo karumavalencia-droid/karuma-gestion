@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
-import { getDocumentoBucket } from "@/lib/documentos/constants";
+import { resolvePayrollStaffId } from "@/lib/staff/payroll-identity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(
@@ -32,23 +32,11 @@ export async function GET(
     return NextResponse.json({ error: "Nómina no encontrada" }, { status: 404 });
   }
 
-  // Un empleado solo puede descargar su propia nómina. El owner puede
-  // descargar cualquiera para soporte/gestión.
-  if (user.role !== "owner" && doc.employee_id !== user.employeeId) {
+  const employeeId = await resolvePayrollStaffId(user);
+  if (!employeeId || doc.employee_id !== employeeId) {
     return NextResponse.json({ error: "No tienes acceso a esta nómina" }, { status: 403 });
   }
-
-  const bucket = getDocumentoBucket(doc.categoria);
-  const { data: signed, error: signError } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(doc.storage_path, 60 * 5, { download: doc.nombre });
-
-  if (signError || !signed?.signedUrl) {
-    console.error("[nominas] Error generando URL firmada:", signError);
-    return NextResponse.json({ error: "Error generando la descarga" }, { status: 500 });
-  }
-
-  return NextResponse.json({ url: signed.signedUrl, nombre: doc.nombre }, {
+  return NextResponse.json({ url: `/api/nominas/${id}/download`, nombre: doc.nombre }, {
     headers: { "Cache-Control": "no-store" },
   });
 }

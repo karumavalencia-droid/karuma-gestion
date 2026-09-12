@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { getDocumentoBucket } from "@/lib/documentos/constants";
+import { resolvePayrollStaffId } from "@/lib/staff/payroll-identity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(
@@ -32,21 +33,24 @@ export async function GET(
     return NextResponse.json({ error: "Nómina no encontrada" }, { status: 404 });
   }
 
-  // La identidad se toma exclusivamente de la sesión. Un empleado solo puede
-  // descargar su propia nómina; owner mantiene acceso para soporte/gestión.
-  if (user.role !== "owner" && doc.employee_id !== user.employeeId) {
+  const employeeId = await resolvePayrollStaffId(user);
+  if (!employeeId || doc.employee_id !== employeeId) {
     return NextResponse.json({ error: "No tienes acceso a esta nómina" }, { status: 403 });
   }
 
   const bucket = getDocumentoBucket(doc.categoria);
-  const { data: signed, error: signError } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(doc.storage_path, 60 * 5, { download: doc.nombre });
-
-  if (signError || !signed?.signedUrl) {
-    console.error("[nominas/download] Error generando URL firmada:", signError);
-    return NextResponse.json({ error: "Error generando la descarga" }, { status: 500 });
+  const { data: file, error: downloadError } = await supabase.storage
+    .from(bucket).download(doc.storage_path);
+  if (downloadError || !file) {
+    return NextResponse.json({ error: "Error descargando la nómina" }, { status: 500 });
   }
-
-  return NextResponse.redirect(signed.signedUrl, 307);
+  return new NextResponse(await file.arrayBuffer(), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(doc.nombre)}`,
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+      "Vary": "Cookie",
+    },
+  });
 }

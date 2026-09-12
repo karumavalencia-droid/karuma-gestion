@@ -23,12 +23,19 @@ export async function GET(
   const { id } = await params;
   const { data: doc, error } = await supabase
     .from("documentos")
-    .select("storage_path, nombre, categoria")
+    .select("storage_path, nombre, categoria, employee_id")
     .eq("id", id)
     .maybeSingle();
 
   if (error || !doc) {
     return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
+  }
+
+  // Individual payroll downloads must go through the session-bound endpoint.
+  if (doc.categoria === "nominas" && doc.employee_id) {
+    return NextResponse.json({ url: `/api/nominas/${id}/download` }, {
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   const preview = request.nextUrl.searchParams.get("action") === "open";

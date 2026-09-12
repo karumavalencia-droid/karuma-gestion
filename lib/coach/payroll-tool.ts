@@ -1,5 +1,6 @@
 import type { SessionUser } from "@/lib/auth/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { resolvePayrollStaffId } from "@/lib/staff/payroll-identity";
 
 export const PAYROLL_TOOL = {
   type: "function" as const,
@@ -71,11 +72,13 @@ export async function runGetMyNomina(
     });
   }
 
+  const employeeId = await resolvePayrollStaffId(user);
+  if (!employeeId) return JSON.stringify({ error: "not_linked" });
   const { data, error } = await supabase
     .from("documentos")
     .select("id,nombre,periodo")
     .eq("categoria", "nominas")
-    .eq("employee_id", user.employeeId)
+    .eq("employee_id", employeeId)
     .eq("periodo", periodo)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })

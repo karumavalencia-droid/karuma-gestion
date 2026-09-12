@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { resolvePayrollStaffId } from "@/lib/staff/payroll-identity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const SELECT = "id,nombre,periodo,document_date,created_at,mime_type,tamano_bytes";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   const requestedEmployeeId = request.nextUrl.searchParams.get("employee_id");
   const employeeId = user.role === "owner" && requestedEmployeeId
     ? requestedEmployeeId
-    : user.employeeId;
+    : await resolvePayrollStaffId(user);
 
   if (!employeeId) {
     return NextResponse.json({ nominas: [] });
