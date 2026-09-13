@@ -54,6 +54,7 @@ const EMPLOYEE_PAGES = new Set([
   "/my-payroll",
   "/announcements",
   "/coach",
+  "/recetas",
 ]);
 const EMPLOYEE_API_PREFIXES = [
   "/api/attendance/me",
@@ -152,7 +153,8 @@ export async function middleware(request: NextRequest) {
       user.employeeId &&
       !EMPLOYEE_PAGES.has(pathname) &&
       !(request.method === "GET" && (pathname === "/api/nominas" || /^\/api\/nominas\/[0-9a-f-]+(?:\/download)?$/i.test(pathname))) &&
-      !EMPLOYEE_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+      !EMPLOYEE_API_PREFIXES.some((prefix) => pathname.startsWith(prefix)) &&
+      !(pathname === "/api/recetas" && request.method === "GET")
     ) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
