@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { resolvePageTitle } from "@/lib/layout/page-title";
 
-const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance", "/my-schedule", "/coach"];
+const NO_SIDEBAR_ROUTES = ["/login", "/my-attendance", "/my-schedule", "/my-payroll", "/coach"];
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
