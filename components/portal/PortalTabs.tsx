@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, CalendarDays, FileText, MapPinCheck, MessageSquare, type LucideIcon } from "lucide-react";
+import { Bot, CalendarDays, ChefHat, FileText, MapPinCheck, MessageSquare, type LucideIcon } from "lucide-react";
 
 type PortalTab = {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** v2: Nómina, Recetas, Tareas — añadir aquí con enabled: false hasta lanzarlas. */
+  /** Tareas pendientes: añadir aquí con enabled: false hasta lanzarlas. */
   enabled: boolean;
 };
 
@@ -16,6 +16,7 @@ const TABS: PortalTab[] = [
   { href: "/my-attendance", label: "Fichar", icon: MapPinCheck, enabled: true },
   { href: "/my-schedule", label: "Horario", icon: CalendarDays, enabled: true },
   { href: "/my-payroll", label: "Nómina", icon: FileText, enabled: true },
+  { href: "/recetas", label: "Recetas", icon: ChefHat, enabled: true },
   { href: "/announcements", label: "Anuncios", icon: MessageSquare, enabled: true },
   { href: "/coach", label: "Coach", icon: Bot, enabled: true },
 ];
