@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { PayrollDownloadButton } from "@/components/payroll/PayrollDownloadButton";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -69,13 +70,7 @@ function formatConversationDate(iso: string): string {
 function renderAssistantContent(content: string) {
   return content.split(PAYROLL_DOWNLOAD_PATTERN).map((part, index) =>
     PAYROLL_DOWNLOAD_EXACT.test(part) ? (
-      <a
-        key={`${part}-${index}`}
-        href={part}
-        className="my-1 inline-flex rounded-xl bg-karuma-600 px-3 py-2 font-semibold text-white no-underline shadow-sm hover:bg-karuma-700"
-      >
-        Descargar nómina PDF
-      </a>
+      <PayrollDownloadButton key={`${part}-${index}`} url={part} label="Descargar nómina PDF" />
     ) : (
       <span key={`text-${index}`}>{part}</span>
     ),

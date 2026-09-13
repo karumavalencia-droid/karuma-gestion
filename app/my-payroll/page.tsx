@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Download, FileText, LoaderCircle, RefreshCw, WalletCards } from "lucide-react";
+import { ArrowLeft, FileText, LoaderCircle, RefreshCw, WalletCards } from "lucide-react";
 import Link from "next/link";
+import { PayrollDownloadButton } from "@/components/payroll/PayrollDownloadButton";
 import { PortalTabs } from "@/components/portal/PortalTabs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -28,6 +29,7 @@ const labels = {
     refresh: "Actualizar",
     back: "Volver",
     unknown: "Sin periodo",
+    month: "Mes", all: "Ver todos", missing: "Tu nómina de este mes todavía no está disponible.", login: "Inicia sesión para consultar tus nóminas.",
   },
   zh: {
     title: "我的工资单",
@@ -39,6 +41,7 @@ const labels = {
     refresh: "刷新",
     back: "返回",
     unknown: "未注明月份",
+    month: "月份", all: "查看全部", missing: "这个月的个人工资单尚未提供。", login: "请登录后查看工资单。",
   },
 } as const;
 
@@ -56,13 +59,14 @@ function periodLabel(periodo: string | null, date: string | null, locale: "es" |
 }
 
 export default function MyPayrollPage() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const { locale } = useLanguage();
   const text = labels[locale];
   const [nominas, setNominas] = useState<Payroll[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [month, setMonth] = useState("");
+  const visible = month ? nominas.filter((item) => item.periodo === month) : nominas;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,33 +74,20 @@ export default function MyPayrollPage() {
     try {
       const response = await fetch("/api/nominas", { cache: "no-store" });
       const payload = (await response.json()) as { nominas?: Payroll[]; error?: string };
-      if (!response.ok) throw new Error(payload.error ?? text.error);
+      if (!response.ok) throw new Error(response.status === 401 ? text.login : text.error);
       setNominas(payload.nominas ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : text.error);
     } finally {
       setLoading(false);
     }
-  }, [text.error]);
+  }, [text.error, text.login]);
 
   useEffect(() => {
+    if (!ready) return;
     if (user?.employeeId) void load();
-  }, [load, user?.employeeId]);
-
-  const download = async (id: string) => {
-    if (downloading) return;
-    setDownloading(id);
-    try {
-      const response = await fetch(`/api/nominas/${encodeURIComponent(id)}`, { cache: "no-store" });
-      const payload = (await response.json()) as { url?: string; error?: string };
-      if (!response.ok || !payload.url) throw new Error(payload.error ?? text.error);
-      window.location.assign(payload.url);
-    } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : text.error);
-    } finally {
-      setDownloading(null);
-    }
-  };
+    else { setLoading(false); setError(text.login); }
+  }, [load, ready, user?.employeeId, text.login]);
 
   return (
     <main className="min-h-screen bg-gray-950 px-4 pb-28 pt-6 text-white">
@@ -125,21 +116,28 @@ export default function MyPayrollPage() {
           <p className="mt-1 text-sm text-gray-400">{text.subtitle}</p>
         </section>
 
+        <div className="mb-4 flex items-end gap-3">
+          <label className="min-w-0 flex-1 text-sm text-gray-300">
+            {text.month}
+            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="mt-1 block min-h-11 w-full min-w-0 rounded-xl border border-white/20 bg-gray-900 px-3 text-white [color-scheme:dark]" />
+          </label>
+          {month && <button type="button" onClick={() => setMonth("")} className="min-h-11 rounded-xl border border-white/20 px-3 text-sm">{text.all}</button>}
+        </div>
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
             <LoaderCircle className="h-5 w-5 animate-spin" />
             {text.loading}
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div>
-        ) : nominas.length === 0 ? (
+          <div role="alert" className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div>
+        ) : visible.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-gray-400">
             <FileText className="mx-auto mb-3 h-8 w-8 opacity-60" />
-            {text.empty}
+            {month ? text.missing : text.empty}
           </div>
         ) : (
           <div className="space-y-3">
-            {nominas.map((nomina) => (
+            {visible.map((nomina) => (
               <div key={nomina.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10">
@@ -149,16 +147,9 @@ export default function MyPayrollPage() {
                     <p className="font-medium capitalize">{periodLabel(nomina.periodo, nomina.document_date, locale)}</p>
                     <p className="mt-0.5 truncate text-xs text-gray-500">{nomina.nombre}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void download(nomina.id)}
-                    disabled={downloading !== null}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                  >
-                    {downloading === nomina.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{text.download}</span>
-                  </button>
+
                 </div>
+                <PayrollDownloadButton url={`/api/nominas/${nomina.id}/download`} locale={locale} />
               </div>
             ))}
           </div>
