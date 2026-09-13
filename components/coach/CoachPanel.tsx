@@ -68,7 +68,8 @@ function formatConversationDate(iso: string): string {
 }
 
 function renderAssistantContent(content: string) {
-  return content.split(PAYROLL_DOWNLOAD_PATTERN).map((part, index) =>
+  const normalized = content.replace(/\[[^\]]*\]\((\/api\/nominas\/[0-9a-f-]+\/download)\)/gi, "$1");
+  return normalized.split(PAYROLL_DOWNLOAD_PATTERN).map((part, index) =>
     PAYROLL_DOWNLOAD_EXACT.test(part) ? (
       <PayrollDownloadButton key={`${part}-${index}`} url={part} label="Descargar nómina PDF" />
     ) : (
