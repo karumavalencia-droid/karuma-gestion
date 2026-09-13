@@ -16,7 +16,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, ready } = useAuth();
   const { t } = useLanguage();
-  const noSidebar = NO_SIDEBAR_ROUTES.includes(pathname);
+  const noSidebar = NO_SIDEBAR_ROUTES.includes(pathname) ||
+    Boolean(user?.employeeId && ["/recetas", "/recipes"].includes(pathname));
   const publicPage = pathname === "/login";
 
   useEffect(() => {

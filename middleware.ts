@@ -54,6 +54,8 @@ const EMPLOYEE_PAGES = new Set([
   "/my-payroll",
   "/announcements",
   "/coach",
+  "/recetas",
+  "/recipes",
 ]);
 const EMPLOYEE_API_PREFIXES = [
   "/api/attendance/me",
@@ -144,13 +146,16 @@ export async function middleware(request: NextRequest) {
       !user.employeeId &&
       EMPLOYEE_PAGES.has(pathname) &&
       pathname !== "/announcements" &&
-      pathname !== "/coach"
+      pathname !== "/coach" &&
+      pathname !== "/recetas" &&
+      pathname !== "/recipes"
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     if (
       user.employeeId &&
       !EMPLOYEE_PAGES.has(pathname) &&
+      !(request.method === "GET" && pathname === "/api/recipes") &&
       !(request.method === "GET" && (pathname === "/api/nominas" || /^\/api\/nominas\/[0-9a-f-]+(?:\/download)?$/i.test(pathname))) &&
       !EMPLOYEE_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))
     ) {

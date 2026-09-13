@@ -66,7 +66,6 @@ const HIDDEN_NAV_ROUTES = new Set<ErpNavRoute>([
   "/reviews",
   "/delivery",
   "/food-cost",
-  "/recetas",
   "/cocina",
   "/announcements",
   "/coach",
