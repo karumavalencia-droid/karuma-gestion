@@ -35,6 +35,17 @@ export const STAFF_MEMBERS: StaffMember[] = [
   }),
   // Sala
   staff({
+    id: "joselin",
+    name: "Joselin",
+    department: "Sala",
+    position: "Camarera",
+    role: "waiter",
+    weeklyHours: null,
+    status: "Activo",
+    fixedRestDay1: null,
+    fixedRestDay2: null,
+  }),
+  staff({
     id: "carlos",
     name: "Carlos",
     department: "Sala",

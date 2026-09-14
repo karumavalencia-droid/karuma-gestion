@@ -1,3 +1,4 @@
+import { findDatabasePinAccount } from "@/lib/auth/employee-pin-login";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
@@ -122,6 +123,18 @@ export async function POST(request: Request) {
         email: `${employeeId}@karuma.local`,
         role: staff.role as Role,
         employeeId,
+      });
+    }
+  }
+
+  if (/^\d{4,8}$/.test(username) && username === password.trim()) {
+    const account = await findDatabasePinAccount(username);
+    if (account) {
+      return createLoginResponse({
+        name: account.name,
+        email: account.email,
+        role: account.role_id as Role,
+        employeeId: account.employee_key,
       });
     }
   }
