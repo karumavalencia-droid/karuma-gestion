@@ -14,6 +14,12 @@ import {
 } from "./local-store";
 import type { EstadoReserva } from "./types";
 
+// When staff seats a reservation, the local UI is updated immediately and the
+// Supabase status update follows. A realtime/reload can land in the tiny window
+// before Supabase exposes the new status and must not turn the table light green
+// again. Keep the fresh local occupied state briefly, then trust Supabase again.
+const LOCAL_OCCUPIED_SYNC_GRACE_MS = 15_000;
+
 function mapEstadoSb(e: EstadoReserva): EstadoLocal {
   switch (e) {
     case "Confirmada": return "confirmada";
@@ -83,14 +89,29 @@ export async function syncAndLoadReservas(fecha: string): Promise<ReservaLocal[]
             changed = true;
           } else if (existing.origen || mapped.origen) {
             // Keep Supabase-backed reservations fresh across devices.
-            // Supabase conserva el momento real de entrada entre dispositivos.
-            // Mientras se propaga una actualización, mantenemos el valor local
-            // como respaldo; al des-sentar se elimina siempre.
-            const occupied = mapped.estado === "sentada" || mapped.estado === "walkin";
+            // Right after seating, a reload/realtime event may still read the
+            // previous Confirmada status from Supabase. Preserve the fresh local
+            // occupied state for a short grace window so the table stays dark
+            // green instead of flashing/reverting to Reservada.
+            const mappedOccupied = mapped.estado === "sentada" || mapped.estado === "walkin";
+            const existingOccupied = existing.estado === "sentada" || existing.estado === "walkin";
+            const seatedAtMs = existing.seatedAt ? Date.parse(existing.seatedAt) : Number.NaN;
+            const freshLocalSeat =
+              existingOccupied &&
+              Number.isFinite(seatedAtMs) &&
+              Date.now() - seatedAtMs >= 0 &&
+              Date.now() - seatedAtMs < LOCAL_OCCUPIED_SYNC_GRACE_MS;
+            const keepFreshLocalOccupied = freshLocalSeat && !mappedOccupied && mapped.estado === "confirmada";
+
             localMap.set(mapped.id, {
               ...existing,
               ...mapped,
-              seatedAt: occupied ? (mapped.seatedAt ?? existing.seatedAt) : undefined,
+              ...(keepFreshLocalOccupied ? { estado: existing.estado } : {}),
+              seatedAt: keepFreshLocalOccupied
+                ? existing.seatedAt
+                : mappedOccupied
+                  ? (mapped.seatedAt ?? existing.seatedAt)
+                  : undefined,
             });
             changed = true;
           } else if (!existing.personas && mapped.personas) {
