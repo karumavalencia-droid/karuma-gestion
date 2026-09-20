@@ -12,24 +12,29 @@ type Mode = "empleado" | "oficina" | "admin";
 type AdminStep = "creds" | "code";
 type EmpleadoStep = "pin" | "code";
 
-/** Paso "escribe el código SMS". Lo comparten el admin y el empleado. */
+/**
+ * Paso "escribe el código". Lo comparten el admin (que lo recibe por SMS) y
+ * el empleado (que lo recibe por correo).
+ */
 function CodeFields({
   code,
   onCode,
-  phoneHint,
+  label,
+  destination,
   expiresIn,
   onBack,
 }: {
   code: string;
   onCode: (value: string) => void;
-  phoneHint: string;
+  label: string;
+  destination: string;
   expiresIn: number | null;
   onBack: () => void;
 }) {
   return (
     <>
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-gray-700">Código SMS</span>
+        <span className="text-sm font-medium text-gray-700">{label}</span>
         <input
           type="text"
           inputMode="numeric"
@@ -43,7 +48,7 @@ function CodeFields({
         />
       </label>
       <p className="text-center text-xs text-gray-500">
-        Código enviado a {phoneHint || "tu teléfono"}.
+        Código enviado a {destination || "tu contacto de ficha"}.
         {expiresIn ? ` Válido por ${expiresIn}s.` : " Código expirado, vuelve a empezar."}
       </p>
       <button
@@ -77,7 +82,7 @@ export default function LoginPage() {
 
   const [empStep, setEmpStep] = useState<EmpleadoStep>("pin");
   const [empCode, setEmpCode] = useState("");
-  const [empPhoneHint, setEmpPhoneHint] = useState("");
+  const [empDestHint, setEmpDestHint] = useState("");
   const [empExpiresIn, setEmpExpiresIn] = useState<number | null>(null);
 
   const [officeUser, setOfficeUser] = useState("oficina");
@@ -117,7 +122,7 @@ export default function LoginPage() {
       }
 
       if (data.requiresOtp) {
-        setEmpPhoneHint(data.phoneHint || "");
+        setEmpDestHint(data.destinationHint || "");
         setEmpExpiresIn(data.expiresIn ?? null);
         setEmpStep("code");
         if (data.expiresIn) startCountdown(data.expiresIn, setEmpExpiresIn);
@@ -336,14 +341,16 @@ export default function LoginPage() {
                   />
                 </label>
                 <p className="text-center text-xs text-gray-500">
-                  Entra con tu PIN para fichar y ver tu horario.
+                  Entra con tu PIN para fichar y ver tu horario. Desde el móvil
+                  te pediremos además un código que te llega por correo.
                 </p>
               </>
             ) : (
               <CodeFields
                 code={empCode}
                 onCode={setEmpCode}
-                phoneHint={empPhoneHint}
+                label="Código por correo"
+                destination={empDestHint}
                 expiresIn={empExpiresIn}
                 onBack={() => {
                   setEmpStep("pin");
@@ -413,7 +420,8 @@ export default function LoginPage() {
             <CodeFields
               code={adminCode}
               onCode={setAdminCode}
-              phoneHint={adminPhoneHint}
+              label="Código SMS"
+              destination={adminPhoneHint}
               expiresIn={adminExpiresIn}
               onBack={() => {
                 setAdminStep("creds");

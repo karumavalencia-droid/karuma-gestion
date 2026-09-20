@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { findAccount } from "@/lib/auth/accounts";
 import { isMobileUserAgent } from "@/lib/auth/device";
-import { getEmployeeOtpPhone, maskEmployeePhone } from "@/lib/auth/employee-otp";
-import { requestOtp } from "@/lib/auth/otp-service";
+import { getEmployeeOtpEmail, maskEmployeeEmail } from "@/lib/auth/employee-otp";
+import { requestEmailOtp, requestOtp } from "@/lib/auth/otp-service";
 import type { Role } from "@/lib/auth/permissions";
 import {
   adminSessionUser,
@@ -112,9 +112,10 @@ export async function POST(request: Request) {
     });
   }
 
-  // Portal del empleado (PIN). Desde el MÓVIL se pide además un código SMS
-  // al teléfono de su ficha, igual que el admin hace contraseña + código.
-  // Desde la tablet del local o el ordenador de oficina sigue bastando el PIN.
+  // Portal del empleado (PIN). Desde el MÓVIL se pide además un código que
+  // se manda por correo a la dirección de su ficha, igual que el admin hace
+  // contraseña + código. Desde la tablet del local o el ordenador de oficina
+  // sigue bastando el PIN.
   if (/^\d{4,8}$/.test(username) && username === password.trim()) {
     const employeeUser = await resolveEmployeePinUser(username);
     if (employeeUser) {
@@ -122,21 +123,21 @@ export async function POST(request: Request) {
         return createLoginResponse(employeeUser);
       }
 
-      const lookup = await getEmployeeOtpPhone(employeeUser.employeeId);
+      const lookup = await getEmployeeOtpEmail(employeeUser.employeeId);
       if (lookup.status !== "ok") {
-        // Sin móvil utilizable en la ficha no hay a dónde mandar el código.
+        // Sin correo utilizable en la ficha no hay a dónde mandar el código.
         // Entra solo con el PIN (si no, se quedaría sin poder fichar) y se
-        // deja constancia en el log de a quién le falta el teléfono.
+        // deja constancia en el log de a quién le falta la dirección.
         console.warn(
           `[portal-otp] ${employeeUser.employeeId}: ${lookup.status} en su ficha de staff; entra solo con PIN`,
         );
         return createLoginResponse(employeeUser);
       }
 
-      const otp = await requestOtp(lookup.phone);
+      const otp = await requestEmailOtp(lookup.email);
       if (!otp.success) {
         return NextResponse.json(
-          { error: otp.error || "No se pudo enviar el código SMS" },
+          { error: otp.error || "No se pudo enviar el código por correo" },
           { status: 502 },
         );
       }
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         requiresOtp: true,
         expiresIn: otp.expiresIn,
-        phoneHint: maskEmployeePhone(lookup.phone),
+        destinationHint: maskEmployeeEmail(lookup.email),
       });
     }
   }

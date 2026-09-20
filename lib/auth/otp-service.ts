@@ -1,3 +1,4 @@
+import { escapeHtml, sendTransactionalEmail } from "../email/send";
 import { getSupabaseAdmin } from "../supabase/admin";
 import type { DbAuthOtpSessionInsert } from "../supabase/types";
 import { sendOtpSms } from "./sms";
@@ -230,5 +231,118 @@ export async function cleanupExpiredOtps(): Promise<void> {
     }
   } catch (err) {
     console.error("[OTP] 清理异常:", err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OTP por correo (portal del empleado)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La columna `auth_otp_sessions.phone` guarda el DESTINO del código. Para el
+ * portal del empleado guardamos ahí su dirección de correo, y así no hace
+ * falta tocar el esquema de la base de datos. No hay colisión posible: un
+ * teléfono siempre empieza por "+" y un correo siempre lleva "@".
+ *
+ * verifyOtp() sirve igual para los dos: solo compara contra ese destino.
+ */
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function buildOtpEmail(code: string, validityMinutes: number) {
+  const subject = `Tu código de acceso a Karuma: ${code}`;
+  const text = [
+    "Hola,",
+    "",
+    `Tu código para entrar en el portal de Karuma es: ${code}`,
+    "",
+    `Caduca en ${validityMinutes} minutos y solo se puede usar una vez.`,
+    "Si no has intentado entrar, no hagas nada y avisa al encargado.",
+    "",
+    "Karuma Sushi & Grill",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;max-width:480px;margin:0 auto;padding:24px">
+      <h1 style="font-size:20px;margin:0 0 4px">Karuma Sushi &amp; Grill</h1>
+      <p style="margin:0 0 20px;color:#4b5563">Código de acceso al portal</p>
+      <p style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;background:#f9fafb;border-radius:12px;padding:18px 0;margin:0 0 20px">${escapeHtml(code)}</p>
+      <p style="margin:0 0 8px">Caduca en ${validityMinutes} minutos y solo se puede usar una vez.</p>
+      <p style="margin:0;font-size:13px;color:#6b7280">Si no has intentado entrar, no hagas nada y avisa al encargado.</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+/**
+ * Pide un OTP y lo manda por correo. Gemelo de requestOtp(), con el mismo
+ * almacenamiento, la misma caducidad y el mismo límite de intentos; solo
+ * cambia el canal de entrega.
+ */
+export async function requestEmailOtp(email: string): Promise<OtpRequestResult> {
+  try {
+    const supabase = getOtpSupabase();
+    const destino = email.trim().toLowerCase();
+    if (!isValidEmail(destino)) {
+      return { success: false, error: "Dirección de correo no válida" };
+    }
+
+    const code = generateOtpCode();
+    const validityMinutes =
+      parseInt(process.env.OTP_VALIDITY_MINUTES || "5", 10) || 5;
+    const expiresAt = new Date(Date.now() + validityMinutes * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from("auth_otp_sessions")
+      .insert({
+        phone: destino,
+        code,
+        attempts: 0,
+        max_attempts: parseInt(process.env.OTP_MAX_ATTEMPTS || "3", 10) || 3,
+        expires_at: expiresAt.toISOString(),
+        verified_at: null,
+        account_id: null,
+      } as DbAuthOtpSessionInsert)
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[OTP:email] no se pudo guardar:", error);
+      return { success: false, error: "No se pudo generar el código, inténtalo de nuevo" };
+    }
+
+    const { subject, text, html } = buildOtpEmail(code, validityMinutes);
+    const sent = await sendTransactionalEmail({
+      to: destino,
+      subject,
+      text,
+      html,
+      // El id de la fila es único por petición: dos códigos seguidos no se
+      // deduplican en Resend y el empleado recibe siempre el último.
+      idempotencyKey: `portal-otp-${data?.id ?? Date.now()}`,
+    });
+
+    if (!sent.sent) {
+      // El correo no salió: se borra el OTP para no dejar un código huérfano.
+      if (data?.id) {
+        await supabase.from("auth_otp_sessions").delete().eq("id", data.id);
+      }
+      console.error("[OTP:email] no se pudo enviar:", sent.reason, sent.error ?? "");
+      return {
+        success: false,
+        error:
+          sent.reason === "missing_config"
+            ? "El envío de correo no está configurado en el servidor"
+            : "No se pudo enviar el código por correo, inténtalo de nuevo",
+      };
+    }
+
+    return { success: true, otpId: data?.id, expiresIn: validityMinutes * 60 };
+  } catch (err) {
+    console.error("[OTP:email] excepción:", err);
+    return { success: false, error: "Error del servidor, inténtalo de nuevo" };
   }
 }

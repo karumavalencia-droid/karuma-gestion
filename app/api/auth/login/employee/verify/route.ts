@@ -2,20 +2,20 @@
  * POST /api/auth/login/employee/verify
  *
  * Segundo paso del login del portal del empleado desde el móvil:
- * el primer paso (POST /api/auth/login con el PIN) manda un código SMS al
- * teléfono de la ficha del empleado. Aquí se verifica ese código junto con
- * el PIN y, si todo es válido, se crea la sesión del empleado.
+ * el primer paso (POST /api/auth/login con el PIN) manda un código por correo
+ * a la dirección de la ficha del empleado. Aquí se verifica ese código junto
+ * con el PIN y, si todo es válido, se crea la sesión del empleado.
  *
- * Es el gemelo de /api/auth/login/admin/verify: mismo OTP, mismo SMS,
- * misma auditoría. Solo cambia de dónde sale el teléfono (la ficha de
- * `staff` en vez de KARUMA_ADMIN_PHONE) y la credencial (PIN en vez de
- * usuario+contraseña).
+ * Es el gemelo de /api/auth/login/admin/verify: mismo OTP y misma auditoría.
+ * Cambian el canal (correo en vez de SMS) y de dónde sale el destino (la
+ * ficha de `staff` en vez de KARUMA_ADMIN_PHONE), y la credencial es el PIN
+ * en vez de usuario+contraseña.
  *
  * Body: { "pin": "1001", "code": "123456" }
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getEmployeeOtpPhone } from "@/lib/auth/employee-otp";
+import { getEmployeeOtpEmail } from "@/lib/auth/employee-otp";
 import { resolveEmployeePinUser } from "@/lib/auth/employee-pin-login";
 import { verifyOtp } from "@/lib/auth/otp-service";
 import {
@@ -59,15 +59,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
   }
 
-  const lookup = await getEmployeeOtpPhone(employeeUser.employeeId);
+  const lookup = await getEmployeeOtpEmail(employeeUser.employeeId);
   if (lookup.status !== "ok") {
     return NextResponse.json(
-      { error: "Tu ficha no tiene un móvil válido. Pídeselo al encargado." },
+      { error: "Tu ficha no tiene un correo válido. Pídeselo al encargado." },
       { status: 409 },
     );
   }
 
-  const otpResult = await verifyOtp(lookup.phone, code);
+  const otpResult = await verifyOtp(lookup.email, code);
   if (!otpResult.success) {
     await logLoginEvent({
       status: "failed",

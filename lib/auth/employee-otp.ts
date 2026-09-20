@@ -1,66 +1,71 @@
 import { resolveStaffRow } from "@/lib/staff/identity";
 
 /**
- * Código SMS para el portal del empleado.
+ * Código de verificación para el portal del empleado.
  *
- * Reutiliza exactamente la misma tubería que el 2FA del administrador:
- * requestOtp()/verifyOtp() (tabla auth_otp_sessions) y sendOtpSms()
- * (SMS_PROVIDER + TWILIO_*). Aquí solo se resuelve A QUÉ número se manda.
+ * Reutiliza la misma tubería que el 2FA del administrador —requestEmailOtp()/
+ * verifyOtp() sobre la tabla auth_otp_sessions— y el envío de correo que ya
+ * usan reservas y facturas (lib/email/send.ts). Aquí solo se resuelve A QUÉ
+ * dirección se manda.
  *
- * El número SIEMPRE sale de la ficha del empleado en la tabla `staff`.
- * Nunca se acepta un teléfono enviado por el cliente: igual que el admin
- * lo toma de KARUMA_ADMIN_PHONE, el empleado lo toma de su ficha.
+ * La dirección SIEMPRE sale de la ficha del empleado en la tabla `staff`.
+ * Nunca se acepta un correo enviado por el cliente: igual que el admin toma
+ * su teléfono de KARUMA_ADMIN_PHONE, el empleado toma el suyo de su ficha.
  */
 
 /**
- * Normaliza a E.164. En `staff.phone` conviven varios formatos:
- *   "623237xxx"        móvil español sin prefijo
- *   "+34 67x xxx xxx"  E.164 con espacios
- *   "+1786xxxxxxx"     número extranjero
- * requestOtp() exige /^\+\d{10,15}$/, así que hay que limpiarlos.
+ * Dominios que NO son buzones reales.
+ *
+ * `lib/staff/data.ts` rellena el correo de quien no tiene uno con
+ * `${slug}@karuma.es`, y el kiosco usa `@karuma.local`. Son direcciones
+ * inventadas por el propio código: si mandásemos el código ahí, el empleado
+ * se quedaría esperando un correo que no existe y sin poder fichar.
+ *
+ * Si algún día karuma.es tiene buzones de verdad, basta con quitarlo de aquí.
  */
-export function normalizeEmployeePhone(raw: string | null | undefined): string | null {
+const DOMINIOS_DE_RELLENO = ["karuma.es", "karuma.local"];
+
+function esCorreoUtilizable(email: string): boolean {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+  const dominio = email.slice(email.lastIndexOf("@") + 1);
+  return !DOMINIOS_DE_RELLENO.includes(dominio);
+}
+
+/** Normaliza y descarta lo que no sirve para recibir un correo. */
+export function normalizeEmployeeEmail(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return null;
-
-  let e164: string;
-  if (trimmed.startsWith("+")) e164 = `+${digits}`;
-  else if (digits.startsWith("00")) e164 = `+${digits.slice(2)}`;
-  else if (/^[67]\d{8}$/.test(digits)) e164 = `+34${digits}`; // móvil español
-  else if (/^34[67]\d{8}$/.test(digits)) e164 = `+${digits}`;
-  else return null; // fijo, extensión o número incompleto: no sirve para SMS
-
-  return /^\+\d{10,15}$/.test(e164) ? e164 : null;
+  const email = raw.trim().toLowerCase();
+  return esCorreoUtilizable(email) ? email : null;
 }
 
-/** "+34623237898" -> "+34•••••898" (mismo formato que maskPhone del admin). */
-export function maskEmployeePhone(phone: string): string {
-  return `${phone.slice(0, 3)}•••••${phone.slice(-3)}`;
+/** "joselin@gmail.com" -> "jos•••@gmail.com" (sin revelar la dirección). */
+export function maskEmployeeEmail(email: string): string {
+  const corte = email.lastIndexOf("@");
+  const usuario = email.slice(0, corte);
+  const dominio = email.slice(corte);
+  const visible = usuario.slice(0, Math.min(3, Math.max(1, usuario.length - 1)));
+  return `${visible}•••${dominio}`;
 }
 
-export type EmployeePhoneLookup =
-  /** Ficha encontrada y con un móvil utilizable. */
-  | { status: "ok"; phone: string }
-  /** Ficha encontrada pero sin teléfono (o con uno que no sirve para SMS). */
-  | { status: "sin-telefono" }
+export type EmployeeEmailLookup =
+  /** Ficha encontrada y con un correo utilizable. */
+  | { status: "ok"; email: string }
+  /** Ficha encontrada, pero sin correo (o con uno de relleno). */
+  | { status: "sin-correo" }
   /** No hay ficha en `staff` para este empleado, o hay más de una. */
   | { status: "sin-ficha" };
 
-export async function getEmployeeOtpPhone(
+export async function getEmployeeOtpEmail(
   employeeId: string | null | undefined,
-): Promise<EmployeePhoneLookup> {
-  let row: { phone: string | null } | null;
+): Promise<EmployeeEmailLookup> {
+  let row: { email: string | null } | null;
   try {
-    row = await resolveStaffRow<{ phone: string | null }>(employeeId, "phone", "login");
+    row = await resolveStaffRow<{ email: string | null }>(employeeId, "email", "login");
   } catch {
     return { status: "sin-ficha" };
   }
   if (!row) return { status: "sin-ficha" };
 
-  const phone = normalizeEmployeePhone(row.phone);
-  return phone ? { status: "ok", phone } : { status: "sin-telefono" };
+  const email = normalizeEmployeeEmail(row.email);
+  return email ? { status: "ok", email } : { status: "sin-correo" };
 }
