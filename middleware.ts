@@ -57,6 +57,8 @@ const EMPLOYEE_PAGES = new Set([
   "/recetas",
 ]);
 const EMPLOYEE_API_PREFIXES = [
+  // Registrar su propio correo: lo pide el portal nada más entrar.
+  "/api/portal/correo",
   "/api/attendance/me",
   "/api/attendance/colleagues",
   "/api/schedule/me",
