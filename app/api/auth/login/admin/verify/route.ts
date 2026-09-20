@@ -3,17 +3,19 @@
  *
  * Segundo paso del login de administrador (2FA):
  * el primer paso (POST /api/auth/login con usuario+contraseña) envía un
- * código SMS al teléfono del admin (KARUMA_ADMIN_PHONE). Aquí se verifica
- * ese código junto con las credenciales y, si todo es válido, se crea la
- * sesión con rol owner.
+ * código al correo del admin (KARUMA_ADMIN_EMAIL) o, de respaldo, por SMS a
+ * su teléfono (KARUMA_ADMIN_PHONE). Aquí se verifica ese código junto con
+ * las credenciales y, si todo es válido, se crea la sesión con rol owner.
  *
- * Body: { "username": "...", "password": "...", "code": "123456" }
+ * Body: { "username": "...", "password": "...", "code": "123456",
+ *         "channel": "email" | "sms" }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyOtp } from "@/lib/auth/otp-service";
 import {
   adminSessionUser,
+  getAdminEmail,
   getAdminPhone,
   verifyAdminCredentials,
 } from "@/lib/auth/server-accounts";
@@ -24,15 +26,34 @@ import {
   SESSION_MAX_AGE_SECONDS,
 } from "@/lib/auth/session";
 
+/**
+ * A qué destino se mandó el código. El cliente solo dice por qué CANAL lo
+ * recibió; la dirección sale siempre del servidor, nunca de la petición.
+ * Sin canal (apps antiguas) se asume el preferente: correo y, si no hay,
+ * teléfono.
+ */
+function resolveOtpDestination(channel: string | undefined): string | null {
+  const email = getAdminEmail();
+  const phone = getAdminPhone();
+  if (channel === "sms") return phone;
+  if (channel === "email") return email;
+  return email ?? phone;
+}
+
 export async function POST(request: NextRequest) {
-  let body: { username?: string; password?: string; code?: string };
+  let body: {
+    username?: string;
+    password?: string;
+    code?: string;
+    channel?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Formato de solicitud inválido" }, { status: 400 });
   }
 
-  const { username, password, code } = body;
+  const { username, password, code, channel } = body;
   if (!username || !password || !code) {
     return NextResponse.json(
       { error: "Usuario, contraseña y código son obligatorios" },
@@ -46,8 +67,8 @@ export async function POST(request: NextRequest) {
     "unknown";
   const userAgent = request.headers.get("user-agent") || "unknown";
 
-  // Las credenciales se re-verifican en cada paso: el código SMS solo
-  // vale acompañado de la contraseña correcta.
+  // Las credenciales se re-verifican en cada paso: el código solo vale
+  // acompañado de la contraseña correcta.
   if (!(await verifyAdminCredentials(username, password))) {
     await logLoginEvent({
       status: "failed",
@@ -59,15 +80,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Usuario o contraseña incorrectos" }, { status: 401 });
   }
 
-  const adminPhone = getAdminPhone();
-  if (!adminPhone) {
+  const destino = resolveOtpDestination(channel);
+  if (!destino) {
     return NextResponse.json(
-      { error: "Cuenta admin sin teléfono configurado (KARUMA_ADMIN_PHONE)" },
+      { error: "Cuenta admin sin correo configurado (KARUMA_ADMIN_EMAIL)" },
       { status: 503 },
     );
   }
 
-  const otpResult = await verifyOtp(adminPhone, code);
+  const otpResult = await verifyOtp(destino, code);
   if (!otpResult.success) {
     await logLoginEvent({
       status: "failed",

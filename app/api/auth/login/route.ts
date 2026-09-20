@@ -3,11 +3,13 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
 import { findAccount } from "@/lib/auth/accounts";
-import { requestOtp } from "@/lib/auth/otp-service";
+import { requestEmailOtp, requestOtp } from "@/lib/auth/otp-service";
 import type { Role } from "@/lib/auth/permissions";
 import {
   adminSessionUser,
+  getAdminEmail,
   getAdminPhone,
+  maskAdminEmail,
   maskPhone,
   verifyAdminCredentials,
 } from "@/lib/auth/server-accounts";
@@ -84,13 +86,14 @@ export async function POST(request: Request) {
   }
 
   if (await verifyAdminCredentials(username, password)) {
+    const adminEmail = getAdminEmail();
     const adminPhone = getAdminPhone();
 
-    if (!adminPhone) {
-      // Producción exige 2FA por SMS; sin teléfono configurado no hay admin.
+    if (!adminEmail && !adminPhone) {
+      // Producción exige 2FA; sin correo ni teléfono configurados no hay admin.
       if (process.env.NODE_ENV === "production") {
         return NextResponse.json(
-          { error: "Cuenta admin sin teléfono configurado (KARUMA_ADMIN_PHONE)" },
+          { error: "Cuenta admin sin correo configurado (KARUMA_ADMIN_EMAIL)" },
           { status: 503 },
         );
       }
@@ -98,7 +101,31 @@ export async function POST(request: Request) {
       return createLoginResponse(adminSessionUser());
     }
 
-    const otp = await requestOtp(adminPhone);
+    // Canal preferente: el CORREO. El SMS queda de respaldo, porque el envío
+    // depende de un proveedor de pago y a veces el mensaje no llega.
+    if (adminEmail) {
+      const otp = await requestEmailOtp(adminEmail);
+      if (otp.success) {
+        return NextResponse.json({
+          requiresOtp: true,
+          channel: "email",
+          expiresIn: otp.expiresIn,
+          destinationHint: maskAdminEmail(adminEmail),
+        });
+      }
+
+      if (!adminPhone) {
+        return NextResponse.json(
+          { error: otp.error || "No se pudo enviar el código por correo" },
+          { status: 502 },
+        );
+      }
+      // El correo no salió pero hay teléfono: se intenta por SMS antes de
+      // dejar al jefe fuera de su propio panel.
+      console.warn(`[admin-otp] correo no enviado (${otp.error}); se intenta por SMS`);
+    }
+
+    const otp = await requestOtp(adminPhone!);
     if (!otp.success) {
       return NextResponse.json(
         { error: otp.error || "No se pudo enviar el código SMS" },
@@ -108,8 +135,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       requiresOtp: true,
+      channel: "sms",
       expiresIn: otp.expiresIn,
-      phoneHint: maskPhone(adminPhone),
+      destinationHint: maskPhone(adminPhone!),
+      // Compatibilidad con versiones antiguas de la app, que leían phoneHint.
+      phoneHint: maskPhone(adminPhone!),
     });
   }
 
