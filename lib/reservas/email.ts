@@ -1,4 +1,13 @@
-import nodemailer from "nodemailer";
+import {
+  escapeHtml,
+  gmailConfigurado,
+  sendEmailViaGmailSmtp,
+  sendEmailViaResend,
+  type EmailSendResult,
+} from "@/lib/email/send";
+
+// Se re-exporta porque las rutas de reservas y sus tests lo importan de aquí.
+export { gmailConfigurado };
 
 type ReservationConfirmationInput = {
   to: string;
@@ -29,10 +38,6 @@ type ReservationReminderInput = {
   telefonoRestaurante?: string | null;
 };
 
-type EmailSendResult =
-  | { sent: true }
-  | { sent: false; reason: "missing_config" | "request_failed" | "invalid_recipient"; error?: string };
-
 type ReservationConfirmationSendOptions = {
   idempotencyKey?: string;
 };
@@ -40,19 +45,6 @@ type ReservationConfirmationSendOptions = {
 const RESTAURANT_NAME = "Karuma Sushi & Grill";
 const RESTAURANT_ADDRESS = "C/ de Roger de Llòria, 2, Valencia";
 const MAPS_URL = "https://maps.google.com/?q=C+de+Roger+de+Ll%C3%B2ria+2+Valencia";
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
 
 function formatFecha(fecha: string): string {
   return new Date(`${fecha}T12:00:00`).toLocaleDateString("es-ES", {
@@ -200,115 +192,6 @@ function buildReminderEmail(input: ReservationReminderInput) {
   `;
 
   return { subject, text, html };
-}
-
-async function sendEmailViaResend({
-  to,
-  subject,
-  text,
-  html,
-  idempotencyKey,
-}: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-  idempotencyKey: string;
-}): Promise<EmailSendResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  // Reuse the verified sender already configured for invoice emails when a
-  // reservation-specific sender has not been added in Vercel yet.
-  const from = process.env.RESERVAS_EMAIL_FROM?.trim()
-    || process.env.FACTURAS_EMAIL_FROM?.trim();
-  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO;
-  const normalizedTo = to.trim().toLowerCase();
-
-  if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
-  if (!apiKey || !from) {
-    const missing = [
-      !apiKey ? "RESEND_API_KEY" : null,
-      !from ? "RESERVAS_EMAIL_FROM/FACTURAS_EMAIL_FROM" : null,
-    ].filter(Boolean).join(", ");
-    return { sent: false, reason: "missing_config", error: `Falta configurar: ${missing}` };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
-    },
-    body: JSON.stringify({
-      from,
-      to: normalizedTo,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-      subject,
-      text,
-      html,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text().catch(() => "");
-    return { sent: false, reason: "request_failed", error };
-  }
-
-  return { sent: true };
-}
-
-async function sendEmailViaGmailSmtp({
-  to,
-  subject,
-  text,
-  html,
-}: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}): Promise<EmailSendResult> {
-  const user = process.env.RESERVAS_GMAIL_USER?.trim();
-  const appPassword = process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim();
-  const replyTo = process.env.RESERVAS_EMAIL_REPLY_TO?.trim() || user;
-  const normalizedTo = to.trim().toLowerCase();
-
-  if (!isValidEmail(normalizedTo)) return { sent: false, reason: "invalid_recipient" };
-  if (!user || !appPassword) return { sent: false, reason: "missing_config" };
-
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user, pass: appPassword },
-  });
-
-  try {
-    await transporter.sendMail({
-      from: `Karuma Sushi & Grill <${user}>`,
-      to: normalizedTo,
-      replyTo: replyTo || user,
-      subject,
-      text,
-      html,
-    });
-  } catch (error) {
-    return {
-      sent: false,
-      reason: "request_failed",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-
-  return { sent: true };
-}
-
-/** Gmail SMTP is usable only when both required credentials are present. */
-export function gmailConfigurado(): boolean {
-  return Boolean(
-    process.env.RESERVAS_GMAIL_USER?.trim() &&
-      process.env.RESERVAS_GMAIL_APP_PASSWORD?.trim(),
-  );
 }
 
 export async function sendReservationConfirmationEmail(

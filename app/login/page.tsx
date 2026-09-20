@@ -10,6 +10,8 @@ const inputClass =
 
 type Mode = "empleado" | "oficina" | "admin";
 type AdminStep = "creds" | "code";
+/** Por dónde le ha llegado el código al admin. */
+type Canal = "email" | "sms";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +28,8 @@ export default function LoginPage() {
   const [adminUser, setAdminUser] = useState("");
   const [adminPass, setAdminPass] = useState("");
   const [adminCode, setAdminCode] = useState("");
-  const [adminPhoneHint, setAdminPhoneHint] = useState("");
+  const [adminChannel, setAdminChannel] = useState<Canal>("email");
+  const [adminDestHint, setAdminDestHint] = useState("");
   const [adminExpiresIn, setAdminExpiresIn] = useState<number | null>(null);
 
   useEffect(() => {
@@ -96,7 +99,8 @@ export default function LoginPage() {
       }
 
       if (data.requiresOtp) {
-        setAdminPhoneHint(data.phoneHint || "");
+        setAdminChannel(data.channel === "sms" ? "sms" : "email");
+        setAdminDestHint(data.destinationHint || data.phoneHint || "");
         setAdminExpiresIn(data.expiresIn ?? null);
         setAdminStep("code");
 
@@ -133,7 +137,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: adminUser, password: adminPass, code: adminCode }),
+        body: JSON.stringify({
+          username: adminUser,
+          password: adminPass,
+          code: adminCode,
+          channel: adminChannel,
+        }),
       });
       const data = await res.json();
 
@@ -279,13 +288,15 @@ export default function LoginPage() {
                 />
               </label>
               <p className="text-center text-xs text-gray-500">
-                Tras la contraseña recibirás un código SMS de verificación.
+                Tras la contraseña recibirás un código de verificación por correo.
               </p>
             </>
           ) : (
             <>
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Código SMS</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {adminChannel === "sms" ? "Código SMS" : "Código por correo"}
+                </span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -299,7 +310,8 @@ export default function LoginPage() {
                 />
               </label>
               <p className="text-center text-xs text-gray-500">
-                Código enviado a {adminPhoneHint || "tu teléfono"}.
+                Código enviado a{" "}
+                {adminDestHint || (adminChannel === "sms" ? "tu teléfono" : "tu correo")}.
                 {adminExpiresIn ? ` Válido por ${adminExpiresIn}s.` : " Código expirado, vuelve a empezar."}
               </p>
               <button
