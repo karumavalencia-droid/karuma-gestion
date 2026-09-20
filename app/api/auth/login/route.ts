@@ -1,8 +1,9 @@
-import { findDatabasePinAccount } from "@/lib/auth/employee-pin-login";
+import { resolveEmployeePinUser } from "@/lib/auth/employee-pin-login";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { findEmployeeIdByAttendancePin } from "@/lib/attendance/employee-pins";
 import { findAccount } from "@/lib/auth/accounts";
+import { isMobileUserAgent } from "@/lib/auth/device";
+import { getEmployeeOtpPhone, maskEmployeePhone } from "@/lib/auth/employee-otp";
 import { requestOtp } from "@/lib/auth/otp-service";
 import type { Role } from "@/lib/auth/permissions";
 import {
@@ -17,8 +18,6 @@ import {
   SESSION_MAX_AGE_SECONDS,
   type SessionUser,
 } from "@/lib/auth/session";
-import { findKioskEmployee } from "@/lib/kiosk/employees";
-import { findStaffMember } from "@/lib/staff/data";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DbUser } from "@/lib/supabase/types";
 
@@ -113,28 +112,39 @@ export async function POST(request: Request) {
     });
   }
 
-  if (/^\d{4}$/.test(username) && username === password.trim()) {
-    const employeeId = findEmployeeIdByAttendancePin(username);
-    const employee = employeeId ? findKioskEmployee(employeeId) : null;
-    const staff = employeeId ? findStaffMember(employeeId) : null;
-    if (employee && staff) {
-      return createLoginResponse({
-        name: employee.name,
-        email: `${employeeId}@karuma.local`,
-        role: staff.role as Role,
-        employeeId,
-      });
-    }
-  }
-
+  // Portal del empleado (PIN). Desde el MÓVIL se pide además un código SMS
+  // al teléfono de su ficha, igual que el admin hace contraseña + código.
+  // Desde la tablet del local o el ordenador de oficina sigue bastando el PIN.
   if (/^\d{4,8}$/.test(username) && username === password.trim()) {
-    const account = await findDatabasePinAccount(username);
-    if (account) {
-      return createLoginResponse({
-        name: account.name,
-        email: account.email,
-        role: account.role_id as Role,
-        employeeId: account.employee_key,
+    const employeeUser = await resolveEmployeePinUser(username);
+    if (employeeUser) {
+      if (!isMobileUserAgent(request.headers.get("user-agent"))) {
+        return createLoginResponse(employeeUser);
+      }
+
+      const lookup = await getEmployeeOtpPhone(employeeUser.employeeId);
+      if (lookup.status !== "ok") {
+        // Sin móvil utilizable en la ficha no hay a dónde mandar el código.
+        // Entra solo con el PIN (si no, se quedaría sin poder fichar) y se
+        // deja constancia en el log de a quién le falta el teléfono.
+        console.warn(
+          `[portal-otp] ${employeeUser.employeeId}: ${lookup.status} en su ficha de staff; entra solo con PIN`,
+        );
+        return createLoginResponse(employeeUser);
+      }
+
+      const otp = await requestOtp(lookup.phone);
+      if (!otp.success) {
+        return NextResponse.json(
+          { error: otp.error || "No se pudo enviar el código SMS" },
+          { status: 502 },
+        );
+      }
+
+      return NextResponse.json({
+        requiresOtp: true,
+        expiresIn: otp.expiresIn,
+        phoneHint: maskEmployeePhone(lookup.phone),
       });
     }
   }

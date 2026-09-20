@@ -10,14 +10,75 @@ const inputClass =
 
 type Mode = "empleado" | "oficina" | "admin";
 type AdminStep = "creds" | "code";
+type EmpleadoStep = "pin" | "code";
+
+/** Paso "escribe el código SMS". Lo comparten el admin y el empleado. */
+function CodeFields({
+  code,
+  onCode,
+  phoneHint,
+  expiresIn,
+  onBack,
+}: {
+  code: string;
+  onCode: (value: string) => void;
+  phoneHint: string;
+  expiresIn: number | null;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-gray-700">Código SMS</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          value={code}
+          onChange={(e) => onCode(e.target.value.replace(/\D/g, ""))}
+          className={`${inputClass} text-center text-3xl tracking-[0.3em] font-mono`}
+          placeholder="000000"
+          autoComplete="one-time-code"
+          required
+        />
+      </label>
+      <p className="text-center text-xs text-gray-500">
+        Código enviado a {phoneHint || "tu teléfono"}.
+        {expiresIn ? ` Válido por ${expiresIn}s.` : " Código expirado, vuelve a empezar."}
+      </p>
+      <button
+        type="button"
+        onClick={onBack}
+        className="w-full text-center text-xs text-karuma-600 hover:text-karuma-700 underline"
+      >
+        ← Volver
+      </button>
+    </>
+  );
+}
+
+/** Cuenta atrás compartida por los dos flujos de código. */
+function startCountdown(seconds: number, onTick: (remaining: number) => void) {
+  let remaining = seconds;
+  const timer = setInterval(() => {
+    remaining--;
+    onTick(remaining);
+    if (remaining <= 0) clearInterval(timer);
+  }, 1000);
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, ready, login } = useAuth();
+  const { user, ready } = useAuth();
   const [mode, setMode] = useState<Mode>("empleado");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [empStep, setEmpStep] = useState<EmpleadoStep>("pin");
+  const [empCode, setEmpCode] = useState("");
+  const [empPhoneHint, setEmpPhoneHint] = useState("");
+  const [empExpiresIn, setEmpExpiresIn] = useState<number | null>(null);
 
   const [officeUser, setOfficeUser] = useState("oficina");
   const [officePass, setOfficePass] = useState("");
@@ -40,15 +101,66 @@ export default function LoginPage() {
     setError("");
     setSubmitting(true);
 
-    const loggedIn = await login(pin, pin);
-    setSubmitting(false);
+    try {
+      // El PIN viaja en los dos campos, como hasta ahora. Desde el móvil el
+      // servidor responde requiresOtp y manda un SMS a la ficha del empleado.
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pin, password: pin }),
+      });
+      const data = await res.json();
 
-    if (!loggedIn) {
+      if (!res.ok) {
+        setError(data.error || "PIN incorrecto. Pide tu PIN al encargado.");
+        return;
+      }
+
+      if (data.requiresOtp) {
+        setEmpPhoneHint(data.phoneHint || "");
+        setEmpExpiresIn(data.expiresIn ?? null);
+        setEmpStep("code");
+        if (data.expiresIn) startCountdown(data.expiresIn, setEmpExpiresIn);
+        return;
+      }
+
+      if (data.role) {
+        router.push(getDefaultRoute(data.role, data.employeeId ?? null));
+        return;
+      }
+
       setError("PIN incorrecto. Pide tu PIN al encargado.");
-      return;
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    router.push(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
+  const handleEmployeeVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/auth/login/employee/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, code: empCode }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Código inválido");
+        return;
+      }
+
+      window.location.assign(getDefaultRoute(data.role, data.employeeId ?? null));
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOfficeSubmit = async (e: React.FormEvent) => {
@@ -100,14 +212,7 @@ export default function LoginPage() {
         setAdminExpiresIn(data.expiresIn ?? null);
         setAdminStep("code");
 
-        if (data.expiresIn) {
-          let remaining = data.expiresIn;
-          const timer = setInterval(() => {
-            remaining--;
-            setAdminExpiresIn(remaining);
-            if (remaining <= 0) clearInterval(timer);
-          }, 1000);
-        }
+        if (data.expiresIn) startCountdown(data.expiresIn, setAdminExpiresIn);
         return;
       }
 
@@ -152,7 +257,9 @@ export default function LoginPage() {
 
   const formHandler =
     mode === "empleado"
-      ? handleEmployeeSubmit
+      ? empStep === "pin"
+        ? handleEmployeeSubmit
+        : handleEmployeeVerify
       : mode === "oficina"
         ? handleOfficeSubmit
         : adminStep === "creds"
@@ -162,7 +269,9 @@ export default function LoginPage() {
   const submitLabel = submitting
     ? "Verificando..."
     : mode === "empleado"
-      ? "Entrar"
+      ? empStep === "pin"
+        ? "Entrar"
+        : "Verificar"
       : mode === "oficina"
         ? "Entrar a Oficina"
         : adminStep === "creds"
@@ -192,6 +301,9 @@ export default function LoginPage() {
               onClick={() => {
                 setMode(t.id);
                 setError("");
+                setEmpStep("pin");
+                setEmpCode("");
+                setEmpExpiresIn(null);
               }}
               className={`min-h-[44px] flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 mode === t.id
@@ -206,26 +318,41 @@ export default function LoginPage() {
 
         <form onSubmit={formHandler} className="space-y-4">
           {mode === "empleado" ? (
-            <>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={8}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
-                  placeholder="••••"
-                  autoComplete="off"
-                  required
-                />
-              </label>
-              <p className="text-center text-xs text-gray-500">
-                Entra con tu PIN para fichar y ver tu horario.
-              </p>
-            </>
+            empStep === "pin" ? (
+              <>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={8}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                    className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
+                    placeholder="••••"
+                    autoComplete="off"
+                    required
+                  />
+                </label>
+                <p className="text-center text-xs text-gray-500">
+                  Entra con tu PIN para fichar y ver tu horario.
+                </p>
+              </>
+            ) : (
+              <CodeFields
+                code={empCode}
+                onCode={setEmpCode}
+                phoneHint={empPhoneHint}
+                expiresIn={empExpiresIn}
+                onBack={() => {
+                  setEmpStep("pin");
+                  setEmpCode("");
+                  setEmpExpiresIn(null);
+                  setError("");
+                }}
+              />
+            )
           ) : mode === "oficina" ? (
             <>
               <label className="block space-y-1.5">
@@ -283,38 +410,18 @@ export default function LoginPage() {
               </p>
             </>
           ) : (
-            <>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">Código SMS</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={adminCode}
-                  onChange={(e) => setAdminCode(e.target.value.replace(/\D/g, ""))}
-                  className={`${inputClass} text-center text-3xl tracking-[0.3em] font-mono`}
-                  placeholder="000000"
-                  autoComplete="one-time-code"
-                  required
-                />
-              </label>
-              <p className="text-center text-xs text-gray-500">
-                Código enviado a {adminPhoneHint || "tu teléfono"}.
-                {adminExpiresIn ? ` Válido por ${adminExpiresIn}s.` : " Código expirado, vuelve a empezar."}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminStep("creds");
-                  setAdminCode("");
-                  setAdminExpiresIn(null);
-                  setError("");
-                }}
-                className="w-full text-center text-xs text-karuma-600 hover:text-karuma-700 underline"
-              >
-                ← Volver
-              </button>
-            </>
+            <CodeFields
+              code={adminCode}
+              onCode={setAdminCode}
+              phoneHint={adminPhoneHint}
+              expiresIn={adminExpiresIn}
+              onBack={() => {
+                setAdminStep("creds");
+                setAdminCode("");
+                setAdminExpiresIn(null);
+                setError("");
+              }}
+            />
           )}
 
           {error && (
