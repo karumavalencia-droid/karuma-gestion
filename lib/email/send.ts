@@ -27,6 +27,19 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * "karuma@gmail.com" -> "kar•••@gmail.com". Para enseñar a dónde ha ido un
+ * código sin escribir la dirección entera en pantalla.
+ */
+export function maskEmail(email: string): string {
+  const corte = email.lastIndexOf("@");
+  if (corte <= 0) return email;
+  const usuario = email.slice(0, corte);
+  const dominio = email.slice(corte);
+  const visible = usuario.slice(0, Math.min(3, Math.max(1, usuario.length - 1)));
+  return `${visible}•••${dominio}`;
+}
+
 export async function sendEmailViaResend({
   to,
   subject,

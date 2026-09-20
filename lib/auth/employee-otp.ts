@@ -1,3 +1,4 @@
+import { maskEmail } from "@/lib/email/send";
 import { resolveStaffRow } from "@/lib/staff/identity";
 
 /**
@@ -40,11 +41,7 @@ export function normalizeEmployeeEmail(raw: string | null | undefined): string |
 
 /** "joselin@gmail.com" -> "jos•••@gmail.com" (sin revelar la dirección). */
 export function maskEmployeeEmail(email: string): string {
-  const corte = email.lastIndexOf("@");
-  const usuario = email.slice(0, corte);
-  const dominio = email.slice(corte);
-  const visible = usuario.slice(0, Math.min(3, Math.max(1, usuario.length - 1)));
-  return `${visible}•••${dominio}`;
+  return maskEmail(email);
 }
 
 export type EmployeeEmailLookup =

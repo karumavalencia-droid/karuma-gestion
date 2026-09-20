@@ -10,11 +10,13 @@ const inputClass =
 
 type Mode = "empleado" | "oficina" | "admin";
 type AdminStep = "creds" | "code";
+/** Por dónde le ha llegado el código al admin. */
+type Canal = "email" | "sms";
 type EmpleadoStep = "pin" | "code";
 
 /**
- * Paso "escribe el código". Lo comparten el admin (que lo recibe por SMS) y
- * el empleado (que lo recibe por correo).
+ * Paso "escribe el código". Lo comparten el admin y el empleado; los dos lo
+ * reciben por correo (el admin cae en SMS solo si el correo no sale).
  */
 function CodeFields({
   code,
@@ -92,7 +94,8 @@ export default function LoginPage() {
   const [adminUser, setAdminUser] = useState("");
   const [adminPass, setAdminPass] = useState("");
   const [adminCode, setAdminCode] = useState("");
-  const [adminPhoneHint, setAdminPhoneHint] = useState("");
+  const [adminChannel, setAdminChannel] = useState<Canal>("email");
+  const [adminDestHint, setAdminDestHint] = useState("");
   const [adminExpiresIn, setAdminExpiresIn] = useState<number | null>(null);
 
   useEffect(() => {
@@ -213,7 +216,8 @@ export default function LoginPage() {
       }
 
       if (data.requiresOtp) {
-        setAdminPhoneHint(data.phoneHint || "");
+        setAdminChannel(data.channel === "sms" ? "sms" : "email");
+        setAdminDestHint(data.destinationHint || data.phoneHint || "");
         setAdminExpiresIn(data.expiresIn ?? null);
         setAdminStep("code");
 
@@ -243,7 +247,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: adminUser, password: adminPass, code: adminCode }),
+        body: JSON.stringify({
+          username: adminUser,
+          password: adminPass,
+          code: adminCode,
+          channel: adminChannel,
+        }),
       });
       const data = await res.json();
 
@@ -413,15 +422,15 @@ export default function LoginPage() {
                 />
               </label>
               <p className="text-center text-xs text-gray-500">
-                Tras la contraseña recibirás un código SMS de verificación.
+                Tras la contraseña recibirás un código de verificación por correo.
               </p>
             </>
           ) : (
             <CodeFields
               code={adminCode}
               onCode={setAdminCode}
-              label="Código SMS"
-              destination={adminPhoneHint}
+              label={adminChannel === "sms" ? "Código SMS" : "Código por correo"}
+              destination={adminDestHint}
               expiresIn={adminExpiresIn}
               onBack={() => {
                 setAdminStep("creds");
