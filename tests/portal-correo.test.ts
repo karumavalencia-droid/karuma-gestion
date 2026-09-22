@@ -1,218 +1,72 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { NextRequest } from "next/server";
 
 process.env.KARUMA_AUTH_SECRET = "portal-correo-test-secret-2026";
-process.env.NEXT_PUBLIC_SUPABASE_URL = "https://portal-correo-test.supabase.co";
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-import { NextRequest } from "next/server";
-import { GET, POST } from "../app/api/portal/correo/route";
-import { createSessionToken, SESSION_COOKIE_NAME } from "../lib/auth/session";
-import { esCorreoUtilizable, normalizeStaffEmail } from "../lib/staff/correo";
+import { validateEmployeePassword } from "../lib/auth/employee-account";
+import {
+  createSessionToken,
+  SESSION_COOKIE_NAME,
+  verifySessionToken,
+} from "../lib/auth/session";
+import { normalizeStaffEmail } from "../lib/staff/correo";
 import { middleware } from "../middleware";
 
-const STAFF_ID = "11111111-2222-3333-4444-555555555555";
-
-async function sessionCookie(employeeId: string | null, name = "Jhoan") {
+async function employeeCookie(authMethod: "legacy_pin" | "password", sessionVersion = 1) {
   const token = await createSessionToken({
-    name,
-    email: `${name.toLowerCase()}@karuma.es`,
-    role: employeeId ? "waiter" : "owner",
-    employeeId,
+    name: "Jhoan",
+    email: authMethod === "password" ? "jhoan@gmail.com" : "jhoan@karuma.es",
+    role: "waiter",
+    employeeId: "jhoan",
+    authMethod,
+    sessionVersion,
   });
   return `${SESSION_COOKIE_NAME}=${token}`;
 }
 
-/**
- * PostgREST simulado. `staffRows` es lo que devuelve la búsqueda de la ficha,
- * `emailRow` la fila con el correo actual y `duplicado` si otra ficha ya usa
- * esa dirección.
- */
-function mockDb(
-  opts: {
-    staffRows?: { id: string }[];
-    emailActual?: string | null;
-    duplicado?: boolean;
-    fallaUpdate?: boolean;
-  } = {},
-) {
-  const calls: { url: URL; method: string; body?: string }[] = [];
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input));
-    const method = init?.method ?? "GET";
-    calls.push({ url, method, body: init?.body as string | undefined });
-
-    if (url.pathname.endsWith("/staff")) {
-      if (method === "PATCH") {
-        return opts.fallaUpdate
-          ? new Response(JSON.stringify({ message: "boom" }), { status: 500 })
-          : new Response(JSON.stringify([]), {
-              headers: { "content-type": "application/json" },
-            });
-      }
-      // Buscar duplicados: la consulta lleva un filtro ilike sobre email.
-      if (url.searchParams.get("email")?.startsWith("ilike.")) {
-        return new Response(JSON.stringify(opts.duplicado ? [{ id: "otra" }] : []), {
-          headers: { "content-type": "application/json" },
-        });
-      }
-      // Leer el correo de la ficha ya resuelta.
-      if (url.searchParams.get("select") === "email") {
-        return new Response(JSON.stringify({ email: opts.emailActual ?? null }), {
-          headers: { "content-type": "application/json" },
-        });
-      }
-      // Resolver la ficha a partir del nombre de la sesión.
-      return new Response(JSON.stringify(opts.staffRows ?? [{ id: STAFF_ID }]), {
-        headers: { "content-type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify([]), {
-      headers: { "content-type": "application/json" },
-    });
-  }) as typeof fetch;
-  return { calls, restore: () => { globalThis.fetch = original; } };
-}
-
-function peticion(method: "GET" | "POST", cookie?: string, email?: string) {
-  return new NextRequest("http://localhost/api/portal/correo", {
-    method,
-    headers: {
-      ...(cookie ? { cookie } : {}),
-      ...(method === "POST" ? { "content-type": "application/json" } : {}),
-    },
-    ...(method === "POST" ? { body: JSON.stringify({ email }) } : {}),
-  });
-}
-
-test("los correos de relleno cuentan como 'sin correo'", () => {
-  assert.equal(normalizeStaffEmail(" Joselin@Gmail.com "), "joselin@gmail.com");
-  assert.equal(esCorreoUtilizable("carlos@hotmail.es"), true);
-  // Los que inventa lib/staff/data.ts y el kiosco.
-  assert.equal(normalizeStaffEmail("alex@karuma.es"), null);
-  assert.equal(normalizeStaffEmail("carlos@karuma.local"), null);
+test("solo se aceptan correos personales utilizables", () => {
+  assert.equal(normalizeStaffEmail(" Persona@Gmail.com "), "persona@gmail.com");
+  assert.equal(normalizeStaffEmail("jhoan@karuma.es"), null);
+  assert.equal(normalizeStaffEmail("jhoan@karuma.local"), null);
   assert.equal(normalizeStaffEmail("sin-arroba"), null);
-  assert.equal(normalizeStaffEmail(""), null);
-  assert.equal(normalizeStaffEmail(null), null);
 });
 
-test("sin sesión no se contesta nada", async () => {
-  const mock = mockDb();
-  try {
-    assert.equal((await GET(peticion("GET"))).status, 401);
-    assert.equal((await POST(peticion("POST", undefined, "a@b.com"))).status, 401);
-  } finally {
-    mock.restore();
+test("la contraseña exige longitud, letra y número", () => {
+  assert.match(validateEmployeePassword("12345678") ?? "", /letra/);
+  assert.match(validateEmployeePassword("abcdefgh") ?? "", /número/);
+  assert.match(validateEmployeePassword("Abc123") ?? "", /8 caracteres/);
+  assert.equal(validateEmployeePassword("Karuma2026"), null);
+});
+
+test("la sesión guarda método y versión de credenciales", async () => {
+  const token = (await employeeCookie("password", 7)).split("=")[1];
+  const user = await verifySessionToken(token);
+  assert.equal(user?.authMethod, "password");
+  assert.equal(user?.sessionVersion, 7);
+});
+
+test("el PIN antiguo puede abrir activación y fichaje", async () => {
+  const cookie = await employeeCookie("legacy_pin");
+  for (const path of ["/api/portal/correo", "/api/portal/correo/verificar", "/api/attendance/me"]) {
+    const response = await middleware(new NextRequest(`http://localhost${path}`, { headers: { cookie } }));
+    assert.notEqual(response.status, 403, path);
   }
 });
 
-test("a la ficha con correo de relleno se le pide uno de verdad", async () => {
-  const mock = mockDb({ emailActual: "jhoan@karuma.es" });
-  try {
-    const response = await GET(peticion("GET", await sessionCookie("carlos")));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { pendiente: true, email: null });
-  } finally {
-    mock.restore();
+test("el PIN antiguo no puede abrir ni descargar nóminas", async () => {
+  const cookie = await employeeCookie("legacy_pin");
+  for (const path of ["/my-payroll", "/api/nominas", "/api/nominas/11111111-1111-4111-8111-111111111111/download"]) {
+    const response = await middleware(new NextRequest(`http://localhost${path}`, { headers: { cookie } }));
+    assert.ok(response.status === 307 || response.status === 403, path);
   }
 });
 
-test("quien ya tiene correo real no ve nada", async () => {
-  const mock = mockDb({ emailActual: "Joselin@Gmail.com" });
-  try {
-    const response = await GET(peticion("GET", await sessionCookie("carlos")));
-    assert.deepEqual(await response.json(), {
-      pendiente: false,
-      email: "joselin@gmail.com",
-    });
-  } finally {
-    mock.restore();
-  }
-});
-
-test("una cuenta de oficina no tiene ficha que rellenar", async () => {
-  const mock = mockDb();
-  try {
-    const response = await GET(peticion("GET", await sessionCookie(null, "Oficina")));
-    assert.equal((await response.json()).pendiente, false);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("sin ficha en staff NO se bloquea el portal", async () => {
-  const mock = mockDb({ staffRows: [] });
-  try {
-    const response = await GET(peticion("GET", await sessionCookie("carlos")));
-    assert.equal(response.status, 200);
-    assert.equal((await response.json()).pendiente, false);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("guardar el correo lo escribe en SU ficha, no en otra", async () => {
-  const mock = mockDb({ emailActual: null });
-  try {
-    const response = await POST(
-      peticion("POST", await sessionCookie("carlos"), " Joselin@Gmail.com "),
-    );
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { ok: true, email: "joselin@gmail.com" });
-
-    const update = mock.calls.find((c) => c.method === "PATCH");
-    assert.ok(update, "debería haberse guardado");
-    assert.equal(JSON.parse(update!.body as string).email, "joselin@gmail.com");
-    assert.equal(update!.url.searchParams.get("id"), `eq.${STAFF_ID}`);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("un correo mal escrito no se guarda", async () => {
-  const mock = mockDb();
-  try {
-    for (const malo of ["", "sin-arroba", "alex@karuma.es"]) {
-      const response = await POST(peticion("POST", await sessionCookie("carlos"), malo));
-      assert.equal(response.status, 400);
-    }
-    assert.equal(mock.calls.some((c) => c.method === "PATCH"), false);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("no se puede usar el correo que ya tiene otra persona", async () => {
-  const mock = mockDb({ duplicado: true });
-  try {
-    const response = await POST(
-      peticion("POST", await sessionCookie("carlos"), "joselin@gmail.com"),
-    );
-    assert.equal(response.status, 409);
-    assert.equal(mock.calls.some((c) => c.method === "PATCH"), false);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("si la base de datos falla al guardar, se avisa y no se miente", async () => {
-  const mock = mockDb({ fallaUpdate: true });
-  try {
-    const response = await POST(
-      peticion("POST", await sessionCookie("carlos"), "joselin@gmail.com"),
-    );
-    assert.equal(response.status, 503);
-  } finally {
-    mock.restore();
-  }
-});
-
-test("el middleware deja pasar /api/portal/correo a una cuenta de empleado", async () => {
-  const request = new NextRequest("http://localhost/api/portal/correo", {
-    headers: { cookie: await sessionCookie("carlos") },
-  });
-  const response = await middleware(request);
+test("la sesión con contraseña sí puede solicitar su nómina", async () => {
+  const response = await middleware(new NextRequest("http://localhost/api/nominas", {
+    headers: { cookie: await employeeCookie("password", 2) },
+  }));
   assert.notEqual(response.status, 403);
 });

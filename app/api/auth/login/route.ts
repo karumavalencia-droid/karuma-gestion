@@ -26,7 +26,8 @@ import type { DbUser } from "@/lib/supabase/types";
 
 type LoginUser = Pick<
   DbUser,
-  "email" | "name" | "role_id" | "password_hash" | "employee_key"
+  "email" | "name" | "role_id" | "password_hash" | "employee_key" |
+  "must_set_password" | "session_version" | "email_verified_at"
 >;
 
 const OFFICE_USERNAME = "oficina";
@@ -148,23 +149,40 @@ export async function POST(request: Request) {
     const employee = employeeId ? findKioskEmployee(employeeId) : null;
     const staff = employeeId ? findStaffMember(employeeId) : null;
     if (employee && staff) {
+      const db = getSupabaseAdmin();
+      const { data: account } = db
+        ? await db.from("users")
+            .select("email,name,role_id,employee_key,must_set_password,session_version")
+            .eq("employee_key", employeeId!).maybeSingle()
+        : { data: null };
+      // Once activated, the old PIN must never create another session.
+      if (db && (!account || !account.must_set_password)) {
+        return NextResponse.json(
+          { error: "Este PIN ya no es válido. Entra con tu correo y contraseña." },
+          { status: 401 },
+        );
+      }
       return createLoginResponse({
-        name: employee.name,
-        email: `${employeeId}@karuma.local`,
-        role: staff.role as Role,
+        name: account?.name ?? employee.name,
+        email: account?.email ?? `${employeeId}@karuma.local`,
+        role: (account?.role_id ?? staff.role) as Role,
         employeeId,
+        authMethod: "legacy_pin",
+        sessionVersion: account?.session_version ?? 1,
       });
     }
   }
 
   if (/^\d{4,8}$/.test(username) && username === password.trim()) {
     const account = await findDatabasePinAccount(username);
-    if (account) {
+    if (account?.must_set_password) {
       return createLoginResponse({
         name: account.name,
         email: account.email,
         role: account.role_id as Role,
         employeeId: account.employee_key,
+        authMethod: "legacy_pin",
+        sessionVersion: account.session_version,
       });
     }
   }
@@ -196,13 +214,20 @@ export async function POST(request: Request) {
 
   const { data: user, error } = await supabase
     .from("users")
-    .select("email, name, role_id, password_hash, employee_key")
+    .select("email, name, role_id, password_hash, employee_key, must_set_password, session_version, email_verified_at")
     .eq("email", username)
     .maybeSingle()
     .returns<LoginUser>();
 
   if (error || !user) {
     return NextResponse.json({ error: "Email o contraseña incorrectos" }, { status: 401 });
+  }
+
+  if (user.employee_key && (user.must_set_password || !user.email_verified_at)) {
+    return NextResponse.json(
+      { error: "Primero activa tu cuenta entrando con tu PIN.", requiresActivation: true },
+      { status: 409 },
+    );
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
@@ -215,5 +240,7 @@ export async function POST(request: Request) {
     email: user.email,
     role: user.role_id as Role,
     employeeId: user.employee_key,
+    authMethod: user.employee_key ? "password" : "system",
+    sessionVersion: user.employee_key ? user.session_version : undefined,
   });
 }

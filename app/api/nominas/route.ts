@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { getSessionUser } from "@/lib/auth/guards";
 import { resolvePayrollStaffId } from "@/lib/staff/payroll-identity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const SELECT = "id,nombre,periodo,document_date,created_at,mime_type,tamano_bytes";
 
 export async function GET(request: NextRequest) {
-  const user = await verifySessionToken(
-    request.cookies.get(SESSION_COOKIE_NAME)?.value,
-  );
+  const user = await getSessionUser(request);
   if (!user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (user.employeeId && user.authMethod !== "password") {
+    return NextResponse.json({ error: "Activa tu cuenta para ver la nómina" }, { status: 403 });
   }
 
   const supabase = getSupabaseAdmin();

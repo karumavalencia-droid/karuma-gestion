@@ -1,5 +1,6 @@
 import type { Role } from "./permissions";
 import { isValidRole } from "./permissions";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const SESSION_COOKIE_NAME = "karuma_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -9,10 +10,12 @@ export type SessionUser = {
   email: string;
   role: Role;
   employeeId: string | null;
+  authMethod?: "legacy_pin" | "password" | "system";
+  sessionVersion?: number;
 };
 
 type SessionPayload = SessionUser & {
-  version: 1;
+  version: 1 | 2;
   expiresAt: number;
 };
 
@@ -97,11 +100,13 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
   if (!secret) throw new Error("KARUMA_AUTH_SECRET is not configured");
 
   const payload: SessionPayload = {
-    version: 1,
+    version: 2,
     name: user.name,
     email: user.email,
     role: user.role,
     employeeId: user.employeeId,
+    authMethod: user.authMethod ?? (user.employeeId ? "password" : "system"),
+    sessionVersion: user.sessionVersion,
     expiresAt: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
   };
   const encodedPayload = encodeBase64Url(
@@ -149,7 +154,7 @@ export async function verifySessionToken(
     ) as Partial<SessionPayload>;
 
     if (
-      payload.version !== 1 ||
+      (payload.version !== 1 && payload.version !== 2) ||
       typeof payload.name !== "string" ||
       typeof payload.email !== "string" ||
       !isValidRole(payload.role) ||
@@ -170,8 +175,55 @@ export async function verifySessionToken(
       role: payload.role,
       employeeId:
         typeof payload.employeeId === "string" ? payload.employeeId : null,
+      authMethod:
+        payload.authMethod === "legacy_pin" ||
+        payload.authMethod === "password" ||
+        payload.authMethod === "system"
+          ? payload.authMethod
+          : undefined,
+      sessionVersion:
+        typeof payload.sessionVersion === "number" && Number.isInteger(payload.sessionVersion)
+          ? payload.sessionVersion
+          : undefined,
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Verifies both the signature and the employee's current credential version.
+ * Password changes increment users.session_version, invalidating every older
+ * browser cookie immediately on its next request.
+ */
+export async function verifyActiveSessionToken(
+  token: string | null | undefined,
+): Promise<SessionUser | null> {
+  const user = await verifySessionToken(token);
+  if (!user?.employeeId) return user;
+
+  const db = getSupabaseAdmin();
+  if (!db) {
+    // Local development can still use mock accounts. Production fails closed.
+    return process.env.NODE_ENV === "production" ? null : user;
+  }
+
+  if (
+    !Number.isInteger(user.sessionVersion) ||
+    (user.authMethod !== "legacy_pin" && user.authMethod !== "password")
+  ) {
+    return null;
+  }
+
+  const { data, error } = await db
+    .from("users")
+    .select("email,session_version,must_set_password")
+    .eq("employee_key", user.employeeId)
+    .maybeSingle();
+
+  if (error || !data || data.session_version !== user.sessionVersion) return null;
+  if (data.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) return null;
+  if (user.authMethod === "legacy_pin" && !data.must_set_password) return null;
+  if (user.authMethod === "password" && data.must_set_password) return null;
+  return user;
 }

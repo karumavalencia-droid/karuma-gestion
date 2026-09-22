@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { isAdminSession } from "@/lib/auth/admin-session";
 import {
   SESSION_COOKIE_NAME,
-  verifySessionToken,
+  verifyActiveSessionToken,
 } from "@/lib/auth/session";
 import { isPublicReservationApiRequest } from "@/lib/reservas/security";
 
@@ -14,6 +14,8 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/register",
   "/api/auth/session",
   "/api/auth/logout",
+  "/api/auth/password/request",
+  "/api/auth/password/reset",
   // Id del despliegue activo: lo consulta cualquier pestaña, también la de
   // login, para avisar de que hay una versión nueva. No expone nada nuevo (ese
   // id ya viaja en la query ?dpl= de los assets).
@@ -84,7 +86,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const user = await verifySessionToken(
+  const user = await verifyActiveSessionToken(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   );
 
@@ -108,6 +110,28 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
+    // A legacy PIN proves only possession of the old shared code. Until the
+    // employee verifies an email and creates a private password, it can be
+    // used only for activation and attendance — never for payroll.
+    if (
+      user.employeeId &&
+      user.authMethod === "legacy_pin" &&
+      pathname !== "/my-attendance" &&
+      pathname !== "/api/portal/correo" &&
+      !pathname.startsWith("/api/portal/correo/") &&
+      !pathname.startsWith("/api/attendance/") &&
+      pathname !== "/api/auth/session" &&
+      pathname !== "/api/auth/logout"
+    ) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Debes verificar tu correo y crear tu contraseña" },
+          { status: 403 },
+        );
+      }
+      return NextResponse.redirect(new URL("/my-attendance", request.url));
+    }
+
     // Módulos confidenciales: solo la sesión de Admin.
     if (
       ADMIN_ONLY_PREFIXES.some(

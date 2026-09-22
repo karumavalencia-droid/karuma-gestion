@@ -15,6 +15,7 @@ export async function findDatabasePinAccount(pin: string) {
   }
   if (matches.length !== 1) return null;
   const { data: users, error: userError } = await db.from("users")
-    .select("email,name,role_id,employee_key").eq("employee_key", matches[0]).limit(2);
+    .select("email,name,role_id,employee_key,must_set_password,session_version")
+    .eq("employee_key", matches[0]).limit(2);
   return !userError && users?.length === 1 ? users[0] : null;
 }

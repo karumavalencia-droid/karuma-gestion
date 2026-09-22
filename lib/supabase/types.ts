@@ -11,6 +11,10 @@ export type DbUser = {
   name: string;
   role_id: string;
   employee_key: string | null;
+  email_verified_at: string | null;
+  password_changed_at: string | null;
+  session_version: number;
+  must_set_password: boolean;
   created_at: string;
 };
 
@@ -61,6 +65,23 @@ export type DbUserInsert = {
   name: string;
   role_id: string;
   employee_key?: string | null;
+  email_verified_at?: string | null;
+  password_changed_at?: string | null;
+  session_version?: number;
+  must_set_password?: boolean;
+};
+
+export type DbEmployeeAccountVerification = {
+  id: string;
+  employee_key: string;
+  email: string;
+  purpose: "activation" | "password_reset";
+  code_hash: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
 };
 
 export type DbAttendanceCredential = {
@@ -806,6 +827,17 @@ export type Database = {
         Update: Partial<Omit<DbAttendanceCredential, "employee_key">>;
         Relationships: [];
       };
+      employee_account_verifications: {
+        Row: DbEmployeeAccountVerification;
+        Insert: Omit<DbEmployeeAccountVerification, "id" | "attempts" | "used_at" | "created_at"> & {
+          id?: string;
+          attempts?: number;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Pick<DbEmployeeAccountVerification, "attempts" | "used_at">>;
+        Relationships: [];
+      };
       attendance_events: {
         Row: DbAttendanceEvent;
         Insert: DbAttendanceEventInsert;
@@ -1075,6 +1107,19 @@ export type Database = {
           reservation_id: string;
           mesa_ids: number[];
         };
+      };
+      complete_employee_password_change: {
+        Args: {
+          p_verification_id: string;
+          p_employee_key: string;
+          p_email: string;
+          p_password_hash: string;
+        };
+        Returns: Array<{
+          session_version: number;
+          account_name: string;
+          role_id: string;
+        }>;
       };
     };
     Enums: Record<string, never>;

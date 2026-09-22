@@ -9,6 +9,7 @@ const inputClass =
   "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-karuma-500 focus:outline-none focus:ring-2 focus:ring-karuma-500/20";
 
 type Mode = "empleado" | "oficina" | "admin";
+type EmployeeStep = "password" | "pin" | "reset-email" | "reset-code";
 type AdminStep = "creds" | "code";
 /** Por dónde le ha llegado el código al admin. */
 type Canal = "email" | "sms";
@@ -18,6 +19,14 @@ export default function LoginPage() {
   const { user, ready, login } = useAuth();
   const [mode, setMode] = useState<Mode>("empleado");
   const [pin, setPin] = useState("");
+  const [employeeStep, setEmployeeStep] = useState<EmployeeStep>("password");
+  const [employeeEmail, setEmployeeEmail] = useState("");
+  const [employeePassword, setEmployeePassword] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
+  const [resetVerificationId, setResetVerificationId] = useState("");
+  const [resetEmailHint, setResetEmailHint] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +47,7 @@ export default function LoginPage() {
     }
   }, [ready, user, router]);
 
-  const handleEmployeeSubmit = async (e: React.FormEvent) => {
+  const handleEmployeePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
@@ -52,6 +61,58 @@ export default function LoginPage() {
     }
 
     router.push(getDefaultRoute(loggedIn.role, loggedIn.employeeId));
+  };
+
+  const handleEmployeePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: employeeEmail, password: employeePassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Correo o contraseña incorrectos");
+      window.location.assign(getDefaultRoute(data.role, data.employeeId ?? null));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Error de conexión");
+    } finally { setSubmitting(false); }
+  };
+
+  const handleResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/password/request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: employeeEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo enviar el código");
+      setResetVerificationId(data.verificationId);
+      setResetEmailHint(data.emailHint || employeeEmail);
+      setEmployeeStep("reset-code");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Error de conexión");
+    } finally { setSubmitting(false); }
+  };
+
+  const handleResetComplete = async (e: React.FormEvent) => {
+    e.preventDefault(); setError("");
+    if (resetPassword !== resetPasswordConfirm) return setError("Las contraseñas no coinciden.");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/password/reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: employeeEmail, verificationId: resetVerificationId,
+          code: resetCode, password: resetPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo cambiar la contraseña");
+      window.location.assign(getDefaultRoute(data.role || "waiter", data.employeeId ?? null));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Error de conexión");
+    } finally { setSubmitting(false); }
   };
 
   const handleOfficeSubmit = async (e: React.FormEvent) => {
@@ -161,7 +222,13 @@ export default function LoginPage() {
 
   const formHandler =
     mode === "empleado"
-      ? handleEmployeeSubmit
+      ? employeeStep === "pin"
+        ? handleEmployeePinSubmit
+        : employeeStep === "reset-email"
+          ? handleResetRequest
+          : employeeStep === "reset-code"
+            ? handleResetComplete
+            : handleEmployeePasswordSubmit
       : mode === "oficina"
         ? handleOfficeSubmit
         : adminStep === "creds"
@@ -171,7 +238,13 @@ export default function LoginPage() {
   const submitLabel = submitting
     ? "Verificando..."
     : mode === "empleado"
-      ? "Entrar"
+      ? employeeStep === "pin"
+        ? "Entrar con PIN"
+        : employeeStep === "reset-email"
+          ? "Enviar código"
+          : employeeStep === "reset-code"
+            ? "Guardar contraseña"
+            : "Entrar"
       : mode === "oficina"
         ? "Entrar a Oficina"
         : adminStep === "creds"
@@ -216,24 +289,75 @@ export default function LoginPage() {
         <form onSubmit={formHandler} className="space-y-4">
           {mode === "empleado" ? (
             <>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={8}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
-                  placeholder="••••"
-                  autoComplete="off"
-                  required
-                />
-              </label>
-              <p className="text-center text-xs text-gray-500">
-                Entra con tu PIN para fichar y ver tu horario.
-              </p>
+              {employeeStep === "pin" ? (
+                <>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-gray-700">PIN de empleado</span>
+                    <input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={8}
+                      value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                      className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
+                      placeholder="••••" autoComplete="off" required />
+                  </label>
+                  <p className="text-center text-xs text-gray-500">
+                    Solo para activar la cuenta por primera vez. Después, el PIN dejará de funcionar.
+                  </p>
+                  <button type="button" onClick={() => { setEmployeeStep("password"); setError(""); }}
+                    className="w-full text-center text-xs text-karuma-600 underline">Ya tengo contraseña</button>
+                </>
+              ) : employeeStep === "reset-code" ? (
+                <>
+                  <p className="text-center text-sm text-gray-600">Código enviado a {resetEmailHint}.</p>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-gray-700">Código de 6 cifras</span>
+                    <input value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
+                      className={`${inputClass} text-center text-2xl tracking-[0.35em]`} inputMode="numeric"
+                      autoComplete="one-time-code" maxLength={6} required />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-gray-700">Nueva contraseña</span>
+                    <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)}
+                      className={inputClass} autoComplete="new-password" minLength={8} required />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-gray-700">Repite la contraseña</span>
+                    <input type="password" value={resetPasswordConfirm} onChange={(e) => setResetPasswordConfirm(e.target.value)}
+                      className={inputClass} autoComplete="new-password" minLength={8} required />
+                  </label>
+                  <p className="text-center text-xs text-gray-500">Mínimo 8 caracteres, con una letra y un número.</p>
+                </>
+              ) : (
+                <>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-gray-700">Correo personal</span>
+                    <input type="email" value={employeeEmail} onChange={(e) => setEmployeeEmail(e.target.value)}
+                      className={inputClass} autoComplete="username" required />
+                  </label>
+                  {employeeStep === "password" && (
+                    <label className="block space-y-1.5">
+                      <span className="text-sm font-medium text-gray-700">Contraseña</span>
+                      <input type="password" value={employeePassword} onChange={(e) => setEmployeePassword(e.target.value)}
+                        className={inputClass} autoComplete="current-password" required />
+                    </label>
+                  )}
+                  <p className="text-center text-xs text-gray-500">
+                    {employeeStep === "reset-email"
+                      ? "Te enviaremos un código para crear una contraseña nueva."
+                      : "Tu nómina solo se abre con tu cuenta personal."}
+                  </p>
+                  {employeeStep === "password" && (
+                    <div className="flex justify-between gap-3 text-xs">
+                      <button type="button" onClick={() => { setEmployeeStep("pin"); setError(""); }}
+                        className="text-karuma-600 underline">Primera vez: usar PIN</button>
+                      <button type="button" onClick={() => { setEmployeeStep("reset-email"); setError(""); }}
+                        className="text-karuma-600 underline">Olvidé mi contraseña</button>
+                    </div>
+                  )}
+                  {employeeStep === "reset-email" && (
+                    <button type="button" onClick={() => { setEmployeeStep("password"); setError(""); }}
+                      className="w-full text-center text-xs text-karuma-600 underline">← Volver al login</button>
+                  )}
+                </>
+              )}
             </>
           ) : mode === "oficina" ? (
             <>

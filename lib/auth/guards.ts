@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE_NAME, verifySessionToken, type SessionUser } from "./session";
+import { SESSION_COOKIE_NAME, verifyActiveSessionToken, type SessionUser } from "./session";
 
 /**
  * Roles con acceso de gestión al módulo de ventas (lectura + escritura).
@@ -21,7 +21,7 @@ function getSalesViewerEmail(): string | null {
 export async function getSessionUser(
   request: NextRequest,
 ): Promise<SessionUser | null> {
-  return verifySessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  return verifyActiveSessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 }
 
 /** ¿El usuario puede escribir datos de ventas (importar)? */
