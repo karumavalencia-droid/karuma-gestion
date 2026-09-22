@@ -12,6 +12,17 @@ SET must_set_password = TRUE
 WHERE employee_key IS NOT NULL
   AND email_verified_at IS NULL;
 
+-- Legacy PIN roster entries that were never mirrored into users. The random
+-- unusable hash cannot be used to sign in; must_set_password keeps email login
+-- blocked until the employee proves the old PIN and verifies a personal email.
+INSERT INTO users (email, password_hash, name, role_id, employee_key, must_set_password)
+VALUES
+  ('zhouzhou@karuma.es', '$2b$12$yNa7FyE70JsXYBNLNeJOIuvSdWaOrcbuGYinUZc8AyWgzkcbo.PEm', 'Zhou', 'owner', 'zhouzhou', TRUE),
+  ('carlos@karuma.es', '$2b$12$yNa7FyE70JsXYBNLNeJOIuvSdWaOrcbuGYinUZc8AyWgzkcbo.PEm', 'Carlos', 'waiter', 'carlos', TRUE),
+  ('vanessa@karuma.es', '$2b$12$yNa7FyE70JsXYBNLNeJOIuvSdWaOrcbuGYinUZc8AyWgzkcbo.PEm', 'Vanessa', 'waiter', 'vanessa', TRUE),
+  ('jhon@karuma.es', '$2b$12$yNa7FyE70JsXYBNLNeJOIuvSdWaOrcbuGYinUZc8AyWgzkcbo.PEm', 'Jhon', 'kitchen', 'jhon', TRUE)
+ON CONFLICT (email) DO NOTHING;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower_unique
   ON users (LOWER(email));
 
