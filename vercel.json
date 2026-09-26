@@ -6,6 +6,10 @@
       "schedule": "15 4 * * *"
     },
     {
+      "path": "/api/cron/documentos-google-sync",
+      "schedule": "45 5 * * *"
+    },
+    {
       "path": "/api/cron/reservas-review-emails",
       "schedule": "30 9 * * *"
     },
