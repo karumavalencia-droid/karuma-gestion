@@ -645,6 +645,7 @@ export type DbDocumentoCategoria =
   | "impuestos"
   | "seguros"
   | "licencias"
+  | "facturas"
   | "otros";
 
 export type DbDocumento = {
@@ -656,9 +657,33 @@ export type DbDocumento = {
   tamano_bytes: number | null;
   notas: string | null;
   created_at: string;
+  tipo_documento?: string | null;
+  document_type?: string | null;
+  source_type?: string | null;
+  source?: string | null;
+  source_file_id?: string | null;
+  source_email_id?: string | null;
+  file_sha256?: string | null;
+  sha256?: string | null;
+  processing_status?: string | null;
+  status?: string | null;
+  storage_bucket?: string | null;
+  metadata?: Record<string, unknown> | null;
+  empleado_id?: string | null;
+  employee_id?: string | null;
+  periodo?: string | null;
+  proveedor?: string | null;
+  nif_proveedor?: string | null;
+  fecha_documento?: string | null;
+  numero_documento?: string | null;
+  subtotal?: number | null;
+  iva?: number | null;
+  total?: number | null;
+  moneda?: string | null;
+  extraction_confidence?: number | null;
 };
 
-export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at"> & {
+export type DbDocumentoInsert = Omit<DbDocumento, "id" | "created_at" | "notas"> & {
   id?: string;
   mime_type?: string | null;
   tamano_bytes?: number | null;

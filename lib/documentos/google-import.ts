@@ -128,6 +128,7 @@ async function alreadyImported(sourceFileId: string, sha256?: string) {
     .eq("source_file_id", sourceFileId)
     .limit(1)
     .maybeSingle();
+  if (bySource.error) throw new Error(`Documentos: ${bySource.error.message}`);
   if (bySource.data) return true;
 
   if (sha256) {
@@ -137,6 +138,7 @@ async function alreadyImported(sourceFileId: string, sha256?: string) {
       .eq("file_sha256", sha256)
       .limit(1)
       .maybeSingle();
+    if (byHash.error) throw new Error(`Documentos: ${byHash.error.message}`);
     if (byHash.data) return true;
   }
   return false;
@@ -204,7 +206,11 @@ async function storeImportedFile(input: {
     .single();
 
   if (error) {
-    await supabase.storage.from(bucket).remove([storagePath]);
+    const cleanup = await supabase.storage.from(bucket).remove([storagePath]);
+    if (cleanup.error) throw new Error(`Documentos: ${error.message}; cleanup: ${cleanup.error.message}`);
+    if (error.code === "23505" && (["documentos_unique_sha256", "documentos_file_sha256_unique", "documentos_source_file_id_unique", "documentos_unique_source_file"].some((name) => error.message.includes(name)))) {
+      return { skipped: true as const };
+    }
     throw new Error(`Documentos: ${error.message}`);
   }
   return { skipped: false as const, id: data.id as string };
@@ -223,64 +229,60 @@ export async function importDriveDocuments(input: { limit?: number } = {}): Prom
   const summary: ImportSummary = { scanned: 0, imported: 0, skipped: 0, failed: 0, errors: [] };
 
   for (const folderId of driveFolderIds()) {
-    const files: DriveFile[] = [];
     let pageToken = "";
-    while (files.length < limit) {
+    do {
       const url = new URL("https://www.googleapis.com/drive/v3/files");
       url.searchParams.set("q", `'${folderId}' in parents and trashed = false`);
       url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,size,modifiedTime)");
-      url.searchParams.set("pageSize", String(Math.min(100, limit - files.length)));
+      url.searchParams.set("pageSize", String(Math.min(1000, limit)));
       if (pageToken) url.searchParams.set("pageToken", pageToken);
       const page = (await (await googleFetch(url.toString(), token)).json()) as {
         files?: DriveFile[];
         nextPageToken?: string;
       };
-      files.push(...(page.files || []));
-      pageToken = page.nextPageToken || "";
-      if (!pageToken) break;
-    }
-
-    for (const file of files) {
-      summary.scanned++;
-      const fileId = file.id;
-      const filename = file.name?.trim() || "";
-      const mimeType = file.mimeType || "application/octet-stream";
-      if (!fileId || !filename || !allowedFile(filename, mimeType) || Number(file.size || 0) > MAX_BYTES) {
-        summary.skipped++;
-        continue;
-      }
-      const sourceFileId = `drive:${fileId}`;
-      try {
-        if (await alreadyImported(sourceFileId)) {
+      for (const file of page.files || []) {
+        summary.scanned++;
+        const fileId = file.id;
+        const filename = file.name?.trim() || "";
+        const mimeType = file.mimeType || "application/octet-stream";
+        if (!fileId || !filename || !allowedFile(filename, mimeType) || Number(file.size || 0) > MAX_BYTES) {
           summary.skipped++;
           continue;
         }
-        const bytes = Buffer.from(
-          await (await googleFetch(
-            `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
-            token,
-          )).arrayBuffer(),
-        );
-        const stored = await storeImportedFile({
-          bytes,
-          filename,
-          mimeType,
-          sourceType: "google_drive",
-          sourceFileId,
-          context: filename,
-          metadata: {
-            google_drive_file_id: fileId,
-            google_drive_folder_id: folderId,
-            google_drive_modified_time: file.modifiedTime || null,
-          },
-        });
-        if (stored.skipped) summary.skipped++;
-        else summary.imported++;
-      } catch (error) {
-        summary.failed++;
-        if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
-      }
+        const sourceFileId = `drive:${fileId}`;
+        try {
+          if (await alreadyImported(sourceFileId)) {
+            summary.skipped++;
+            continue;
+          }
+          const bytes = Buffer.from(
+            await (await googleFetch(
+              `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+              token,
+            )).arrayBuffer(),
+          );
+          const stored = await storeImportedFile({
+            bytes,
+            filename,
+            mimeType,
+            sourceType: "google_drive",
+            sourceFileId,
+            context: filename,
+            metadata: {
+              google_drive_file_id: fileId,
+              google_drive_folder_id: folderId,
+              google_drive_modified_time: file.modifiedTime || null,
+            },
+          });
+          if (stored.skipped) summary.skipped++;
+          else summary.imported++;
+        } catch (error) {
+          summary.failed++;
+          if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
+      pageToken = page.nextPageToken || "";
+    } while (pageToken);
   }
   return summary;
 }
@@ -309,65 +311,72 @@ export async function importGmailDocuments(input: { query?: string; limit?: numb
     'newer_than:35d -in:spam -in:trash has:attachment {factura invoice albaran recibo "delivery note"}';
   const summary: ImportSummary = { scanned: 0, imported: 0, skipped: 0, failed: 0, errors: [] };
 
-  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-  listUrl.searchParams.set("q", query);
-  listUrl.searchParams.set("maxResults", String(limit));
-  const listed = (await (await googleFetch(listUrl.toString(), token)).json()) as { messages?: Array<{ id?: string }> };
+  let pageToken = "";
+  do {
+    const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    listUrl.searchParams.set("q", query);
+    listUrl.searchParams.set("maxResults", String(limit));
+    if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+    const listed = (await (await googleFetch(listUrl.toString(), token)).json()) as {
+      messages?: Array<{ id?: string }>;
+      nextPageToken?: string;
+    };
+    for (const item of listed.messages || []) {
+      if (!item.id) continue;
+      const message = (await (await googleFetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
+        token,
+      )).json()) as GmailMessage;
+      const subject = header(message, "subject");
+      const sender = header(message, "from");
+      const context = `${subject} ${sender}`;
 
-  for (const item of listed.messages || []) {
-    if (!item.id) continue;
-    const message = (await (await googleFetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
-      token,
-    )).json()) as GmailMessage;
-    const subject = header(message, "subject");
-    const sender = header(message, "from");
-    const context = `${subject} ${sender}`;
-
-    for (const part of attachmentParts(message.payload?.parts)) {
-      summary.scanned++;
-      const attachmentId = part.body?.attachmentId;
-      const filename = part.filename?.trim() || "";
-      const mimeType = part.mimeType || "application/octet-stream";
-      if (!attachmentId || !filename || !allowedFile(filename, mimeType) || Number(part.body?.size || 0) > MAX_BYTES) {
-        summary.skipped++;
-        continue;
-      }
-      const sourceFileId = `gmail:${message.id}:${attachmentId}`;
-      try {
-        if (await alreadyImported(sourceFileId)) {
+      for (const part of attachmentParts(message.payload?.parts)) {
+        summary.scanned++;
+        const attachmentId = part.body?.attachmentId;
+        const filename = part.filename?.trim() || "";
+        const mimeType = part.mimeType || "application/octet-stream";
+        if (!attachmentId || !filename || !allowedFile(filename, mimeType) || Number(part.body?.size || 0) > MAX_BYTES) {
           summary.skipped++;
           continue;
         }
-        const attachment = (await (await googleFetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(attachmentId)}`,
-          token,
-        )).json()) as { data?: string };
-        if (!attachment.data) throw new Error("Adjunto vacío");
-        const stored = await storeImportedFile({
-          bytes: decodeBase64Url(attachment.data),
-          filename,
-          mimeType,
-          sourceType: "gmail",
-          sourceFileId,
-          sourceEmailId: message.id,
-          context,
-          metadata: {
-            gmail_message_id: message.id,
-            gmail_thread_id: message.threadId || null,
-            gmail_attachment_id: attachmentId,
-            gmail_subject: subject,
-            gmail_sender: sender,
-          },
-        });
-        if (stored.skipped) summary.skipped++;
-        else summary.imported++;
-      } catch (error) {
-        summary.failed++;
-        if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
+        const sourceFileId = `gmail:${message.id}:${attachmentId}`;
+        try {
+          if (await alreadyImported(sourceFileId)) {
+            summary.skipped++;
+            continue;
+          }
+          const attachment = (await (await googleFetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(attachmentId)}`,
+            token,
+          )).json()) as { data?: string };
+          if (!attachment.data) throw new Error("Adjunto vacío");
+          const stored = await storeImportedFile({
+            bytes: decodeBase64Url(attachment.data),
+            filename,
+            mimeType,
+            sourceType: "gmail",
+            sourceFileId,
+            sourceEmailId: message.id,
+            context,
+            metadata: {
+              gmail_message_id: message.id,
+              gmail_thread_id: message.threadId || null,
+              gmail_attachment_id: attachmentId,
+              gmail_subject: subject,
+              gmail_sender: sender,
+            },
+          });
+          if (stored.skipped) summary.skipped++;
+          else summary.imported++;
+        } catch (error) {
+          summary.failed++;
+          if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-    }
   }
+    pageToken = listed.nextPageToken || "";
+  } while (pageToken);
   return summary;
 }
 

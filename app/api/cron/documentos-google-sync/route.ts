@@ -13,7 +13,9 @@ export async function GET(request: Request) {
 
   const startedAt = new Date().toISOString();
   const result = await importGoogleDocuments({ gmailLimit: 200, driveLimit: 500 });
-  const hasError = "error" in result.gmail || "error" in result.drive;
+  const hasError = "error" in result.gmail || "error" in result.drive ||
+    ("failed" in result.gmail && result.gmail.failed > 0) ||
+    ("failed" in result.drive && result.drive.failed > 0);
 
   if (hasError) {
     console.error("[documentos] scheduled Google sync partially failed", result);
@@ -21,6 +23,6 @@ export async function GET(request: Request) {
 
   return NextResponse.json(
     { success: !hasError, startedAt, ...result },
-    { status: hasError ? 207 : 200, headers: { "Cache-Control": "no-store" } },
+    { status: hasError ? 500 : 200, headers: { "Cache-Control": "no-store" } },
   );
 }
