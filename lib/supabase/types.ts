@@ -1067,6 +1067,12 @@ export type Database = {
         Update: Partial<DbDocumentoInsert>;
         Relationships: [];
       };
+      documento_google_sync_checkpoints: {
+        Row: { source_key: string; page_token: string; updated_at: string };
+        Insert: { source_key: string; page_token?: string; updated_at?: string };
+        Update: { page_token?: string; updated_at?: string };
+        Relationships: [];
+      };
       inbox_accounts: {
         Row: DbInboxAccount;
         Insert: Partial<DbInboxAccount> & {
