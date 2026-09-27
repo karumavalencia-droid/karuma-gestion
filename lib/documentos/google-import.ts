@@ -3,6 +3,7 @@ import { getDocumentoBucket } from "@/lib/documentos/constants";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const MAX_BYTES = 25 * 1024 * 1024;
+const RUN_BUDGET_MS = 225_000;
 const DEFAULT_DRIVE_FOLDERS = [
   "16U--WymbgE7QAbdK921PErr3n5MzJiyC",
   "0AEVeu04d_oqzUk9PVA",
@@ -30,6 +31,30 @@ type ImportSummary = {
   skipped: number;
   failed: number;
   errors: string[];
+  hasMore?: boolean;
+};
+
+type Checkpoints = {
+  load(key: string): Promise<string>;
+  save(key: string, token: string): Promise<void>;
+};
+
+const databaseCheckpoints: Checkpoints = {
+  async load(key) {
+    const db = getSupabaseAdmin();
+    if (!db) throw new Error("Supabase no configurado");
+    const { data, error } = await db.from("documento_google_sync_checkpoints")
+      .select("page_token").eq("source_key", key).maybeSingle();
+    if (error) throw new Error(`Checkpoint: ${error.message}`);
+    return data?.page_token || "";
+  },
+  async save(key, token) {
+    const db = getSupabaseAdmin();
+    if (!db) throw new Error("Supabase no configurado");
+    const { error } = await db.from("documento_google_sync_checkpoints")
+      .upsert({ source_key: key, page_token: token, updated_at: new Date().toISOString() });
+    if (error) throw new Error(`Checkpoint: ${error.message}`);
+  },
 };
 
 function firstEnv(...names: string[]) {
@@ -69,6 +94,7 @@ export async function getGoogleAccessToken(): Promise<string> {
       grant_type: "refresh_token",
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(25_000),
   });
   const payload = (await response.json()) as GoogleTokenResponse;
   if (!response.ok || !payload.access_token) {
@@ -113,6 +139,7 @@ async function googleFetch(url: string, token: string) {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(25_000),
   });
   if (!response.ok) throw new Error(`Google API ${response.status}: ${url.includes("gmail") ? "Gmail" : "Drive"}`);
   return response;
@@ -223,25 +250,43 @@ function driveFolderIds() {
   return configured?.length ? configured : DEFAULT_DRIVE_FOLDERS;
 }
 
-export async function importDriveDocuments(input: { limit?: number } = {}): Promise<ImportSummary> {
+export async function importDriveDocuments(input: { limit?: number; deadline?: number; checkpoints?: Checkpoints } = {}): Promise<ImportSummary> {
   const token = await getGoogleAccessToken();
-  const limit = Math.min(Math.max(input.limit || 500, 1), 1000);
+  const limit = Math.min(Math.max(input.limit || 50, 1), 100);
+  const deadline = input.deadline ?? Date.now() + RUN_BUDGET_MS;
+  const checkpoints = input.checkpoints ?? databaseCheckpoints;
   const summary: ImportSummary = { scanned: 0, imported: 0, skipped: 0, failed: 0, errors: [] };
 
   for (const folderId of driveFolderIds()) {
-    let pageToken = "";
+    const key = `drive:${folderId}`;
+    let pageToken = await checkpoints.load(key);
+    let folderScanned = 0;
     do {
+      if (Date.now() >= deadline) {
+        summary.hasMore = true;
+        return summary;
+      }
+      if (folderScanned >= limit) {
+        summary.hasMore = true;
+        break;
+      }
       const url = new URL("https://www.googleapis.com/drive/v3/files");
       url.searchParams.set("q", `'${folderId}' in parents and trashed = false`);
       url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,size,modifiedTime)");
-      url.searchParams.set("pageSize", String(Math.min(1000, limit)));
+      url.searchParams.set("pageSize", String(Math.min(5, limit - folderScanned)));
       if (pageToken) url.searchParams.set("pageToken", pageToken);
       const page = (await (await googleFetch(url.toString(), token)).json()) as {
         files?: DriveFile[];
         nextPageToken?: string;
       };
+      const failuresBeforePage = summary.failed;
       for (const file of page.files || []) {
+        if (Date.now() >= deadline) {
+          summary.hasMore = true;
+          return summary;
+        }
         summary.scanned++;
+        folderScanned++;
         const fileId = file.id;
         const filename = file.name?.trim() || "";
         const mimeType = file.mimeType || "application/octet-stream";
@@ -280,8 +325,15 @@ export async function importDriveDocuments(input: { limit?: number } = {}): Prom
           summary.failed++;
           if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
         }
-    }
+      }
+      // Replay the whole page on failure or timeout; source ID and hash indexes
+      // make completed inserts safe to revisit on the next invocation.
+      if (summary.failed > failuresBeforePage || Date.now() >= deadline) {
+        summary.hasMore = true;
+        return summary;
+      }
       pageToken = page.nextPageToken || "";
+      await checkpoints.save(key, pageToken);
     } while (pageToken);
   }
   return summary;
@@ -302,27 +354,41 @@ function decodeBase64Url(value: string) {
   return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "="), "base64");
 }
 
-export async function importGmailDocuments(input: { query?: string; limit?: number } = {}): Promise<ImportSummary> {
+export async function importGmailDocuments(input: { query?: string; limit?: number; deadline?: number; checkpoints?: Checkpoints } = {}): Promise<ImportSummary> {
   const token = await getGoogleAccessToken();
-  const limit = Math.min(Math.max(input.limit || 200, 1), 500);
+  const limit = Math.min(Math.max(input.limit || 20, 1), 100);
+  const deadline = input.deadline ?? Date.now() + RUN_BUDGET_MS;
+  const checkpoints = input.checkpoints ?? databaseCheckpoints;
   const query =
     input.query?.trim() ||
     process.env.DOCUMENTO_GMAIL_IMPORT_QUERY?.trim() ||
     'newer_than:35d -in:spam -in:trash has:attachment {factura invoice albaran recibo "delivery note"}';
   const summary: ImportSummary = { scanned: 0, imported: 0, skipped: 0, failed: 0, errors: [] };
 
-  let pageToken = "";
+  const key = `gmail:${createHash("sha256").update(query).digest("hex")}`;
+  let pageToken = await checkpoints.load(key);
+  let messagesScanned = 0;
   do {
+    if (Date.now() >= deadline || messagesScanned >= limit) {
+      summary.hasMore = true;
+      return summary;
+    }
     const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
     listUrl.searchParams.set("q", query);
-    listUrl.searchParams.set("maxResults", String(limit));
+    listUrl.searchParams.set("maxResults", String(Math.min(5, limit - messagesScanned)));
     if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
     const listed = (await (await googleFetch(listUrl.toString(), token)).json()) as {
       messages?: Array<{ id?: string }>;
       nextPageToken?: string;
     };
+    const failuresBeforePage = summary.failed;
     for (const item of listed.messages || []) {
+      if (Date.now() >= deadline) {
+        summary.hasMore = true;
+        return summary;
+      }
       if (!item.id) continue;
+      messagesScanned++;
       const message = (await (await googleFetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
         token,
@@ -332,6 +398,10 @@ export async function importGmailDocuments(input: { query?: string; limit?: numb
       const context = `${subject} ${sender}`;
 
       for (const part of attachmentParts(message.payload?.parts)) {
+        if (Date.now() >= deadline) {
+          summary.hasMore = true;
+          return summary;
+        }
         summary.scanned++;
         const attachmentId = part.body?.attachmentId;
         const filename = part.filename?.trim() || "";
@@ -374,16 +444,22 @@ export async function importGmailDocuments(input: { query?: string; limit?: numb
           if (summary.errors.length < 20) summary.errors.push(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-  }
+    }
+    if (summary.failed > failuresBeforePage || Date.now() >= deadline) {
+      summary.hasMore = true;
+      return summary;
+    }
     pageToken = listed.nextPageToken || "";
+    await checkpoints.save(key, pageToken);
   } while (pageToken);
   return summary;
 }
 
 export async function importGoogleDocuments(input: { gmailQuery?: string; gmailLimit?: number; driveLimit?: number } = {}) {
+  const deadline = Date.now() + RUN_BUDGET_MS;
   const [gmail, drive] = await Promise.allSettled([
-    importGmailDocuments({ query: input.gmailQuery, limit: input.gmailLimit }),
-    importDriveDocuments({ limit: input.driveLimit }),
+    importGmailDocuments({ query: input.gmailQuery, limit: input.gmailLimit, deadline }),
+    importDriveDocuments({ limit: input.driveLimit, deadline }),
   ]);
   return {
     configured: googleImportConfigured(),
