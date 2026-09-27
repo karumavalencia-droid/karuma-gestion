@@ -208,7 +208,7 @@ async function storeImportedFile(input: {
   if (error) {
     const cleanup = await supabase.storage.from(bucket).remove([storagePath]);
     if (cleanup.error) throw new Error(`Documentos: ${error.message}; cleanup: ${cleanup.error.message}`);
-    if (error.code === "23505" && (error.message.includes("file_sha256") || error.message.includes("source_file_id"))) {
+    if (error.code === "23505" && (["documentos_unique_sha256", "documentos_file_sha256_unique", "documentos_source_file_id_unique", "documentos_unique_source_file"].some((name) => error.message.includes(name)))) {
       return { skipped: true as const };
     }
     throw new Error(`Documentos: ${error.message}`);
