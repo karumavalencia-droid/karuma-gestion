@@ -313,16 +313,15 @@ function mesaConGrupo(mesa: MesaLocal, reserva?: ReservaLocal): MesaLocal {
   };
 }
 
-// Ventanas de servicio para el visor del plano por horas. El local abre cena a las 19:30.
+// Ventanas de servicio para el visor del plano por horas.
 export const SERVICIO_VENTANA: Record<ServicioLocal, { inicio: string; fin: string }> = {
-  comida: { inicio: "13:00", fin: "16:00" },
-  cena:   { inicio: "19:30", fin: "23:00" },
+  comida: { inicio: "13:00", fin: "17:00" },
+  cena:   { inicio: "19:00", fin: "23:30" },
 };
 
-// La operativa cambia automáticamente de comida a cena después de las 16:30.
-// Las 16:30 todavía pertenecen a comida; desde las 16:31 se usa cena.
+// Durante el cierre de 17:00 a 19:00 se muestra la próxima cena.
 export function servicioParaHora(hora: string): ServicioLocal {
-  return toMin(hora) > 16 * 60 + 30 ? "cena" : "comida";
+  return toMin(hora) >= 17 * 60 ? "cena" : "comida";
 }
 
 export function servicioActual(fecha = new Date()): ServicioLocal {

@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { calcularSlotsDisponibles } from "@/lib/reservas/disponibilidad";
 import type { Mesa, Reserva, ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 import { isValidOnlinePartySize } from "@/lib/reservas/config";
+import { horarioEfectivo } from "@/lib/reservas/horario-publico";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,15 +74,7 @@ export async function GET(req: NextRequest) {
 
   // Build effective config — override global times with per-day horario
   const config = configData as ReservasConfig;
-  const effectiveConfig: ReservasConfig = horarioDia
-    ? {
-        ...config,
-        comida_inicio: horarioDia.comida_inicio,
-        comida_fin:    horarioDia.comida_fin,
-        cena_inicio:   horarioDia.cena_inicio,
-        cena_fin:      horarioDia.cena_fin,
-      }
-    : config;
+  const effectiveConfig: ReservasConfig = horarioEfectivo(config, horarioDia);
 
   let slots = calcularSlotsDisponibles(
     mesas as Mesa[],
@@ -94,9 +87,10 @@ export async function GET(req: NextRequest) {
 
   // Filter past/too-soon slots for today
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const madrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
+  const todayStr = madrid.slice(0, 10);
   if (fecha === todayStr) {
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowMin = Number(madrid.slice(11, 13)) * 60 + Number(madrid.slice(14, 16));
     const minAdvanceMin = 30;
     slots = slots.map((s) => {
       const [h, m] = s.hora.split(":").map(Number);
