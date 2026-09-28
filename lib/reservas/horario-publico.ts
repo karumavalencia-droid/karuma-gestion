@@ -30,10 +30,11 @@ export function reservaDentroDeHorario(
   const apertura = APERTURA[servicio];
   const inicio = servicio === "comida" ? config.comida_inicio : config.cena_inicio;
   const ultimoPase = servicio === "comida" ? config.comida_fin : config.cena_fin;
-  const cierre = apertura.cierre;
   const horaMin = minutos(hora);
   return Number.isFinite(horaMin) && Number.isFinite(duracionMin)
     && horaMin >= Math.max(minutos(apertura.inicio), minutos(inicio))
     && horaMin <= Math.min(minutos(ultimoPase), "ultimoPase" in apertura ? minutos(apertura.ultimoPase) : Infinity)
-    && horaMin + duracionMin <= minutos(cierre);
+    // La cena admite el último pase a las 22:00 aunque la duración estándar
+    // de la mesa sobrepase las 23:30; al mediodía se respeta el cierre a las 17:00.
+    && (servicio === "cena" || horaMin + duracionMin <= minutos(apertura.cierre));
 }
