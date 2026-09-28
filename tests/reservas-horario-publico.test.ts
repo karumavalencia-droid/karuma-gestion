@@ -10,10 +10,13 @@ const config = {
   cena_fin: "22:00:00",
 } as ReservasConfig;
 
-test("lunch ends at 17:00 and last seating depends on party duration", () => {
+test("lunch last seating is 15:30 for every party duration", () => {
   assert.equal(reservaDentroDeHorario("15:30", "comida", 90, config), true);
   assert.equal(reservaDentroDeHorario("15:45", "comida", 90, config), false);
-  assert.equal(reservaDentroDeHorario("15:30", "comida", 120, config), false);
+  assert.equal(reservaDentroDeHorario("15:15", "comida", 120, config), true);
+  assert.equal(reservaDentroDeHorario("15:30", "comida", 120, config), true);
+  assert.equal(reservaDentroDeHorario("15:30", "comida", 150, config), true);
+  assert.equal(reservaDentroDeHorario("15:45", "comida", 150, config), false);
   assert.equal(reservaDentroDeHorario("15:00", "comida", 120, config), true);
   assert.equal(reservaDentroDeHorario("14:30", "comida", 150, config), true);
 });
