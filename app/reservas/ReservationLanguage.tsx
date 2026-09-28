@@ -8,7 +8,7 @@ const STORAGE_KEY = "karuma-reservation-language";
 
 const TEXT_EN: Record<string, string> = {
   "Cocina japonesa, brasa y buffet libre en el corazón de Valencia.": "Japanese cuisine, charcoal grill and all-you-can-eat buffet in the heart of Valencia.",
-  "Todos los días · 13:00–23:30": "Every day · 13:00–23:30",
+  "Todos los días · 13:00–17:00 / 19:00–23:30": "Every day · 13:00–17:00 / 19:00–23:30",
   "Reserva": "Booking",
   "Reserva tu mesa": "Book your table",
   "persona": "guest",
@@ -17,10 +17,10 @@ const TEXT_EN: Record<string, string> = {
   "Horario": "Opening hours",
   "Horario y precios": "Opening hours & prices",
   "Abierto todos los días": "Open every day",
-  "Cocina ininterrumpida": "Kitchen open all day",
+  "Última reserva de comida: 15:30": "Last lunch booking: 15:30",
   "Mediodía": "Lunch",
   "Lunes a viernes · 13:00 – 16:30": "Monday to Friday · 13:00 – 16:30",
-  "Tarde, noche, fines de semana y festivos": "Afternoon, evening, weekends & public holidays",
+  "Noche, fines de semana y festivos": "Evening, weekends & public holidays",
   "Niños": "Children",
   "Menú infantil": "Kids menu",
   "Buffet libre · bebidas no incluidas.": "All-you-can-eat buffet · drinks not included.",

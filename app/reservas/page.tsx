@@ -317,8 +317,8 @@ export default function ReservasPage() {
   const MAX_DIAS = 7; // máximo permitido por política del restaurante
 
   const comidaInicio = hhmm(config?.comida_inicio) || "13:00";
-  const comidaFin = hhmm(config?.comida_fin) || "15:00";
-  const cenaInicio = hhmm(config?.cena_inicio) || "19:30";
+  const comidaFin = "15:30";
+  const cenaInicio = "19:00";
   const cenaFin = hhmm(config?.cena_fin) || "22:00";
   const horarioComida = `${comidaInicio} – ${comidaFin}`;
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
@@ -525,7 +525,7 @@ export default function ReservasPage() {
               <MapPin className="h-3.5 w-3.5 text-karuma-700" /> {DIRECCION}
             </p>
             <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-karuma-700/30 bg-karuma-50/70 px-3 py-1 text-xs font-semibold text-karuma-700">
-              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–23:30
+              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–17:00 / 19:00–23:30
             </p>
           </div>
         </header>
@@ -603,14 +603,14 @@ export default function ReservasPage() {
                   <Clock className="h-3.5 w-3.5" /> Abierto todos los días
                 </p>
                 <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
-                  13:00 – 23:30
+                  13:00 – 17:00<br />19:00 – 23:30
                 </p>
-                <p className="mt-2 text-xs text-stone-500">Cocina ininterrumpida</p>
+                <p className="mt-2 text-xs text-stone-500">Última reserva de comida: 15:30</p>
               </div>
               <div className="px-5 py-1">
                 {[
                   { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
-                  { t: "Tarde, noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
+                  { t: "Noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
                   { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
                 ].map((p) => (
                   <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">

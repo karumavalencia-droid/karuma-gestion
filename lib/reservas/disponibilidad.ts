@@ -1,5 +1,6 @@
 import type { Mesa, Reserva, ReservasConfig, SlotDisponible } from "./types";
 import { isActiveReservation } from "./helpers";
+import { reservaDentroDeHorario } from "./horario-publico";
 
 /** Genera lista de horas en intervalos desde inicio hasta fin (último pase) */
 export function generarSlots(inicio: string, fin: string, intervaloMin: number): string[] {
@@ -160,7 +161,7 @@ export function calcularSlotsDisponibles(
   const inicio = servicio === "comida" ? config.comida_inicio : config.cena_inicio;
   const fin = servicio === "comida" ? config.comida_fin : config.cena_fin;
   const slots = generarSlots(inicio, fin, config.intervalo_min);
-  return slots.map((hora) => ({
+  return slots.filter((hora) => reservaDentroDeHorario(hora, servicio, duracion, config)).map((hora) => ({
     hora,
     disponible: asignarMesa(mesas, reservas, fecha, hora, duracion, personas, config) !== null,
   }));

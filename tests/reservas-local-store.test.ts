@@ -79,11 +79,11 @@ beforeEach(() => {
   setupBrowserStorage();
 });
 
-test("service switches from comida to cena after 16:30", () => {
-  assert.equal(servicioParaHora("16:29"), "comida");
+test("service switches after lunch closes at 17:00", () => {
   assert.equal(servicioParaHora("16:30"), "comida");
-  assert.equal(servicioParaHora("16:31"), "cena");
-  assert.equal(servicioParaHora("20:00"), "cena");
+  assert.equal(servicioParaHora("16:59"), "comida");
+  assert.equal(servicioParaHora("17:00"), "cena");
+  assert.equal(servicioParaHora("19:00"), "cena");
 });
 
 test("a server-created walk-in is stored immediately for an optimistic table update", () => {

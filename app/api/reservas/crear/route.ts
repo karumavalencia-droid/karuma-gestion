@@ -4,8 +4,9 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { asignarMesa, mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import { sendReservationConfirmationEmail } from "@/lib/reservas/email";
 import { buildTableBlockNotes, isTableBlockReservation, normalizeReservationStatus } from "@/lib/reservas/helpers";
-import type { Mesa, Reserva, ReservasConfig } from "@/lib/reservas/types";
+import type { Mesa, Reserva, ReservasConfig, HorarioDia } from "@/lib/reservas/types";
 import { isValidOnlinePartySize } from "@/lib/reservas/config";
+import { horarioEfectivo, reservaDentroDeHorario } from "@/lib/reservas/horario-publico";
 import {
   isReservationOrigin,
   isReservationStaffRequest,
@@ -112,6 +113,23 @@ export async function POST(req: NextRequest) {
   const duracion = isTableBlock
     ? Math.max(15, Math.min(480, Number(duracionMin) || config.duracion_1_2_min))
     : personasReserva <= 2 ? config.duracion_1_2_min : (personasReserva <= 4 ? config.duracion_3_4_min : config.duracion_5_6_min);
+
+  if (origen === "online" && !reusedReserva) {
+    if (servicio !== "comida" && servicio !== "cena") {
+      return NextResponse.json({ error: "Servicio no válido" }, { status: 400 });
+    }
+    const dia = new Date(`${fecha}T12:00:00`).getDay();
+    const [{ data: horario }, { data: cierres }] = await Promise.all([
+      supabase.from("horario_semanal").select("*").eq("dia", dia).maybeSingle(),
+      supabase.from("cierres_servicio").select("servicio").eq("fecha", fecha),
+    ]);
+    const horarioDia = horario as HorarioDia | null;
+    const cerrado = horarioDia && (!horarioDia.activo || (servicio === "comida" ? !horarioDia.comida_activa : !horarioDia.cena_activa));
+    if (cerrado || (cierres ?? []).some((c) => c.servicio === servicio || c.servicio === "todo")
+      || !reservaDentroDeHorario(hora, servicio, duracion, horarioEfectivo(config, horarioDia))) {
+      return NextResponse.json({ error: "Horario de reserva no disponible" }, { status: 409 });
+    }
+  }
 
   // Online allocation happens atomically in the database after the customer
   // upsert. Staff flows keep their existing manual/automatic assignment.

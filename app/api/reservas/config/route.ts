@@ -17,9 +17,9 @@ export async function GET() {
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",
-      comida_fin: "16:15",
-      cena_inicio: "20:00",
-      cena_fin: "23:00",
+      comida_fin: "15:30",
+      cena_inicio: "19:00",
+      cena_fin: "22:00",
     });
   }
 
@@ -42,9 +42,9 @@ export async function GET() {
       telefono: "+34676706776",
       whatsapp: "+34676706776",
       comida_inicio: "13:00",
-      comida_fin: "16:15",
-      cena_inicio: "20:00",
-      cena_fin: "23:00",
+      comida_fin: "15:30",
+      cena_inicio: "19:00",
+      cena_fin: "22:00",
     },
   );
 }
