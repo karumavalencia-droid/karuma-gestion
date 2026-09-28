@@ -22,5 +22,7 @@ test("dinner starts at 19:00 and existing last pass stays at 22:00", () => {
   assert.equal(reservaDentroDeHorario("18:45", "cena", 90, config), false);
   assert.equal(reservaDentroDeHorario("19:00", "cena", 90, config), true);
   assert.equal(reservaDentroDeHorario("22:00", "cena", 90, config), true);
+  assert.equal(reservaDentroDeHorario("22:00", "cena", 120, config), true);
+  assert.equal(reservaDentroDeHorario("22:00", "cena", 150, config), true);
   assert.equal(reservaDentroDeHorario("22:15", "cena", 90, config), false);
 });
