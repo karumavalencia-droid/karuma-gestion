@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { ServicioLocal } from "@/lib/reservas/local-store";
 import { ocupadasEn, slotsPlano } from "@/lib/reservas/local-store";
+import { APERTURA } from "@/lib/reservas/horario-publico";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
 
 type TimeSlotPickerProps = {
@@ -94,7 +95,8 @@ export function TimeSlotPicker({
   className = "",
   compact = false,
 }: TimeSlotPickerProps) {
-  const slots = slotsPlano(servicio);
+  const ultimoPase = APERTURA[servicio].ultimoPase;
+  const slots = slotsPlano(servicio).filter((slot) => slot <= ultimoPase);
   const selected = value.slice(0, 5);
   const isSelectedInSlot = !selected || slots.includes(selected);
   const rootRef = useRef<HTMLDivElement>(null);
