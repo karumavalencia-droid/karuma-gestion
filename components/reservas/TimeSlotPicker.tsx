@@ -72,8 +72,6 @@ function applyMesaAvailability(
 
     const occupied = ocupadas.has(numberText);
     if (occupied) {
-      // Si el usuario tenía esta mesa seleccionada y cambia fecha/hora/personas
-      // a un turno donde ya está ocupada, quitarla antes de bloquear el botón.
       if (button.classList.contains("border-karuma-600") && !button.disabled) button.click();
       button.disabled = true;
       button.setAttribute("aria-disabled", "true");
@@ -102,8 +100,6 @@ export function TimeSlotPicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const lastSyncedDateRef = useRef("");
 
-  // El selector también se usa en otros modales. La mejora visual y el estado
-  // preventivo de mesas se aplican únicamente al modal "Nueva Reserva".
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -123,9 +119,6 @@ export function TimeSlotPicker({
 
     refreshTables();
 
-    // Cargar las reservas reales de la fecha seleccionada antes de decidir qué
-    // mesas están libres. Sólo sincronizamos al cambiar de fecha; hora/personas
-    // se recalculan inmediatamente contra la copia ya sincronizada.
     if (fecha && lastSyncedDateRef.current !== fecha) {
       lastSyncedDateRef.current = fecha;
       void syncAndLoadReservas(fecha)
@@ -171,6 +164,31 @@ export function TimeSlotPicker({
             row-gap: 8px !important;
           }
           .nr-form > :not([hidden]) ~ :not([hidden]) { margin-top: 0 !important; }
+
+          /* Fecha y Hora siempre van primero y nunca pueden quedar ocultas por
+             el layout compacto del iPad/escritorio. */
+          .nr-field-fecha {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            order: -2 !important;
+            grid-column: 1 !important;
+            min-width: 0 !important;
+          }
+          .nr-field-hora {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            order: -1 !important;
+            grid-column: 2 !important;
+            min-width: 0 !important;
+          }
+          .nr-field-fecha input[type="date"] {
+            display: block !important;
+            width: 100% !important;
+            min-height: 36px !important;
+          }
+
           .nr-form > .border-red-200,
           .nr-field-mesa,
           .nr-form > button:last-child {
