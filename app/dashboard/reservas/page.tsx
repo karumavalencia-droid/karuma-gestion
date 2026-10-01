@@ -1574,7 +1574,8 @@ export default function ReservasPage() {
               />
             </Field>
             <Field label="Hora" required>
-              <TimeSlotPicker value={nHora} onChange={setNHora} servicio={nServicio} compact />
+              <TimeSlotPicker value={nHora} onChange={setNHora} servicio={nServicio}
+              availability={{ fecha: nFecha, personas: nPersonas }} compact />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Servicio" required>

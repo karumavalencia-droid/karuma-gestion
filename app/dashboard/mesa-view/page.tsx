@@ -1446,7 +1446,8 @@ export default function MesaViewPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Hora</label>
-            <TimeSlotPicker value={nHora} onChange={setNHora} servicio={nServicio} compact />
+            <TimeSlotPicker value={nHora} onChange={setNHora} servicio={nServicio}
+              availability={{ fecha: fecha, personas: nPersonas }} compact />
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Servicio</label>
