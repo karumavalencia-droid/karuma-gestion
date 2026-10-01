@@ -23,6 +23,10 @@ function findModalContent(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+function isMesaLabel(text: string): boolean {
+  return text.trim().toLocaleLowerCase("es").startsWith("mesa");
+}
+
 function prepareNuevaReservaLayout(root: HTMLElement): {
   modal: HTMLElement;
   form: HTMLElement;
@@ -44,7 +48,7 @@ function prepareNuevaReservaLayout(root: HTMLElement): {
     if (text.startsWith("Fecha")) field.classList.add("nr-field-fecha");
     if (text.startsWith("Hora")) field.classList.add("nr-field-hora");
     if (text.startsWith("Notas")) field.classList.add("nr-field-notas");
-    if (text.startsWith("Mesa manual")) field.classList.add("nr-field-mesa");
+    if (isMesaLabel(text)) field.classList.add("nr-field-mesa");
   }
 
   return { modal, form };
@@ -58,7 +62,7 @@ function applyMesaAvailability(
   personas: number,
 ) {
   const labels = Array.from(modal.querySelectorAll("label"));
-  const mesaLabel = labels.find((label) => label.textContent?.trim().startsWith("Mesa manual"));
+  const mesaLabel = labels.find((label) => isMesaLabel(label.textContent ?? ""));
   const mesaField = mesaLabel?.parentElement;
   if (!(mesaField instanceof HTMLElement) || !fecha || !hora) return;
 
