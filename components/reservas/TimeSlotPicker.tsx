@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { ServicioLocal } from "@/lib/reservas/local-store";
-import { slotsPlano } from "@/lib/reservas/local-store";
+import { ocupadasEn, slotsPlano } from "@/lib/reservas/local-store";
+import { syncAndLoadReservas } from "@/lib/reservas/sync";
 
 type TimeSlotPickerProps = {
   value: string;
@@ -10,6 +12,80 @@ type TimeSlotPickerProps = {
   className?: string;
   compact?: boolean;
 };
+
+function findModalContent(node: HTMLElement | null): HTMLElement | null {
+  let current = node?.parentElement ?? null;
+  while (current) {
+    if (current.parentElement?.classList.contains("fixed")) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function prepareNuevaReservaLayout(root: HTMLElement): {
+  modal: HTMLElement;
+  form: HTMLElement;
+} | null {
+  const modal = findModalContent(root);
+  if (!modal || modal.querySelector("h2")?.textContent?.trim() !== "Nueva Reserva") return null;
+
+  const form = root.parentElement?.parentElement;
+  if (!(form instanceof HTMLElement)) return null;
+
+  modal.classList.add("nr-modal");
+  form.classList.add("nr-form");
+  root.classList.add("nr-time-picker");
+
+  for (const label of Array.from(form.querySelectorAll("label"))) {
+    const field = label.parentElement;
+    if (!(field instanceof HTMLElement)) continue;
+    const text = label.textContent?.trim() ?? "";
+    if (text.startsWith("Fecha")) field.classList.add("nr-field-fecha");
+    if (text.startsWith("Hora")) field.classList.add("nr-field-hora");
+    if (text.startsWith("Notas")) field.classList.add("nr-field-notas");
+    if (text.startsWith("Mesa manual")) field.classList.add("nr-field-mesa");
+  }
+
+  return { modal, form };
+}
+
+function applyMesaAvailability(
+  modal: HTMLElement,
+  fecha: string,
+  hora: string,
+  servicio: ServicioLocal,
+  personas: number,
+) {
+  const labels = Array.from(modal.querySelectorAll("label"));
+  const mesaLabel = labels.find((label) => label.textContent?.trim().startsWith("Mesa manual"));
+  const mesaField = mesaLabel?.parentElement;
+  if (!(mesaField instanceof HTMLElement) || !fecha || !hora) return;
+
+  const ocupadas = ocupadasEn(fecha, hora, servicio, personas);
+  const buttons = Array.from(mesaField.querySelectorAll("button"));
+
+  for (const button of buttons) {
+    if (!(button instanceof HTMLButtonElement)) continue;
+    const numberText = button.querySelector("p")?.textContent?.trim();
+    if (!numberText || !/^T\d+$/.test(numberText)) continue;
+
+    const occupied = ocupadas.has(numberText);
+    if (occupied) {
+      // Si el usuario tenía esta mesa seleccionada y cambia fecha/hora/personas
+      // a un turno donde ya está ocupada, quitarla antes de bloquear el botón.
+      if (button.classList.contains("border-karuma-600") && !button.disabled) button.click();
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
+      button.title = "Mesa ocupada durante este turno";
+      button.classList.add("nr-occupied");
+    } else {
+      button.disabled = false;
+      button.removeAttribute("aria-disabled");
+      if (button.title === "Mesa ocupada durante este turno") button.removeAttribute("title");
+      button.classList.remove("nr-occupied");
+    }
+  }
+}
 
 export function TimeSlotPicker({
   value,
@@ -21,9 +97,113 @@ export function TimeSlotPicker({
   const slots = slotsPlano(servicio);
   const selected = value.slice(0, 5);
   const isSelectedInSlot = !selected || slots.includes(selected);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const lastSyncedDateRef = useRef("");
+
+  // El selector también se usa en otros modales. La mejora visual y el estado
+  // preventivo de mesas se aplican únicamente al modal "Nueva Reserva".
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const prepared = prepareNuevaReservaLayout(root);
+    if (!prepared) return;
+
+    const dateInput = prepared.modal.querySelector('input[type="date"]');
+    const peopleInput = prepared.modal.querySelector('input[type="number"]');
+    const fecha = dateInput instanceof HTMLInputElement ? dateInput.value : "";
+    const personas = peopleInput instanceof HTMLInputElement
+      ? Math.max(1, Number(peopleInput.value) || 1)
+      : 1;
+
+    const refreshTables = () => {
+      applyMesaAvailability(prepared.modal, fecha, selected, servicio, personas);
+    };
+
+    refreshTables();
+
+    // Cargar las reservas reales de la fecha seleccionada antes de decidir qué
+    // mesas están libres. Sólo sincronizamos al cambiar de fecha; hora/personas
+    // se recalculan inmediatamente contra la copia ya sincronizada.
+    if (fecha && lastSyncedDateRef.current !== fecha) {
+      lastSyncedDateRef.current = fecha;
+      void syncAndLoadReservas(fecha)
+        .then(refreshTables)
+        .catch(refreshTables);
+    }
+  });
 
   return (
-    <div className={className}>
+    <div ref={rootRef} className={className}>
+      <style jsx global>{`
+        .nr-occupied {
+          border-color: rgb(252 211 77) !important;
+          background: rgb(254 243 199) !important;
+          color: rgb(146 64 14) !important;
+          cursor: not-allowed !important;
+          opacity: 1 !important;
+        }
+        .nr-occupied p:last-child { display: none; }
+        .nr-occupied::after {
+          content: "Ocupada";
+          display: block;
+          margin-top: 1px;
+          font-size: 9px;
+          line-height: 12px;
+          font-weight: 800;
+          color: rgb(180 83 9);
+        }
+
+        @media (min-width: 768px) {
+          .nr-modal {
+            width: min(1040px, calc(100vw - 32px)) !important;
+            max-width: 1040px !important;
+            max-height: calc(100vh - 24px) !important;
+            overflow: hidden !important;
+            padding: 16px 20px !important;
+          }
+          .nr-modal > div:first-child { margin-bottom: 8px !important; }
+          .nr-form {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            column-gap: 14px !important;
+            row-gap: 8px !important;
+          }
+          .nr-form > :not([hidden]) ~ :not([hidden]) { margin-top: 0 !important; }
+          .nr-form > .border-red-200,
+          .nr-field-mesa,
+          .nr-form > button:last-child {
+            grid-column: 1 / -1;
+          }
+          .nr-form input,
+          .nr-form select,
+          .nr-form textarea {
+            padding-top: 7px !important;
+            padding-bottom: 7px !important;
+          }
+          .nr-form textarea {
+            min-height: 48px !important;
+            max-height: 52px !important;
+          }
+          .nr-time-picker > div:first-child {
+            gap: 5px !important;
+          }
+          .nr-time-picker button {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+          }
+          .nr-field-mesa > div:last-child {
+            gap: 5px !important;
+          }
+          .nr-field-mesa button {
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+          }
+          .nr-form > button:last-child {
+            padding-top: 9px !important;
+            padding-bottom: 9px !important;
+          }
+        }
+      `}</style>
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
         {slots.map((slot) => {
           const active = selected === slot;
