@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { ServicioLocal } from "@/lib/reservas/local-store";
-import { ocupadasEn, slotsPlano } from "@/lib/reservas/local-store";
+import { slotsPlano } from "@/lib/reservas/local-store";
 import { APERTURA } from "@/lib/reservas/horario-publico";
 import { syncAndLoadReservas } from "@/lib/reservas/sync";
+import { applyMesaAvailability, createAvailabilitySync, isMesaLabel } from "@/lib/reservas/modal-availability";
 
 type TimeSlotPickerProps = {
   value: string;
@@ -12,6 +13,7 @@ type TimeSlotPickerProps = {
   servicio: ServicioLocal;
   className?: string;
   compact?: boolean;
+  availability?: { fecha: string; personas: number };
 };
 
 function findModalContent(node: HTMLElement | null): HTMLElement | null {
@@ -21,10 +23,6 @@ function findModalContent(node: HTMLElement | null): HTMLElement | null {
     current = current.parentElement;
   }
   return null;
-}
-
-function isMesaLabel(text: string): boolean {
-  return text.trim().toLocaleLowerCase("es").startsWith("mesa");
 }
 
 function prepareNuevaReservaLayout(root: HTMLElement): {
@@ -54,81 +52,35 @@ function prepareNuevaReservaLayout(root: HTMLElement): {
   return { modal, form };
 }
 
-function applyMesaAvailability(
-  modal: HTMLElement,
-  fecha: string,
-  hora: string,
-  servicio: ServicioLocal,
-  personas: number,
-) {
-  const labels = Array.from(modal.querySelectorAll("label"));
-  const mesaLabel = labels.find((label) => isMesaLabel(label.textContent ?? ""));
-  const mesaField = mesaLabel?.parentElement;
-  if (!(mesaField instanceof HTMLElement) || !fecha || !hora) return;
-
-  const ocupadas = ocupadasEn(fecha, hora, servicio, personas);
-  const buttons = Array.from(mesaField.querySelectorAll("button"));
-
-  for (const button of buttons) {
-    if (!(button instanceof HTMLButtonElement)) continue;
-    const numberText = button.querySelector("p")?.textContent?.trim();
-    if (!numberText || !/^T\d+$/.test(numberText)) continue;
-
-    const occupied = ocupadas.has(numberText);
-    if (occupied) {
-      if (button.classList.contains("border-karuma-600") && !button.disabled) button.click();
-      button.disabled = true;
-      button.setAttribute("aria-disabled", "true");
-      button.title = "Mesa ocupada durante este turno";
-      button.classList.add("nr-occupied");
-    } else {
-      button.disabled = false;
-      button.removeAttribute("aria-disabled");
-      if (button.title === "Mesa ocupada durante este turno") button.removeAttribute("title");
-      button.classList.remove("nr-occupied");
-    }
-  }
-}
-
 export function TimeSlotPicker({
   value,
   onChange,
   servicio,
   className = "",
   compact = false,
+  availability,
 }: TimeSlotPickerProps) {
   const ultimoPase = APERTURA[servicio].ultimoPase;
   const slots = slotsPlano(servicio).filter((slot) => slot <= ultimoPase);
   const selected = value.slice(0, 5);
   const isSelectedInSlot = !selected || slots.includes(selected);
   const rootRef = useRef<HTMLDivElement>(null);
-  const lastSyncedDateRef = useRef("");
+  const syncRef = useRef<ReturnType<typeof createAvailabilitySync> | null>(null);
+  if (!syncRef.current) syncRef.current = createAvailabilitySync(syncAndLoadReservas);
 
-  useEffect(() => {
+  // Reapply after every commit: React may recreate or update table buttons.
+  // Cleanup invalidates callbacks before a newer selection or unmount is committed.
+  useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const prepared = prepareNuevaReservaLayout(root);
-    if (!prepared) return;
+    if (!prepared || !availability) return;
 
-    const dateInput = prepared.modal.querySelector('input[type="date"]');
-    const peopleInput = prepared.modal.querySelector('input[type="number"]');
-    const fecha = dateInput instanceof HTMLInputElement ? dateInput.value : "";
-    const personas = peopleInput instanceof HTMLInputElement
-      ? Math.max(1, Number(peopleInput.value) || 1)
-      : 1;
-
-    const refreshTables = () => {
+    const { fecha, personas } = availability;
+    if (!fecha || !selected) return;
+    return syncRef.current!.refresh(fecha, () => {
       applyMesaAvailability(prepared.modal, fecha, selected, servicio, personas);
-    };
-
-    refreshTables();
-
-    if (fecha && lastSyncedDateRef.current !== fecha) {
-      lastSyncedDateRef.current = fecha;
-      void syncAndLoadReservas(fecha)
-        .then(refreshTables)
-        .catch(refreshTables);
-    }
+    });
   });
 
   return (

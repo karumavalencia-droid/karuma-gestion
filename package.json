@@ -13,7 +13,7 @@
     "test:portal": "node --import tsx --test tests/schedule-portal.test.ts tests/schedule-me-api.test.ts",
     "test:portal-correo": "node --import tsx --test tests/portal-correo.test.ts",
     "test:admin-otp": "node --import tsx --test tests/admin-otp-email.test.ts",
-    "test:reservas": "node --import tsx --test tests/reservas-local-store.test.ts tests/reservas-table-combinations.test.ts",
+    "test:reservas": "node --import tsx --test tests/reservas-local-store.test.ts tests/reservas-table-combinations.test.ts tests/reservas-modal-availability.test.ts",
     "setup:employee-accounts": "node --import tsx scripts/setup-employee-accounts.ts",
     "seed:turnos": "node --import tsx scripts/seed-turnos.ts",
     "test:inbox": "node --import tsx --test tests/inbox-rules.test.ts tests/inbox-adapters.test.ts tests/inbox-insights.test.ts tests/inbox-avisos.test.ts tests/inbox-horario.test.ts",
