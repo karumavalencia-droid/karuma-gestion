@@ -49,6 +49,7 @@ function reserva(mesaIds: number[], hora = "14:00", duracion = 60): Reserva {
     estado: "Confirmada",
     notas: null,
     origen: "telefono",
+    confirmation_email_sent_at: null,
     review_email_sent_at: null,
     created_at: "2026-07-20T00:00:00Z",
   };

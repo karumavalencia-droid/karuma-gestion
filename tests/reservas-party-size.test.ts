@@ -17,7 +17,7 @@ test("online reservations accept exactly integer party sizes 1–6", () => {
 
 test("public page renders all six party choices and sends larger groups to phone/WhatsApp", () => {
   const html = renderToStaticMarkup(createElement(ReservasPage));
-  const choices = [...html.matchAll(/<button\b[^>]*>(.*?)<\/button>/gs)]
+  const choices = [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
     .map((match) => match[1].replace(/<[^>]+>/g, "").trim())
     .filter((label) => /^\d+personas?$/.test(label));
   assert.deepEqual(choices, ["1persona", "2personas", "3personas", "4personas", "5personas", "6personas"]);
