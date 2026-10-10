@@ -68,6 +68,14 @@ test("6 guests prefer an adjacent four-person plus two-person table pair", () =>
   assert.deepEqual(asignarMesa(mesas, [], "2026-08-01", "13:00", 150, 6, config), [1, 2]);
 });
 
+test("5 guests use an adjacent pair only when both tables are free for the entire booking", () => {
+  const mesas = [mesa(1, 4, [2]), mesa(2, 2, [1])];
+  assert.deepEqual(asignarMesa(mesas, [], "2026-08-01", "13:00", 150, 5, config), [1, 2]);
+  for (const id of [1, 2]) {
+    assert.equal(asignarMesa(mesas, [reserva([id], "14:30")], "2026-08-01", "13:00", 150, 5, config), null);
+  }
+});
+
 test("four scattered two-person tables cannot be combined", () => {
   const mesas = [mesa(1, 2, []), mesa(2, 2, []), mesa(3, 2, []), mesa(4, 2, [])];
   assert.equal(asignarMesa(mesas, [], "2026-08-01", "13:00", 150, 6, config), null);
