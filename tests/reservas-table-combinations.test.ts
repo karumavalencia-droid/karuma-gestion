@@ -49,6 +49,7 @@ function reserva(mesaIds: number[], hora = "14:00", duracion = 60): Reserva {
     estado: "Confirmada",
     notas: null,
     origen: "telefono",
+    confirmation_email_sent_at: null,
     review_email_sent_at: null,
     created_at: "2026-07-20T00:00:00Z",
   };
@@ -66,6 +67,14 @@ test("6 guests can use a connected row of three free two-person tables", () => {
 test("6 guests prefer an adjacent four-person plus two-person table pair", () => {
   const mesas = [mesa(1, 4, [2]), mesa(2, 2, [1])];
   assert.deepEqual(asignarMesa(mesas, [], "2026-08-01", "13:00", 150, 6, config), [1, 2]);
+});
+
+test("5 guests use an adjacent pair only when both tables are free for the entire booking", () => {
+  const mesas = [mesa(1, 4, [2]), mesa(2, 2, [1])];
+  assert.deepEqual(asignarMesa(mesas, [], "2026-08-01", "13:00", 150, 5, config), [1, 2]);
+  for (const id of [1, 2]) {
+    assert.equal(asignarMesa(mesas, [reserva([id], "14:30")], "2026-08-01", "13:00", 150, 5, config), null);
+  }
 });
 
 test("four scattered two-person tables cannot be combined", () => {
