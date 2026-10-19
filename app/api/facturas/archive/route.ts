@@ -23,8 +23,9 @@ const FACTURA_SELECT = [
 /**
  * Read-only invoice archive for owner/office accounts.
  *
- * This deliberately exposes only documentos in categoria=facturas; the
- * broader /api/documentos module remains restricted to the Admin session.
+ * This deliberately exposes only verified tax invoices in categoria=facturas;
+ * documents without a complete fiscal breakdown remain available through the
+ * broader /api/documentos module as expense proofs/pending review.
  */
 export async function GET(request: NextRequest) {
   const guard = await requireOwner(request);
@@ -53,7 +54,23 @@ export async function GET(request: NextRequest) {
       console.error("[facturas/archive] Error listando:", error);
       return NextResponse.json({ error: "Error consultando facturas" }, { status: 500 });
     }
-    documentos.push(...(data ?? []));
+    // Only verified tax invoices belong in this archive. A file with only a
+    // total, or with an incomplete fiscal breakdown, is a receipt/expense
+    // proof and must remain outside the invoice totals.
+    for (const documento of data ?? []) {
+      const subtotal = documento.subtotal === null ? null : Number(documento.subtotal);
+      const iva = documento.iva === null ? null : Number(documento.iva);
+      const total = documento.total === null ? null : Number(documento.total);
+      const complete =
+        subtotal !== null &&
+        iva !== null &&
+        total !== null &&
+        Number.isFinite(subtotal) &&
+        Number.isFinite(iva) &&
+        Number.isFinite(total) &&
+        Math.abs(Math.round((subtotal + iva) * 100) - Math.round(total * 100)) <= 1;
+      if (complete) documentos.push(documento);
+    }
     if (!data || data.length < pageSize) break;
   }
   return NextResponse.json({ documentos }, { headers: { "Cache-Control": "private, no-store" } });
