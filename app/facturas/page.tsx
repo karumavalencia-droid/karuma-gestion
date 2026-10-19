@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Download, FileText, Receipt, RefreshCw, Search, WalletCards } from "lucide-react";
+import { Download, FileText, Receipt, RefreshCw, Search, WalletCards } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -116,22 +116,6 @@ export default function FacturasPage() {
   const eurSubtotal = useMemo(() => eur.reduce((sum, f) => sum + n(f.subtotal), 0), [eur]);
   const eurIva = useMemo(() => eur.reduce((sum, f) => sum + n(f.iva), 0), [eur]);
   const eurTotal = useMemo(() => eur.reduce((sum, f) => sum + n(f.total), 0), [eur]);
-  const eurUndesglosado = useMemo(
-    () =>
-      eur.reduce((sum, f) => {
-        if (f.total === null || f.total === undefined || f.total === "") return sum;
-        return sum + n(f.total) - n(f.subtotal) - n(f.iva);
-      }, 0),
-    [eur],
-  );
-  const eurUndesglosadoCount = useMemo(
-    () =>
-      eur.filter((f) => {
-        if (f.total === null || f.total === undefined || f.total === "") return false;
-        return Math.abs(n(f.total) - n(f.subtotal) - n(f.iva)) > 0.01;
-      }).length,
-    [eur],
-  );
   const usdTotal = useMemo(() => usd.reduce((sum, f) => sum + n(f.total), 0), [usd]);
 
   const handleDownload = async (factura: FacturaDocumento) => {
@@ -163,13 +147,13 @@ export default function FacturasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Facturas"
-        description="Archivo privado de facturas · Gmail, Drive y cargas manuales · datos fiscales estructurados."
+        title="Facturas verificadas"
+        description="Archivo de facturas verificadas · solo documentos con Base + IVA = Total. Los recibos y justificantes de gasto quedan fuera."
       />
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Facturas"
           value={String(filtered.length)}
@@ -179,12 +163,6 @@ export default function FacturasPage() {
         <StatCard title="Base imponible" value={money(eurSubtotal)} subtitle="EUR · desglosada" icon={FileText} />
         <StatCard title="IVA" value={money(eurIva)} subtitle="EUR · desglosado" icon={WalletCards} />
         <StatCard title="Total facturado" value={money(eurTotal)} subtitle="EUR · total de factura" icon={Receipt} />
-        <StatCard
-          title="Pendiente de desglose"
-          value={money(eurUndesglosado)}
-          subtitle={`${eurUndesglosadoCount} factura${eurUndesglosadoCount === 1 ? "" : "s"} con Base/IVA incompletos`}
-          icon={AlertTriangle}
-        />
         <StatCard
           title="Total USD"
           value={money(usdTotal, "USD")}
