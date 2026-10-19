@@ -35,18 +35,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Base de datos no configurada" }, { status: 503 });
   }
 
-  const { data, error } = await supabase
-    .from("documentos")
-    .select(FACTURA_SELECT)
-    .eq("categoria", "facturas")
-    .order("fecha_documento", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(500);
+  // Read every page: a fixed limit silently hides older invoices.
+  const documentos = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("documentos")
+      .select(FACTURA_SELECT)
+      .eq("categoria", "facturas")
+      .is("deleted_at", null)
+      .order("fecha_documento", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
 
-  if (error) {
-    console.error("[facturas/archive] Error listando:", error);
-    return NextResponse.json({ error: "Error consultando facturas" }, { status: 500 });
+    if (error) {
+      console.error("[facturas/archive] Error listando:", error);
+      return NextResponse.json({ error: "Error consultando facturas" }, { status: 500 });
+    }
+    documentos.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
   }
-
-  return NextResponse.json({ documentos: data ?? [] });
+  return NextResponse.json({ documentos }, { headers: { "Cache-Control": "private, no-store" } });
 }
+

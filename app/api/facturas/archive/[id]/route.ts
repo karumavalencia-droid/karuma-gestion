@@ -24,16 +24,32 @@ export async function GET(
   const { id } = await params;
   const { data: factura, error } = await supabase
     .from("documentos")
-    .select("storage_path, nombre, categoria")
+    .select("storage_path, storage_bucket, nombre, categoria")
     .eq("id", id)
     .eq("categoria", "facturas")
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error || !factura) {
     return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 });
   }
 
-  const bucket = getDocumentoBucket(factura.categoria);
+  // Older imports live in documentos even after classification as facturas.
+  // The persisted location is authoritative; category is only a legacy default.
+  if (factura.storage_path?.startsWith("drive://")) {
+    const fileId = factura.storage_path.slice("drive://".length);
+    if (!/^[a-zA-Z0-9_-]+$/.test(fileId)) {
+      return NextResponse.json({ error: "Referencia de Drive inválida" }, { status: 422 });
+    }
+    return NextResponse.json(
+      { url: `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}` },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  if (!factura.storage_path) {
+    return NextResponse.json({ error: "La factura no tiene archivo original" }, { status: 422 });
+  }
+  const bucket = factura.storage_bucket || getDocumentoBucket(factura.categoria);
   const { data: signed, error: signError } = await supabase.storage
     .from(bucket)
     .createSignedUrl(factura.storage_path, 60 * 5, { download: factura.nombre });
@@ -43,5 +59,9 @@ export async function GET(
     return NextResponse.json({ error: "Error generando descarga" }, { status: 500 });
   }
 
-  return NextResponse.json({ url: signed.signedUrl });
+  return NextResponse.json(
+    { url: signed.signedUrl },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
+
