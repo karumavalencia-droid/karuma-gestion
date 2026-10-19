@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileText, Receipt, RefreshCw, Search, WalletCards } from "lucide-react";
+import { AlertTriangle, Download, FileText, Receipt, RefreshCw, Search, WalletCards } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -116,6 +116,22 @@ export default function FacturasPage() {
   const eurSubtotal = useMemo(() => eur.reduce((sum, f) => sum + n(f.subtotal), 0), [eur]);
   const eurIva = useMemo(() => eur.reduce((sum, f) => sum + n(f.iva), 0), [eur]);
   const eurTotal = useMemo(() => eur.reduce((sum, f) => sum + n(f.total), 0), [eur]);
+  const eurUndesglosado = useMemo(
+    () =>
+      eur.reduce((sum, f) => {
+        if (f.total === null || f.total === undefined || f.total === "") return sum;
+        return sum + n(f.total) - n(f.subtotal) - n(f.iva);
+      }, 0),
+    [eur],
+  );
+  const eurUndesglosadoCount = useMemo(
+    () =>
+      eur.filter((f) => {
+        if (f.total === null || f.total === undefined || f.total === "") return false;
+        return Math.abs(n(f.total) - n(f.subtotal) - n(f.iva)) > 0.01;
+      }).length,
+    [eur],
+  );
   const usdTotal = useMemo(() => usd.reduce((sum, f) => sum + n(f.total), 0), [usd]);
 
   const handleDownload = async (factura: FacturaDocumento) => {
@@ -153,16 +169,22 @@ export default function FacturasPage() {
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard
           title="Facturas"
           value={String(filtered.length)}
           subtitle={month ? monthLabel(month) : "Todos los periodos"}
           icon={Receipt}
         />
-        <StatCard title="Base imponible" value={money(eurSubtotal)} subtitle="EUR" icon={FileText} />
-        <StatCard title="IVA" value={money(eurIva)} subtitle="EUR" icon={WalletCards} />
-        <StatCard title="Total facturado" value={money(eurTotal)} subtitle="EUR" icon={Receipt} />
+        <StatCard title="Base imponible" value={money(eurSubtotal)} subtitle="EUR · desglosada" icon={FileText} />
+        <StatCard title="IVA" value={money(eurIva)} subtitle="EUR · desglosado" icon={WalletCards} />
+        <StatCard title="Total facturado" value={money(eurTotal)} subtitle="EUR · total de factura" icon={Receipt} />
+        <StatCard
+          title="Pendiente de desglose"
+          value={money(eurUndesglosado)}
+          subtitle={`${eurUndesglosadoCount} factura${eurUndesglosadoCount === 1 ? "" : "s"} con Base/IVA incompletos`}
+          icon={AlertTriangle}
+        />
         <StatCard
           title="Total USD"
           value={money(usdTotal, "USD")}
@@ -253,13 +275,13 @@ export default function FacturasPage() {
                         {factura.numero_documento || "—"}
                       </td>
                       <td className="whitespace-nowrap px-2 py-3 text-right text-gray-600">
-                        {money(n(factura.subtotal), currency)}
+                        {factura.subtotal === null || factura.subtotal === undefined ? "Pendiente" : money(n(factura.subtotal), currency)}
                       </td>
                       <td className="whitespace-nowrap px-2 py-3 text-right text-gray-600">
-                        {money(n(factura.iva), currency)}
+                        {factura.iva === null || factura.iva === undefined ? "Pendiente" : money(n(factura.iva), currency)}
                       </td>
                       <td className="whitespace-nowrap px-2 py-3 text-right font-semibold text-gray-900">
-                        {money(n(factura.total), currency)}
+                        {factura.total === null || factura.total === undefined ? "Pendiente" : money(n(factura.total), currency)}
                       </td>
                       <td className="px-2 py-3">
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
