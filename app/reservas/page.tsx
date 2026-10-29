@@ -50,7 +50,7 @@ interface PublicConfig {
 
 // Carta completa (importada del menú de Karuma · RestoSuite). Orientativa.
 interface PlatoCarta { n: string; d?: string; p: string }
-const CARTA: { cat: string; items: PlatoCarta[] }[] = [
+export const CARTA: { cat: string; items: PlatoCarta[] }[] = [
   {
     cat: "Entrantes fríos",
     items: [
