@@ -78,6 +78,8 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/register" ||
     pathname === "/reservas" ||
     pathname.startsWith("/reservas/") ||
+    pathname === "/carta" ||
+    pathname.startsWith("/carta/") ||
     isPublicReservationApiRequest(pathname, request.method) ||
     pathname.startsWith("/api/cron/") ||
     pathname === "/api/stock/import-template" ||
