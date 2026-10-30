@@ -3,7 +3,7 @@ import { requireOwner } from "@/lib/auth/owner-guard";
 import { isAdminSession } from "@/lib/auth/admin-session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getDefaultLocationId } from "@/lib/sales-sync/config";
-import { buildProfitReport, monthRange } from "@/lib/profit/report";
+import { buildProfitReport, monthRange, type ProfitDocument } from "@/lib/profit/report";
 import type { DbGasto, DbSalesDaily } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +37,17 @@ export async function GET(request: NextRequest) {
       expenses.push(...(data ?? []));
       if ((data?.length ?? 0) < 500) break;
     }
-    const { count, error: docError } = await db.from("documentos").select("id", { count: "exact", head: true })
-      .is("deleted_at", null).is("duplicate_of_id", null).is("duplicate_of", null)
-      .gte("document_date", range.start).lt("document_date", range.end)
-      .or("categoria.in.(facturas,nominas,impuestos),document_type.eq.invoice");
-    return NextResponse.json({ ...buildProfitReport(month, sales, expenses), documentsToReview: docError ? null : count,
+    const documents: ProfitDocument[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await db.from("documentos").select("id,nombre,categoria,document_type,fecha_documento,periodo,total,subtotal,metadata")
+        .or("categoria.in.(facturas,nominas,impuestos),document_type.eq.invoice")
+        .order("id").range(offset, offset + 499);
+      if (error) throw error;
+      documents.push(...((data ?? []) as ProfitDocument[]));
+      if ((data?.length ?? 0) < 500) break;
+    }
+    const report = buildProfitReport(month, sales, expenses, documents);
+    return NextResponse.json({ ...report, documentsToReview: documents.filter(doc => JSON.stringify(doc).includes(month)).length,
       generatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[profit/report]", error);

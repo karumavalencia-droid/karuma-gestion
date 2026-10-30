@@ -99,7 +99,8 @@ export function LiveProfitPanel() {
         <p className="font-semibold">Resultado provisional · pendiente de cierre</p>
         <p className="mt-1">{report.salesDays} días con registros de ventas. Última venta registrada: {report.latestSale ?? "sin datos"}. Comprueba que el período esté completo.</p>
         {report.missing.length > 0 && <p className="mt-1">Sin registros: {report.missing.join(" · ")}.</p>}
-        <p className="mt-1">{report.documentsToReview === null ? "No se pudo comprobar la cola de documentos." : `${report.documentsToReview} documentos de facturas, nóminas o impuestos fechados en este mes para conciliar con los gastos.`} <a className="underline" href="/documentos">Revisar documentos</a></p>
+        <p className="mt-1">{report.documentsToReview === null ? "No se pudo comprobar la cola de documentos." : `${report.documentsToReview} documentos identificados en este mes para conciliar con los gastos.`} <a className="underline" href="/documentos">Revisar documentos</a></p>
+        <p className="mt-1">Pendiente de confirmar: facturas de compra {money(report.pendingDocuments.invoiceAmount)} ({report.pendingDocuments.invoices}); nóminas {report.pendingDocuments.payroll}, de las que {report.pendingDocuments.missingPayrollAmount} no tienen importe. No se incluyen todavía en el resultado.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard title="Ventas netas registradas" value={money(report.revenue)} icon={TrendingUp} iconColor="bg-emerald-50 text-emerald-600" />
