@@ -142,7 +142,7 @@ export function computeMetrics(reg: RegistroProfit | null): ProfitMetrics {
     beneficioSi100k: 0,
   };
 
-  if (!reg || reg.ventas <= 0) return empty;
+  if (!reg) return empty;
 
   const { ventas, compras, personal, alquiler, suministros, gestoria, otros } = reg;
   const alquilerImpuestos = fmtNum(alquiler + gestoria);
@@ -151,11 +151,11 @@ export function computeMetrics(reg: RegistroProfit | null): ProfitMetrics {
   const beneficioBruto = fmtNum(ventas - compras);
   const beneficioNeto = fmtNum(ventas - totalCostes);
 
-  const margenNetoPct = fmtNum((beneficioNeto / ventas) * 100, 1);
-  const costePersonalPct = fmtNum((personal / ventas) * 100, 1);
-  const costeComidaPct = fmtNum((compras / ventas) * 100, 1);
+  const margenNetoPct = ventas > 0 ? fmtNum((beneficioNeto / ventas) * 100, 1) : 0;
+  const costePersonalPct = ventas > 0 ? fmtNum((personal / ventas) * 100, 1) : 0;
+  const costeComidaPct = ventas > 0 ? fmtNum((compras / ventas) * 100, 1) : 0;
 
-  const variableRatio = compras / ventas;
+  const variableRatio = ventas > 0 ? compras / ventas : 1;
   const puntoEquilibrio =
     variableRatio < 1 && costesFijos > 0
       ? fmtNum(costesFijos / (1 - variableRatio), 0)

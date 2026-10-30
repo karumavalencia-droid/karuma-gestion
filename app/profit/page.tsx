@@ -1,5 +1,5 @@
-import { ProfitPanel } from "@/components/profit/ProfitPanel";
+import { LiveProfitPanel } from "@/components/profit/LiveProfitPanel";
 
 export default function ProfitPage() {
-  return <ProfitPanel />;
+  return <LiveProfitPanel />;
 }

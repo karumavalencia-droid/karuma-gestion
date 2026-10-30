@@ -43,6 +43,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/api/gastos",
   "/api/documentos",
   "/api/finanzas",
+  "/api/profit",
 ];
 
 // Inbox (mensajes y reseñas): gestión, nunca cuentas de empleado.

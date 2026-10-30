@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["../app/profit/page.tsx", "../app/api/profit/report/route.ts", "../components/profit/LiveProfitPanel.tsx", "../lib/profit/*.ts", "profit-report.test.ts", "profit-api.test.ts"],
+  "exclude": ["../node_modules", "../.next"]
+}
