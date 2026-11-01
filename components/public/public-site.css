@@ -1,0 +1,188 @@
+.public-site { --ink:#795655; --muted:#88706c; --cream:#fff; --red:#795655; --line:#e5dcda; position:relative; background:#fff; color:var(--ink); min-height:100vh; font-family:"Century Gothic", "Avenir Next", Arial,sans-serif; font-weight:400; }
+.public-site *, .public-site *::before, .public-site *::after { box-sizing:border-box; }
+.public-site a { color:inherit; text-decoration:none; transition:color .2s,background .2s,transform .2s; }
+.public-site a:focus-visible,.public-site summary:focus-visible { outline:2px solid var(--ink); outline-offset:5px; }
+.public-site .public-skip { position:absolute; top:-100px; left:20px; z-index:30; padding:12px 20px; background:white; }
+.public-site .public-skip:focus { top:10px; }
+.public-site .public-nav { position:relative; z-index:10; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:86px; padding:16px clamp(20px,3.4vw,64px); background:#fff; gap:24px; }
+.public-site .public-wordmark { display:flex; align-items:center; gap:10px; font-family:Georgia,"Times New Roman",serif; font-size:32px; line-height:1; letter-spacing:.13em; color:#25211f; }
+.public-site .public-wordmark small { display:block; margin-top:7px; font-family:Arial,sans-serif; font-size:8px; text-align:center; letter-spacing:.27em; }
+.public-site .public-mark { display:none; }
+.public-site .public-links,.public-site .nav-end { display:flex; align-items:center; gap:28px; }
+.public-site .public-links a,.public-site .nav-booking { font-size:12px; text-transform:uppercase; }
+.public-site .public-links a:hover,.public-site .text-link:hover { color:#382724; }
+.public-site .nav-end { justify-content:flex-end; }
+.public-site .nav-booking { display:flex; align-items:center; gap:14px; border:1px solid #b8a3a0; border-radius:50px; padding:12px 22px; }
+.public-site .public-menu { display:none; }
+.public-site .public-page { overflow:clip; }
+.public-site .home-hero { position:relative; display:flex; align-items:flex-end; min-height:620px; height:calc(100svh - 86px); max-height:1020px; background:linear-gradient(0deg,rgba(12,10,9,.7),rgba(12,10,9,.05) 65%),url("/images/karuma/restosuite/029-entrecort.jpeg") center/cover; color:#fff; padding:48px clamp(20px,3.4vw,64px); }
+.public-site .hero-content { width:100%; }
+.public-site .eyebrow { font-size:14px; line-height:1.5; margin:0 0 14px; font-weight:400; letter-spacing:.01em; }
+.public-site .hero-content .eyebrow { color:#f0e6e1; }
+.public-site .hero-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; }
+.public-site h1,.public-site h2,.public-site h3,.public-site p { overflow-wrap:break-word; }
+.public-site .home-hero h1 { font-size:clamp(38px,4.6vw,76px); line-height:1.03; letter-spacing:-.055em; font-weight:400; text-transform:uppercase; margin:0; }
+.public-site .hero-break { display:none; }
+.public-site .button { display:inline-flex; align-items:center; justify-content:center; gap:28px; border-radius:100px; min-height:50px; padding:16px 26px; font-family:inherit; font-size:12px; line-height:1.2; text-transform:uppercase; flex-shrink:0; }
+.public-site .button svg { flex-shrink:0; }
+.public-site .button-light { background:white; color:#292321; border:1px solid white; }
+.public-site .button-primary { background:var(--ink); color:#fff; border:1px solid var(--ink); }
+.public-site .button-outline { border:1px solid #ac9290; color:var(--ink); background:transparent; }
+.public-site .button:hover,.public-site .nav-booking:hover { background:#ece2df; color:#4a3431; }
+.public-site .button-primary:hover { background:#59403e; color:white; }
+.public-site .section-space { padding:88px clamp(20px,3.4vw,64px); }
+.public-site .section-top { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin-bottom:36px; }
+.public-site .section-top h2,.public-site .visit-section h2 { font-size:clamp(30px,3.35vw,54px); text-transform:uppercase; line-height:1.08; font-weight:400; letter-spacing:-.045em; margin:0; }
+.public-site .section-description { max-width:660px; margin:24px 0 0; font-size:15px; line-height:1.7; }
+.public-site .category-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.public-site .category-card { isolation:isolate; position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; aspect-ratio:3/4; background-size:cover; background-position:center; padding:26px 22px; color:white; border-radius:14px; overflow:hidden; }
+.public-site .category-card::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(transparent 35%,rgba(0,0,0,.78)); transition:background .2s; }
+.public-site .category-card:hover { transform:translateY(-4px); }
+.public-site .category-card h3 { font-size:24px; font-weight:400; text-transform:uppercase; letter-spacing:-.04em; margin:0 0 8px; line-height:1; }
+.public-site .category-card p { font-size:12px; margin:0; line-height:1.5; }
+.public-site .category-card>svg { flex-shrink:0; margin-bottom:3px; }
+.public-site .signature-section { display:grid; grid-template-columns:1fr 1fr; border-block:1px solid var(--line); }
+.public-site .signature-copy { align-self:center; padding:64px clamp(24px,5vw,90px); }
+.public-site .signature-copy h2 { font-family:Georgia,serif; font-size:clamp(38px,4.1vw,66px); line-height:1.08; letter-spacing:-.045em; font-weight:400; margin:25px 0; color:#60433e; }
+.public-site .signature-copy h2 em { font-weight:400; }
+.public-site .signature-copy>p:not(.eyebrow) { max-width:440px; font-size:15px; line-height:1.8; margin-bottom:32px; }
+.public-site .signature-image { min-height:600px; background:url("/images/karuma/restosuite/029-entrecort.jpeg") center/cover; }
+.public-site .menu-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:48px; }
+.public-site .menu-summary-item { display:flex; align-items:flex-start; gap:16px; padding:0 24px; border-left:1px solid #bea9a5; }
+.public-site .menu-summary-item:first-child { border-left:0; padding-left:0; }
+.public-site .menu-summary-item svg { flex-shrink:0; margin-top:1px; }
+.public-site .menu-summary-item h3 { font-size:14px; text-transform:uppercase; font-weight:500; line-height:1.5; margin:0 0 10px; }
+.public-site .menu-summary-item h3 span { white-space:nowrap; }
+.public-site .menu-summary-item p { font-size:12px; line-height:1.7; margin:0; }
+.public-site .editorial-section { padding:70px 24px 100px; text-align:center; border-top:1px solid var(--line); }
+.public-site .editorial-section>p { font-size:clamp(36px,5.7vw,88px); letter-spacing:-.055em; line-height:1.3; text-transform:uppercase; margin:0 0 38px; }
+.public-site .editorial-section em { font-style:normal; }
+.public-site .inline-food { display:inline-block; vertical-align:middle; width:1.9em; height:.9em; border-radius:100px; background-position:center; background-size:cover; }
+.public-site .inline-grill { background-image:url("/images/karuma/restosuite/029-entrecort.jpeg"); }
+.public-site .inline-sushi { background-image:url("/images/karuma/restosuite/046-crazy-salmon.jpg"); }
+.public-site .text-link { display:inline-flex; align-items:center; gap:16px; font-size:13px; line-height:1.6; }
+.public-site .about-banner { padding:95px clamp(24px,7vw,110px); min-height:620px; display:flex; align-items:center; color:white; background:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.18)),url("/images/karuma/restosuite/079-takoyaki.jpeg") center/cover; }
+.public-site .about-banner h2 { font-size:clamp(42px,5vw,76px); text-transform:uppercase; font-weight:400; line-height:1.03; letter-spacing:-.045em; margin:0; }
+.public-site .about-banner p:not(.eyebrow) { font-size:16px; line-height:1.8; max-width:420px; margin:28px 0; }
+.public-site .faq-layout { display:grid; grid-template-columns:1.6fr 1fr; gap:8%; }
+.public-site .faq-list details { border-bottom:1px solid var(--line); }
+.public-site .faq-list summary { cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:24px 0; font-size:16px; }
+.public-site .faq-list summary::-webkit-details-marker { display:none; }
+.public-site .faq-list summary span { font-size:25px; font-weight:300; }
+.public-site .faq-list details[open] summary span { transform:rotate(45deg); }
+.public-site .faq-list details p { margin:0 32px 26px 0; font-size:14px; line-height:1.8; }
+.public-site .faq-list details p a { text-decoration:underline; text-underline-offset:3px; }
+.public-site .faq-contact { background:#f6f1ef; border-radius:14px; padding:36px; align-self:start; }
+.public-site .faq-contact h3 { font-size:30px; line-height:1.15; letter-spacing:-.04em; font-weight:400; margin:0 0 28px; }
+.public-site .faq-contact .text-link { display:flex; margin-top:24px; }
+.public-site .public-footer { background:#f6f1ef; border-top:1px solid var(--line); display:grid; gap:40px; grid-template-columns:1fr 1fr auto; padding:58px clamp(20px,3.4vw,64px); }
+.public-site .footer-copy { font-size:12px; line-height:1.8; max-width:250px; margin:22px 0 0; }
+.public-site .footer-contact { align-self:center; }
+.public-site .footer-contact a { display:flex; align-items:center; gap:12px; font-size:12px; line-height:1.7; margin:15px 0; }
+.public-site .footer-contact svg { flex-shrink:0; }
+.public-site .footer-meta { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:18px; font-size:11px; }
+.public-site .mobile-public-nav { display:none; }
+/* Shared type and spacing keep the information pages in the same visual system. */
+.public-site .subpage-hero { padding:90px clamp(24px,7vw,110px); background:#f6f1ef; min-height:480px; }
+.public-site .subpage-hero h1 { font-size:clamp(44px,5.5vw,84px); font-weight:400; line-height:1.03; letter-spacing:-.05em; text-transform:uppercase; margin:0; }
+.public-site .subpage-hero h1 em { font-style:normal; }
+.public-site .subpage-hero>p:not(.eyebrow) { max-width:580px; font-size:16px; line-height:1.8; margin:28px 0; }
+.public-site .restaurant-hero { background:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.2)),url("/images/karuma/restosuite/025-secreto-iberico.jpeg") center/cover; color:white; }
+.public-site .menu-board { padding:80px 24px 45px; max-width:1200px; margin:auto; }
+.public-site .menu-board-top { display:flex; justify-content:space-between; gap:40px; padding-bottom:35px; border-bottom:1px solid var(--line); }
+.public-site .menu-board h2,.public-site .story-copy h2,.public-site .contact-card h2 { font-size:clamp(32px,3.3vw,50px); line-height:1.1; letter-spacing:-.04em; font-weight:400; margin:0; }
+.public-site .menu-price { flex-shrink:0; text-align:right; font-size:12px; line-height:1.7; }
+.public-site .menu-price b { font-size:21px; font-weight:400; }
+.public-site .menu-columns { display:grid; grid-template-columns:1fr 1fr; gap:48px 80px; padding:48px 0; }
+.public-site .menu-group h3 { font-size:24px; font-weight:400; text-transform:uppercase; margin:0 0 20px; }
+.public-site .menu-line { border-bottom:1px solid var(--line); font-size:14px; padding:15px 0; }
+.public-site .menu-note { font-size:12px; line-height:1.7; }
+.public-site .menu-bottom { max-width:1200px; margin:auto; padding:24px 24px 60px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid var(--line); }
+.public-site .story-section,.public-site .contact-layout { display:grid; grid-template-columns:1fr 1fr; }
+.public-site .story-image { min-height:580px; background:url("/images/karuma/restosuite/035-nigiri-salmon.jpg") center/cover; }
+.public-site .story-copy,.public-site .contact-card { padding:75px clamp(24px,5vw,80px); align-self:center; }
+.public-site .story-copy h2 { margin-bottom:28px; }
+.public-site .story-copy p { font-size:15px; line-height:1.8; }
+.public-site .values-grid { display:flex; justify-content:space-between; gap:20px; margin-top:36px; }
+.public-site .values-grid div { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
+.public-site .values-grid strong { font-size:11px; font-weight:400; }
+.public-site .details-section { padding:70px clamp(24px,5vw,80px); border-top:1px solid var(--line); }
+.public-site .detail-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:36px; }
+.public-site .detail-grid>div { display:flex; gap:16px; }
+.public-site .detail-grid svg { flex-shrink:0; }
+.public-site .detail-grid strong,.public-site .detail-grid span,.public-site .detail-grid a { display:block; font-size:13px; line-height:1.7; }
+.public-site .detail-grid strong { font-weight:500; margin-bottom:8px; }
+.public-site .contact-row { display:flex; align-items:flex-start; gap:16px; margin-top:32px; }
+.public-site .contact-row svg { flex-shrink:0; }
+.public-site .contact-row strong,.public-site .contact-row small { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:400; line-height:1.7; }
+.public-site .contact-row small { font-size:12px; margin-top:6px; }
+.public-site .map-frame { border:0; min-height:440px; width:100%; height:100%; }
+@media(min-width:1600px) { .public-site .category-card { aspect-ratio:4/5; } }
+@media(max-width:1050px) { .public-site .public-links { gap:16px; }.public-site .category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.public-site .category-card { aspect-ratio:1; }.public-site .menu-summary { grid-template-columns:1fr 1fr; gap:30px 0; }.public-site .menu-summary-item:nth-child(3) { border-left:0; padding-left:0; }.public-site .signature-image { min-height:520px; }.public-site .hero-bottom { align-items:flex-start; flex-direction:column; gap:24px; }.public-site .public-footer { grid-template-columns:1fr 1fr; }.public-site .footer-meta { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; } }
+@media(max-width:700px) {
+ .public-site { padding-bottom:calc(65px + env(safe-area-inset-bottom)); }
+ .public-site .public-nav { grid-template-columns:1fr auto; min-height:74px; padding:16px 20px; }
+ .public-site .public-wordmark { font-size:26px; }
+ .public-site .public-links { display:none; }
+ .public-site .nav-end { gap:18px; }
+ .public-site .nav-booking { padding:10px 15px; font-size:10px; gap:9px; }
+ .public-site .public-menu { display:block; }
+ .public-site .public-menu summary { display:flex; cursor:pointer; list-style:none; padding:6px; }
+ .public-site .public-menu summary::-webkit-details-marker { display:none; }
+ .public-site .public-menu nav { position:absolute; left:0; right:0; top:100%; background:white; padding:18px 24px 28px; box-shadow:0 15px 20px #44332d15; display:flex; flex-direction:column; gap:0; }
+ .public-site .public-menu nav a { padding:14px 0; border-bottom:1px solid var(--line); font-size:15px; }
+ .public-site .home-hero { height:calc(100svh - 139px); min-height:520px; padding:28px 20px; }
+ .public-site .home-hero h1 { font-size:clamp(32px,7.8vw,54px); }
+ .public-site .hero-bottom { gap:24px; }
+ .public-site .hero-bottom .button { width:100%; justify-content:space-between; }
+ .public-site .hero-content .eyebrow { font-size:12px; }
+ .public-site .section-space { padding:56px 20px; }
+ .public-site .section-top { flex-direction:column; align-items:flex-start; gap:22px; margin-bottom:28px; }
+ .public-site .eyebrow { font-size:12px; margin-bottom:10px; }
+ .public-site .section-top h2 { font-size:32px; }
+ .public-site .section-description { font-size:14px; margin-top:20px; }
+ .public-site .button { min-height:46px; font-size:11px; padding:14px 22px; }
+ .public-site .category-grid { grid-template-columns:1fr; gap:12px; }
+ .public-site .category-card { aspect-ratio:1.35; padding:24px; }
+ .public-site .category-card h3 { font-size:25px; }
+ .public-site .signature-section { grid-template-columns:1fr; }
+ .public-site .signature-copy { padding:50px 24px; }
+ .public-site .signature-copy h2 { font-size:40px; }
+ .public-site .signature-image { min-height:390px; }
+ .public-site .menu-summary { grid-template-columns:1fr; margin-top:32px; gap:0; }
+ .public-site .menu-summary-item,.public-site .menu-summary-item:first-child,.public-site .menu-summary-item:nth-child(3) { border-left:0; border-bottom:1px solid var(--line); padding:22px 0; }
+ .public-site .editorial-section { padding:52px 18px 60px; }
+ .public-site .editorial-section>p { font-size:clamp(28px,7.1vw,47px); line-height:1.45; }
+ .public-site .about-banner { min-height:550px; padding:60px 24px; }
+ .public-site .about-banner h2 { font-size:48px; }
+ .public-site .faq-layout { grid-template-columns:1fr; gap:36px; }
+ .public-site .faq-list summary { font-size:14px; }
+ .public-site .faq-contact { padding:30px; }
+ .public-site .public-footer { grid-template-columns:1fr; padding:44px 24px; gap:28px; }
+ .public-site .footer-meta { flex-wrap:wrap; gap:18px; justify-content:flex-start; }
+ .public-site .mobile-public-nav { position:fixed; z-index:20; bottom:0; left:0; right:0; display:grid; grid-template-columns:repeat(4,1fr); min-height:65px; padding:10px 12px calc(9px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:#fff; border-radius:16px 16px 0 0; box-shadow:0 -4px 20px #39252205; }
+ .public-site .mobile-public-nav a { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:5px; font-size:10px; }
+ .public-site .subpage-hero { padding:65px 24px; min-height:460px; }
+ .public-site .subpage-hero h1 { font-size:clamp(35px,8vw,52px); }
+ .public-site .menu-board { padding:55px 24px 30px; }
+ .public-site .menu-board-top { flex-direction:column; gap:26px; }
+ .public-site .menu-price { text-align:left; }
+ .public-site .menu-columns { grid-template-columns:1fr; gap:36px; }
+ .public-site .story-section,.public-site .contact-layout { grid-template-columns:1fr; }
+ .public-site .story-image { min-height:360px; }
+ .public-site .story-copy,.public-site .contact-card { padding:50px 24px; }
+ .public-site .detail-grid { grid-template-columns:1fr; gap:30px; }
+ .public-site .details-section { padding:50px 24px; }
+ .public-site .map-frame { min-height:350px; }
+}
+@media(prefers-reduced-motion:reduce) { .public-site a,.public-site .category-card::before { transition:none; }.public-site .category-card:hover { transform:none; } }
+
+/* RestoSuite originals have square crops. Keep dishes inside their frames. */
+.public-site .home-hero { background-color:#101210; background-size:cover,auto 112%; background-repeat:no-repeat; background-position:center,78% center; }
+.public-site .signature-image { background-color:#101210; background-size:contain; background-repeat:no-repeat; }
+.public-site .category-card { aspect-ratio:1; }
+.public-site .category-sushi { background-color:#eeeee5; }
+.public-site .category-sushi::before { background:linear-gradient(transparent 48%,rgba(48,35,30,.7)); }
+.public-site .about-banner { background-color:#101210; background-size:cover,auto 110%; background-repeat:no-repeat; background-position:center,right center; }
+.public-site .story-image { background-color:#eeeee5; background-repeat:no-repeat; background-size:contain; }
+@media(max-width:700px) { .public-site .home-hero { background-size:cover,auto 90%; background-position:center,center 25%; }.public-site .category-card { aspect-ratio:1; }.public-site .signature-image { min-height:390px; }.public-site .about-banner { background-size:cover,auto 100%; } }
