@@ -71,8 +71,16 @@ const EMPLOYEE_API_PREFIXES = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.nextUrl.hostname.toLowerCase();
+
+  // La web del restaurante es pública, también para usuarios con sesión.
+  if (pathname === "/" && ["karuma.es", "www.karuma.es", "localhost"].includes(host)) {
+    return NextResponse.rewrite(new URL("/web", request.url));
+  }
+
 
   if (
+    ["/web", "/restaurante", "/contacto"].includes(pathname) ||
     PUBLIC_PATHS.has(pathname) ||
     // Endpoints de login (OTP, admin 2FA, registro): siempre públicos.
     pathname.startsWith("/api/auth/login") ||

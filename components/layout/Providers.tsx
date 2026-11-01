@@ -11,7 +11,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // El kiosco es la tablet del local (sin sesión personal) y /reservas es
   // público: ni barra lateral ni pantalla de correo.
-  if (pathname.startsWith("/kiosk") || pathname.startsWith("/reservas")) {
+  if (["/", "/web", "/carta", "/restaurante", "/contacto"].includes(pathname) || pathname.startsWith("/kiosk") || pathname.startsWith("/reservas")) {
     return <>{children}</>;
   }
   return (
