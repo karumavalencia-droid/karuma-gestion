@@ -1,87 +1,121 @@
-.public-site { --ink:#795655; --muted:#88706c; --cream:#fff; --red:#795655; --line:#e5dcda; position:relative; background:#fff; color:var(--ink); min-height:100vh; font-family:"Century Gothic", "Avenir Next", Arial,sans-serif; font-weight:400; }
+.public-site { --ink:#443a35; --muted:#796d64; --cream:#f7f5ef; --red:#843f32; --line:#dcd7cc; background:var(--cream); color:var(--ink); min-height:100vh; font-family:"Avenir Next",Avenir,"Segoe UI",Arial,sans-serif; font-weight:400; }
 .public-site *, .public-site *::before, .public-site *::after { box-sizing:border-box; }
-.public-site a { color:inherit; text-decoration:none; transition:color .2s,background .2s,transform .2s; }
-.public-site a:focus-visible,.public-site summary:focus-visible { outline:2px solid var(--ink); outline-offset:5px; }
-.public-site .public-skip { position:absolute; top:-100px; left:20px; z-index:30; padding:12px 20px; background:white; }
+.public-site a { color:inherit; text-decoration:none; transition:background .25s,color .25s; }
+.public-site a:focus-visible,.public-site summary:focus-visible { outline:2px solid currentColor; outline-offset:6px; }
+.public-site h1,.public-site h2,.public-site h3,.public-site p { margin:0; }
+.public-site em { font-family:Georgia,"Times New Roman",serif; font-weight:400; }
+.public-site .public-skip { position:absolute; top:-100px; left:20px; z-index:50; padding:12px 20px; background:white; }
 .public-site .public-skip:focus { top:10px; }
-.public-site .public-nav { position:relative; z-index:10; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:86px; padding:16px clamp(20px,3.4vw,64px); background:#fff; gap:24px; }
-.public-site .public-wordmark { display:flex; align-items:center; gap:10px; font-family:Georgia,"Times New Roman",serif; font-size:32px; line-height:1; letter-spacing:.13em; color:#25211f; }
-.public-site .public-wordmark small { display:block; margin-top:7px; font-family:Arial,sans-serif; font-size:8px; text-align:center; letter-spacing:.27em; }
+.public-site .public-nav { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; height:88px; padding:16px 4%; background:#fffefb; gap:24px; border-bottom:1px solid #e6e1d7; }
+.public-site .public-wordmark { display:flex; align-items:center; gap:10px; font-family:Georgia,"Times New Roman",serif; font-size:34px; letter-spacing:.13em; line-height:1; color:#302c26; }
+.public-site .public-wordmark small { display:block; margin-top:8px; font-family:Arial,sans-serif; font-size:8px; text-align:center; letter-spacing:.28em; }
 .public-site .public-mark { display:none; }
-.public-site .public-links,.public-site .nav-end { display:flex; align-items:center; gap:28px; }
-.public-site .public-links a,.public-site .nav-booking { font-size:12px; text-transform:uppercase; }
-.public-site .public-links a:hover,.public-site .text-link:hover { color:#382724; }
+.public-site .public-links,.public-site .nav-end { display:flex; align-items:center; gap:26px; }
+.public-site .public-links a,.public-site .nav-booking { font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.public-site .public-links a { position:relative; padding:8px 0; }
+.public-site .public-links a::after { content:""; height:1px; background:currentColor; position:absolute; bottom:2px; left:0; width:0; transition:width .25s; }
+.public-site .public-links a:hover::after { width:100%; }
 .public-site .nav-end { justify-content:flex-end; }
-.public-site .nav-booking { display:flex; align-items:center; gap:14px; border:1px solid #b8a3a0; border-radius:50px; padding:12px 22px; }
-.public-site .public-menu { display:none; }
+.public-site .nav-booking { display:flex; align-items:center; gap:20px; border:1px solid #8b8073; border-radius:50px; padding:13px 22px; }
+.public-site .public-menu,.public-site .mobile-public-nav { display:none; }
 .public-site .public-page { overflow:clip; }
-.public-site .home-hero { position:relative; display:flex; align-items:flex-end; min-height:620px; height:calc(100svh - 86px); max-height:1020px; background:linear-gradient(0deg,rgba(12,10,9,.7),rgba(12,10,9,.05) 65%),url("/images/karuma/restosuite/029-entrecort.jpeg") center/cover; color:#fff; padding:48px clamp(20px,3.4vw,64px); }
-.public-site .hero-content { width:100%; }
-.public-site .eyebrow { font-size:14px; line-height:1.5; margin:0 0 14px; font-weight:400; letter-spacing:.01em; }
-.public-site .hero-content .eyebrow { color:#f0e6e1; }
-.public-site .hero-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; }
-.public-site h1,.public-site h2,.public-site h3,.public-site p { overflow-wrap:break-word; }
-.public-site .home-hero h1 { font-size:clamp(38px,4.6vw,76px); line-height:1.03; letter-spacing:-.055em; font-weight:400; text-transform:uppercase; margin:0; }
-.public-site .hero-break { display:none; }
-.public-site .button { display:inline-flex; align-items:center; justify-content:center; gap:28px; border-radius:100px; min-height:50px; padding:16px 26px; font-family:inherit; font-size:12px; line-height:1.2; text-transform:uppercase; flex-shrink:0; }
+.public-site .eyebrow { font-size:10px; line-height:1.5; font-weight:500; letter-spacing:.16em; text-transform:uppercase; margin-bottom:24px; }
+.public-site .home-hero { isolation:isolate; position:relative; color:#fffaf0; background:#1d1c18; height:min(850px,calc(100svh - 88px)); min-height:660px; padding:30px 5% 42px; display:flex; flex-direction:column; justify-content:space-between; }
+.public-site .hero-photo { z-index:-3; object-fit:cover; object-position:center 65%; }
+.public-site .hero-shade { position:absolute; inset:0; z-index:-2; background:linear-gradient(90deg,#17181485,transparent 80%),linear-gradient(0deg,#1113109c,transparent 50%); }
+.public-site .hero-topline { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.18em; text-transform:uppercase; padding-bottom:19px; border-bottom:1px solid #fff5db42; }
+.public-site .hero-content { padding:36px 0 18px; }
+.public-site .hero-content .eyebrow { color:#e7d9c1; margin-bottom:18px; }
+.public-site .home-hero h1 { font-size:clamp(64px,7.8vw,128px); font-weight:400; line-height:.94; letter-spacing:-.065em; }
+.public-site .home-hero h1 em { letter-spacing:-.06em; }
+.public-site .hero-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-top:30px; }
+.public-site .hero-bottom p { font-size:13px; line-height:1.8; color:#eee5d6; }
+.public-site .hero-scroll { display:flex; align-items:center; gap:10px; font-size:9px; text-transform:uppercase; letter-spacing:.12em; }
+.public-site .button { display:inline-flex; align-items:center; justify-content:center; gap:30px; border-radius:100px; min-height:51px; padding:16px 26px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; }
 .public-site .button svg { flex-shrink:0; }
-.public-site .button-light { background:white; color:#292321; border:1px solid white; }
-.public-site .button-primary { background:var(--ink); color:#fff; border:1px solid var(--ink); }
-.public-site .button-outline { border:1px solid #ac9290; color:var(--ink); background:transparent; }
-.public-site .button:hover,.public-site .nav-booking:hover { background:#ece2df; color:#4a3431; }
-.public-site .button-primary:hover { background:#59403e; color:white; }
-.public-site .section-space { padding:88px clamp(20px,3.4vw,64px); }
-.public-site .section-top { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin-bottom:36px; }
-.public-site .section-top h2,.public-site .visit-section h2 { font-size:clamp(30px,3.35vw,54px); text-transform:uppercase; line-height:1.08; font-weight:400; letter-spacing:-.045em; margin:0; }
-.public-site .section-description { max-width:660px; margin:24px 0 0; font-size:15px; line-height:1.7; }
-.public-site .category-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
-.public-site .category-card { isolation:isolate; position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; aspect-ratio:3/4; background-size:cover; background-position:center; padding:26px 22px; color:white; border-radius:14px; overflow:hidden; }
-.public-site .category-card::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(transparent 35%,rgba(0,0,0,.78)); transition:background .2s; }
-.public-site .category-card:hover { transform:translateY(-4px); }
-.public-site .category-card h3 { font-size:24px; font-weight:400; text-transform:uppercase; letter-spacing:-.04em; margin:0 0 8px; line-height:1; }
-.public-site .category-card p { font-size:12px; margin:0; line-height:1.5; }
-.public-site .category-card>svg { flex-shrink:0; margin-bottom:3px; }
-.public-site .signature-section { display:grid; grid-template-columns:1fr 1fr; border-block:1px solid var(--line); }
-.public-site .signature-copy { align-self:center; padding:64px clamp(24px,5vw,90px); }
-.public-site .signature-copy h2 { font-family:Georgia,serif; font-size:clamp(38px,4.1vw,66px); line-height:1.08; letter-spacing:-.045em; font-weight:400; margin:25px 0; color:#60433e; }
-.public-site .signature-copy h2 em { font-weight:400; }
-.public-site .signature-copy>p:not(.eyebrow) { max-width:440px; font-size:15px; line-height:1.8; margin-bottom:32px; }
-.public-site .signature-image { min-height:600px; background:url("/images/karuma/restosuite/029-entrecort.jpeg") center/cover; }
-.public-site .menu-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:48px; }
-.public-site .menu-summary-item { display:flex; align-items:flex-start; gap:16px; padding:0 24px; border-left:1px solid #bea9a5; }
-.public-site .menu-summary-item:first-child { border-left:0; padding-left:0; }
-.public-site .menu-summary-item svg { flex-shrink:0; margin-top:1px; }
-.public-site .menu-summary-item h3 { font-size:14px; text-transform:uppercase; font-weight:500; line-height:1.5; margin:0 0 10px; }
-.public-site .menu-summary-item h3 span { white-space:nowrap; }
-.public-site .menu-summary-item p { font-size:12px; line-height:1.7; margin:0; }
-.public-site .editorial-section { padding:70px 24px 100px; text-align:center; border-top:1px solid var(--line); }
-.public-site .editorial-section>p { font-size:clamp(36px,5.7vw,88px); letter-spacing:-.055em; line-height:1.3; text-transform:uppercase; margin:0 0 38px; }
-.public-site .editorial-section em { font-style:normal; }
-.public-site .inline-food { display:inline-block; vertical-align:middle; width:1.9em; height:.9em; border-radius:100px; background-position:center; background-size:cover; }
-.public-site .inline-grill { background-image:url("/images/karuma/restosuite/029-entrecort.jpeg"); }
-.public-site .inline-sushi { background-image:url("/images/karuma/restosuite/046-crazy-salmon.jpg"); }
-.public-site .text-link { display:inline-flex; align-items:center; gap:16px; font-size:13px; line-height:1.6; }
-.public-site .about-banner { padding:95px clamp(24px,7vw,110px); min-height:620px; display:flex; align-items:center; color:white; background:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.18)),url("/images/karuma/restosuite/079-takoyaki.jpeg") center/cover; }
-.public-site .about-banner h2 { font-size:clamp(42px,5vw,76px); text-transform:uppercase; font-weight:400; line-height:1.03; letter-spacing:-.045em; margin:0; }
-.public-site .about-banner p:not(.eyebrow) { font-size:16px; line-height:1.8; max-width:420px; margin:28px 0; }
-.public-site .faq-layout { display:grid; grid-template-columns:1.6fr 1fr; gap:8%; }
+.public-site .button-light { background:#fffdf6; color:#3e3930; border:1px solid #fffdf6; }
+.public-site .button-primary { background:var(--ink); color:#fffaf0; border:1px solid var(--ink); }
+.public-site .button-outline { border:1px solid #91877b; background:transparent; }
+.public-site .button:hover,.public-site .nav-booking:hover { background:#e1d8c8; color:#2f2b24; }
+.public-site .button-primary:hover { background:#645746; color:#fffaf0; }
+.public-site .brand-strip { display:flex; align-items:center; justify-content:space-between; gap:26px; padding:24px 5%; background:#ece9dd; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+.public-site .brand-strip span[aria-hidden] { font-size:23px; color:#8a6245; }
+.public-site .section-space { padding:100px 5%; }
+.public-site .section-top { display:flex; align-items:flex-end; justify-content:space-between; gap:50px; margin-bottom:48px; }
+.public-site .section-top h2,.public-site .faq-section h2 { font-size:clamp(36px,4.2vw,64px); font-weight:400; line-height:1.09; letter-spacing:-.045em; }
+.public-site .section-top h2 em { color:#887a63; }
+.public-site .section-intro { max-width:330px; }
+.public-site .section-intro p { font-size:13px; line-height:1.8; margin-bottom:24px; }
+.public-site .text-link { display:inline-flex; align-items:center; gap:26px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; line-height:1.8; padding:8px 0; border-bottom:1px solid #b4aa98; }
+.public-site .text-link:hover { color:#9a4d33; }
+.public-site .food-grid { display:grid; grid-template-columns:1.1fr 1fr 1fr; grid-template-rows:280px 280px; gap:22px; }
+.public-site .food-card { position:relative; overflow:hidden; border-radius:8px; background:#171b18; color:white; isolation:isolate; }
+.public-site .food-grill { grid-column:1; grid-row:1/3; }
+.public-site .food-sushi { grid-column:2/4; grid-row:1; background:#e9e9dc; color:#37382e; }
+.public-site .food-share { grid-column:2; grid-row:2; }
+.public-site .food-dessert { grid-column:3; grid-row:2; }
+.public-site .food-image { position:absolute; inset:0; z-index:-2; }
+.public-site .food-image img { object-fit:cover; transition:transform .7s; }
+.public-site .food-grill .food-image img { object-fit:contain; transform:scale(1.1); }
+.public-site .food-sushi .food-image img { object-fit:contain; object-position:75% center; }
+.public-site .food-sushi .food-image { left:30%; }
+.public-site .food-share .food-image img { object-position:center 40%; }
+.public-site .food-card::after { content:""; position:absolute; inset:0; background:linear-gradient(0deg,#090d0bda,transparent 65%); z-index:-1; }
+.public-site .food-sushi::after { background:linear-gradient(90deg,#e9e9dc 20%,#e9e9dc40 65%,transparent); }
+.public-site .food-card:hover .food-image img { transform:scale(1.06); }
+.public-site .food-caption { position:absolute; bottom:26px; left:26px; right:26px; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.public-site .food-sushi .food-caption { top:28px; align-items:flex-end; }
+.public-site .food-number { font-size:10px; opacity:.7; letter-spacing:.12em; display:block; margin-bottom:12px; }
+.public-site .food-caption h3 { font-size:clamp(22px,2.4vw,36px); font-weight:400; letter-spacing:-.045em; line-height:1.05; }
+.public-site .food-caption p { font-size:11px; margin-top:10px; opacity:.8; }
+.public-site .round-arrow { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1px solid #ffffff70; border-radius:50%; flex-shrink:0; }
+.public-site .food-sushi .round-arrow { border-color:#a29f8d; }
+.public-site .fire-story { display:grid; grid-template-columns:1fr 1fr; background:#e8e5d9; }
+.public-site .fire-photo { min-height:650px; position:relative; background:#101511; }
+.public-site .fire-photo img { object-fit:contain; padding:8%; }
+.public-site .photo-caption { position:absolute; bottom:28px; left:36px; font-size:10px; letter-spacing:.06em; color:#f6efdb; }
+.public-site .fire-copy { align-self:center; padding:70px 12%; }
+.public-site .fire-copy h2 { font-size:clamp(36px,4.2vw,66px); line-height:1.04; letter-spacing:-.05em; font-weight:400; }
+.public-site .fire-copy h2 em { color:#8a6952; }
+.public-site .fire-copy>p:not(.eyebrow) { font-size:13px; line-height:1.9; max-width:360px; margin:30px 0 22px; }
+.public-site .price-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:38px 0; }
+.public-site .price-column { padding:0 10%; border-right:1px solid var(--line); }
+.public-site .price-column:first-child { padding-left:0; }
+.public-site .price-column:last-child { border:0; }
+.public-site .price-number { font-size:10px; letter-spacing:.1em; color:#958875; }
+.public-site .price-column h3 { font-size:16px; font-weight:400; margin:24px 0 28px; }
+.public-site .price { display:flex; align-items:flex-start; gap:8px; font-family:Georgia,serif; font-size:clamp(46px,5.6vw,84px); line-height:1; letter-spacing:-.06em; color:#7f4d38; }
+.public-site .price sup { font-family:Arial,sans-serif; font-size:18px; padding-top:8px; }
+.public-site .price-description { font-size:12px; margin-top:24px; }
+.public-site .price-detail { font-size:11px; color:var(--muted); line-height:1.7; margin:10px 0 24px; }
+.public-site .menu-footnote { font-size:10px; color:var(--muted); margin-top:20px; line-height:1.7; }
+.public-site .table-invitation { position:relative; text-align:center; padding:90px 24px 100px; background:#eae6d8; overflow:hidden; }
+.public-site .table-invitation h2 { font-size:clamp(48px,7.2vw,110px); line-height:1.03; letter-spacing:-.055em; font-weight:400; position:relative; z-index:1; }
+.public-site .table-invitation h2 em { color:#8c6249; }
+.public-site .table-invitation .button { margin-top:36px; position:relative; z-index:1; }
+.public-site .invitation-flower { position:absolute; right:3%; top:22%; font-size:300px; line-height:1; color:#c9bca1; transform:rotate(15deg); opacity:.45; }
+.public-site .faq-section { display:grid; grid-template-columns:1fr 1.1fr; gap:10%; }
+.public-site .faq-help { font-size:12px; line-height:1.9; margin-top:32px; color:var(--muted); }
+.public-site .faq-help a { text-decoration:underline; text-underline-offset:4px; }
+.public-site .faq-list { border-top:1px solid var(--line); }
 .public-site .faq-list details { border-bottom:1px solid var(--line); }
-.public-site .faq-list summary { cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:24px 0; font-size:16px; }
+.public-site .faq-list summary { cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:25px 0; font-size:13px; }
 .public-site .faq-list summary::-webkit-details-marker { display:none; }
-.public-site .faq-list summary span { font-size:25px; font-weight:300; }
+.public-site .faq-list summary span { font-size:22px; font-weight:300; transition:transform .25s; }
 .public-site .faq-list details[open] summary span { transform:rotate(45deg); }
-.public-site .faq-list details p { margin:0 32px 26px 0; font-size:14px; line-height:1.8; }
-.public-site .faq-list details p a { text-decoration:underline; text-underline-offset:3px; }
-.public-site .faq-contact { background:#f6f1ef; border-radius:14px; padding:36px; align-self:start; }
-.public-site .faq-contact h3 { font-size:30px; line-height:1.15; letter-spacing:-.04em; font-weight:400; margin:0 0 28px; }
-.public-site .faq-contact .text-link { display:flex; margin-top:24px; }
-.public-site .public-footer { background:#f6f1ef; border-top:1px solid var(--line); display:grid; gap:40px; grid-template-columns:1fr 1fr auto; padding:58px clamp(20px,3.4vw,64px); }
-.public-site .footer-copy { font-size:12px; line-height:1.8; max-width:250px; margin:22px 0 0; }
+.public-site .faq-list details p { font-size:12px; line-height:1.9; color:var(--muted); padding:0 24px 25px 0; }
+.public-site .faq-list details p a { text-decoration:underline; }
+.public-site .visit-banner { padding:70px 5%; display:flex; justify-content:space-between; align-items:flex-end; gap:40px; background:#403e31; color:#fbf6e9; }
+.public-site .visit-banner h2 { font-size:clamp(38px,4.8vw,70px); font-weight:400; letter-spacing:-.04em; line-height:1.05; }
+.public-site .visit-banner>div:last-child { min-width:300px; }
+.public-site .visit-banner p:not(.eyebrow) { font-size:13px; margin-bottom:24px; }
+.public-site .visit-banner .text-link { margin-right:26px; }
+.public-site .public-footer { display:grid; grid-template-columns:1fr 1fr auto; gap:40px; padding:64px 5% 45px; background:#efece3; }
+.public-site .footer-copy { font-size:11px; line-height:1.8; max-width:260px; margin-top:24px; }
 .public-site .footer-contact { align-self:center; }
-.public-site .footer-contact a { display:flex; align-items:center; gap:12px; font-size:12px; line-height:1.7; margin:15px 0; }
+.public-site .footer-contact a { display:flex; align-items:center; gap:12px; font-size:11px; line-height:1.8; margin:15px 0; }
 .public-site .footer-contact svg { flex-shrink:0; }
-.public-site .footer-meta { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:18px; font-size:11px; }
-.public-site .mobile-public-nav { display:none; }
+.public-site .footer-meta { display:flex; flex-direction:column; justify-content:center; align-items:flex-end; gap:18px; font-size:10px; }
 /* Shared type and spacing keep the information pages in the same visual system. */
 .public-site .subpage-hero { padding:90px clamp(24px,7vw,110px); background:#f6f1ef; min-height:480px; }
 .public-site .subpage-hero h1 { font-size:clamp(44px,5.5vw,84px); font-weight:400; line-height:1.03; letter-spacing:-.05em; text-transform:uppercase; margin:0; }
@@ -117,72 +151,43 @@
 .public-site .contact-row strong,.public-site .contact-row small { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:400; line-height:1.7; }
 .public-site .contact-row small { font-size:12px; margin-top:6px; }
 .public-site .map-frame { border:0; min-height:440px; width:100%; height:100%; }
-@media(min-width:1600px) { .public-site .category-card { aspect-ratio:4/5; } }
-@media(max-width:1050px) { .public-site .public-links { gap:16px; }.public-site .category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.public-site .category-card { aspect-ratio:1; }.public-site .menu-summary { grid-template-columns:1fr 1fr; gap:30px 0; }.public-site .menu-summary-item:nth-child(3) { border-left:0; padding-left:0; }.public-site .signature-image { min-height:520px; }.public-site .hero-bottom { align-items:flex-start; flex-direction:column; gap:24px; }.public-site .public-footer { grid-template-columns:1fr 1fr; }.public-site .footer-meta { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; } }
-@media(max-width:700px) {
- .public-site { padding-bottom:calc(65px + env(safe-area-inset-bottom)); }
- .public-site .public-nav { grid-template-columns:1fr auto; min-height:74px; padding:16px 20px; }
- .public-site .public-wordmark { font-size:26px; }
- .public-site .public-links { display:none; }
- .public-site .nav-end { gap:18px; }
- .public-site .nav-booking { padding:10px 15px; font-size:10px; gap:9px; }
- .public-site .public-menu { display:block; }
- .public-site .public-menu summary { display:flex; cursor:pointer; list-style:none; padding:6px; }
- .public-site .public-menu summary::-webkit-details-marker { display:none; }
- .public-site .public-menu nav { position:absolute; left:0; right:0; top:100%; background:white; padding:18px 24px 28px; box-shadow:0 15px 20px #44332d15; display:flex; flex-direction:column; gap:0; }
- .public-site .public-menu nav a { padding:14px 0; border-bottom:1px solid var(--line); font-size:15px; }
- .public-site .home-hero { height:calc(100svh - 139px); min-height:520px; padding:28px 20px; }
- .public-site .home-hero h1 { font-size:clamp(32px,7.8vw,54px); }
- .public-site .hero-bottom { gap:24px; }
- .public-site .hero-bottom .button { width:100%; justify-content:space-between; }
- .public-site .hero-content .eyebrow { font-size:12px; }
- .public-site .section-space { padding:56px 20px; }
- .public-site .section-top { flex-direction:column; align-items:flex-start; gap:22px; margin-bottom:28px; }
- .public-site .eyebrow { font-size:12px; margin-bottom:10px; }
- .public-site .section-top h2 { font-size:32px; }
- .public-site .section-description { font-size:14px; margin-top:20px; }
- .public-site .button { min-height:46px; font-size:11px; padding:14px 22px; }
- .public-site .category-grid { grid-template-columns:1fr; gap:12px; }
- .public-site .category-card { aspect-ratio:1.35; padding:24px; }
- .public-site .category-card h3 { font-size:25px; }
- .public-site .signature-section { grid-template-columns:1fr; }
- .public-site .signature-copy { padding:50px 24px; }
- .public-site .signature-copy h2 { font-size:40px; }
- .public-site .signature-image { min-height:390px; }
- .public-site .menu-summary { grid-template-columns:1fr; margin-top:32px; gap:0; }
- .public-site .menu-summary-item,.public-site .menu-summary-item:first-child,.public-site .menu-summary-item:nth-child(3) { border-left:0; border-bottom:1px solid var(--line); padding:22px 0; }
- .public-site .editorial-section { padding:52px 18px 60px; }
- .public-site .editorial-section>p { font-size:clamp(28px,7.1vw,47px); line-height:1.45; }
- .public-site .about-banner { min-height:550px; padding:60px 24px; }
- .public-site .about-banner h2 { font-size:48px; }
- .public-site .faq-layout { grid-template-columns:1fr; gap:36px; }
- .public-site .faq-list summary { font-size:14px; }
- .public-site .faq-contact { padding:30px; }
- .public-site .public-footer { grid-template-columns:1fr; padding:44px 24px; gap:28px; }
- .public-site .footer-meta { flex-wrap:wrap; gap:18px; justify-content:flex-start; }
- .public-site .mobile-public-nav { position:fixed; z-index:20; bottom:0; left:0; right:0; display:grid; grid-template-columns:repeat(4,1fr); min-height:65px; padding:10px 12px calc(9px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:#fff; border-radius:16px 16px 0 0; box-shadow:0 -4px 20px #39252205; }
- .public-site .mobile-public-nav a { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:5px; font-size:10px; }
- .public-site .subpage-hero { padding:65px 24px; min-height:460px; }
- .public-site .subpage-hero h1 { font-size:clamp(35px,8vw,52px); }
- .public-site .menu-board { padding:55px 24px 30px; }
- .public-site .menu-board-top { flex-direction:column; gap:26px; }
- .public-site .menu-price { text-align:left; }
- .public-site .menu-columns { grid-template-columns:1fr; gap:36px; }
- .public-site .story-section,.public-site .contact-layout { grid-template-columns:1fr; }
- .public-site .story-image { min-height:360px; }
- .public-site .story-copy,.public-site .contact-card { padding:50px 24px; }
- .public-site .detail-grid { grid-template-columns:1fr; gap:30px; }
- .public-site .details-section { padding:50px 24px; }
- .public-site .map-frame { min-height:350px; }
+@media(max-width:1000px) {
+ .public-site .public-links { gap:14px; }.public-site .public-links a { font-size:10px; }
+ .public-site .food-grid { grid-template-rows:240px 240px; gap:16px; }
+ .public-site .food-caption { left:20px; right:20px; bottom:22px; }.public-site .food-caption p { max-width:140px; }
+ .public-site .fire-photo { min-height:550px; }.public-site .fire-copy { padding:60px 9%; }
+ .public-site .public-footer { grid-template-columns:1fr 1fr; }.public-site .footer-meta { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
 }
-@media(prefers-reduced-motion:reduce) { .public-site a,.public-site .category-card::before { transition:none; }.public-site .category-card:hover { transform:none; } }
-
-/* RestoSuite originals have square crops. Keep dishes inside their frames. */
-.public-site .home-hero { background-color:#101210; background-size:cover,auto 112%; background-repeat:no-repeat; background-position:center,78% center; }
-.public-site .signature-image { background-color:#101210; background-size:contain; background-repeat:no-repeat; }
-.public-site .category-card { aspect-ratio:1; }
-.public-site .category-sushi { background-color:#eeeee5; }
-.public-site .category-sushi::before { background:linear-gradient(transparent 48%,rgba(48,35,30,.7)); }
-.public-site .about-banner { background-color:#101210; background-size:cover,auto 110%; background-repeat:no-repeat; background-position:center,right center; }
-.public-site .story-image { background-color:#eeeee5; background-repeat:no-repeat; background-size:contain; }
-@media(max-width:700px) { .public-site .home-hero { background-size:cover,auto 90%; background-position:center,center 25%; }.public-site .category-card { aspect-ratio:1; }.public-site .signature-image { min-height:390px; }.public-site .about-banner { background-size:cover,auto 100%; } }
+@media(max-width:700px) {
+ .public-site .public-nav { height:74px; grid-template-columns:1fr auto; padding:14px 22px; gap:15px; }
+ .public-site .public-links { display:none; }.public-site .public-wordmark { font-size:27px; }.public-site .public-wordmark small { font-size:7px; }
+ .public-site .nav-end { gap:14px; }.public-site .nav-booking { padding:11px 16px; font-size:9px; gap:12px; }
+ .public-site .public-menu { display:block; }.public-site .public-menu summary { display:flex; cursor:pointer; list-style:none; padding:6px; }.public-site .public-menu summary::-webkit-details-marker { display:none; }
+ .public-site .public-menu nav { position:absolute; left:0; right:0; top:100%; background:#fffefb; padding:12px 24px 26px; box-shadow:0 20px 25px #302e2315; display:flex; flex-direction:column; }
+ .public-site .public-menu nav a { padding:16px 0; border-bottom:1px solid var(--line); font-size:13px; }
+ .public-site .home-hero { height:calc(100svh - 74px); min-height:620px; max-height:850px; padding:24px 24px 26px; }
+ .public-site .hero-topline { font-size:8px; letter-spacing:.1em; }.public-site .hero-photo { object-position:62% center; }
+ .public-site .hero-content { padding:32px 0; }.public-site .home-hero h1 { font-size:clamp(65px,17vw,112px); }
+ .public-site .hero-bottom { flex-direction:column; align-items:flex-start; margin-top:26px; gap:24px; }.public-site .hero-bottom p { font-size:12px; }
+ .public-site .hero-scroll { font-size:8px; }.public-site .eyebrow { font-size:9px; margin-bottom:20px; }
+ .public-site .brand-strip { padding:20px 24px; flex-wrap:wrap; justify-content:center; gap:12px 20px; font-size:8px; }.public-site .brand-strip span:nth-child(n+5) { display:none; }
+ .public-site .brand-strip span[aria-hidden] { font-size:18px; }
+ .public-site .section-space { padding:64px 24px; }.public-site .section-top { flex-direction:column; align-items:flex-start; gap:26px; margin-bottom:32px; }
+ .public-site .section-top h2,.public-site .faq-section h2 { font-size:clamp(33px,8.5vw,48px); }.public-site .section-intro { max-width:none; }.public-site .section-intro p { font-size:12px; margin-bottom:14px; }
+ .public-site .food-grid { grid-template-columns:1fr 1fr; grid-template-rows:340px 260px 240px; gap:14px; }
+ .public-site .food-grill { grid-column:1/3; grid-row:1; }.public-site .food-grill .food-image img { object-fit:cover; transform:none; }
+ .public-site .food-sushi { grid-column:1/3; grid-row:2; }.public-site .food-share { grid-column:1; grid-row:3; }.public-site .food-dessert { grid-column:2; grid-row:3; }
+ .public-site .food-caption { left:18px; right:18px; bottom:20px; }.public-site .food-caption h3 { font-size:25px; }.public-site .food-caption p { font-size:10px; }.public-site .food-share .round-arrow,.public-site .food-dessert .round-arrow { display:none; }
+ .public-site .food-share h3,.public-site .food-dessert h3 { font-size:22px; }.public-site .food-number { font-size:8px; margin-bottom:10px; }
+ .public-site .fire-story { grid-template-columns:1fr; }.public-site .fire-photo { min-height:380px; }.public-site .fire-copy { padding:52px 24px 60px; }.public-site .fire-copy h2 { font-size:46px; }.public-site .photo-caption { left:24px; }
+ .public-site .price-grid { grid-template-columns:1fr; padding:0; }.public-site .price-column,.public-site .price-column:first-child { padding:30px 0; border-right:0; border-bottom:1px solid var(--line); position:relative; }
+ .public-site .price-column h3 { margin:18px 0; }.public-site .price { font-size:66px; }.public-site .price-column .text-link { position:absolute; right:0; bottom:32px; }.public-site .price-detail { max-width:65%; margin-bottom:0; }
+ .public-site .table-invitation { padding:65px 24px 75px; }.public-site .table-invitation h2 { font-size:clamp(44px,11vw,70px); }.public-site .invitation-flower { font-size:180px; right:-65px; top:27%; }
+ .public-site .faq-section { grid-template-columns:1fr; gap:34px; }.public-site .faq-help { margin-top:22px; }.public-site .faq-list summary { font-size:12px; }
+ .public-site .visit-banner { padding:52px 24px; flex-direction:column; align-items:flex-start; gap:32px; }.public-site .visit-banner>div:last-child { min-width:0; }.public-site .visit-banner h2 { font-size:48px; }
+ .public-site .public-footer { grid-template-columns:1fr; padding:48px 24px 32px; gap:28px; }.public-site .footer-meta { flex-wrap:wrap; justify-content:flex-start; gap:20px; }
+ .public-site .subpage-hero { padding:60px 24px; min-height:400px; }.public-site .subpage-hero h1 { font-size:42px; }.public-site .menu-board-top { flex-direction:column; }.public-site .menu-price { text-align:left; }
+ .public-site .story-section,.public-site .contact-layout,.public-site .detail-grid,.public-site .menu-columns { grid-template-columns:1fr; }.public-site .story-image { min-height:360px; }.public-site .story-copy,.public-site .contact-card { padding:50px 24px; }
+ .public-site .details-section { padding:45px 24px; }.public-site .map-frame { min-height:350px; }
+}
+@media(prefers-reduced-motion:reduce) { .public-site a,.public-site .food-image img,.public-site .public-links a::after,.public-site .faq-list summary span { transition:none; } }
