@@ -1,52 +1,70 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Clock3, MapPin } from "lucide-react";
-import { PublicShell, ReservationCta, RESTAURANT } from "@/components/public/PublicSite";
+import { ArrowDown, ArrowRight, MoveUpRight } from "lucide-react";
+import { PublicShell, RESTAURANT } from "@/components/public/PublicSite";
 
-export const metadata = { title: "Karuma Sushi & Grill · Valencia", description: "Sushi, brasa y una mesa para compartir en el centro de Valencia.", alternates: { canonical: "https://www.karuma.es" } };
+export const metadata = {
+  title: "Karuma · Sushi, brasa y Valencia",
+  description: "Sushi, cocina a la brasa y buffet a la carta en el centro de Valencia. Descubre Karuma y reserva tu mesa.",
+  alternates: { canonical: "https://www.karuma.es" },
+};
 
-const categories = [
-  { name: "Sushi", description: "Rolls, nigiris y tus favoritos", image: "/images/karuma/restosuite/046-crazy-salmon.jpg", className: "category-sushi" },
-  { name: "Brasa", description: "El sabor de nuestra parrilla", image: "/images/karuma/restosuite/029-entrecort.jpeg", className: "category-grill" },
-  { name: "Para compartir", description: "Un poco de todo, al centro", image: "/images/karuma/restosuite/079-takoyaki.jpeg", className: "category-share" },
-  { name: "Postres", description: "Un final para disfrutar", image: "/images/karuma/restosuite/126-couran-de-chocolate.jpeg", className: "category-dessert" },
+const dishes = [
+  { name: "Brasa", note: "El fuego pone el sabor.", image: "029-entrecort.jpeg", className: "food-grill", number: "01" },
+  { name: "Sushi", note: "Un bocado. Otro favorito.", image: "046-crazy-salmon.jpg", className: "food-sushi", number: "02" },
+  { name: "Para compartir", note: "Todo al centro.", image: "079-takoyaki.jpeg", className: "food-share", number: "03" },
+  { name: "El toque dulce", note: "Siempre queda sitio.", image: "126-couran-de-chocolate.jpeg", className: "food-dessert", number: "04" },
 ];
 const menus = [
-  { name: "Buffet comida", price: "19,90 €", detail: "Lunes a viernes no festivos" },
-  { name: "Buffet noche", price: "24,90 €", detail: "Noches, fines de semana y festivos" },
-  { name: "Menú infantil", price: "12,50 €", detail: "Para los más pequeños" },
+  { title: "Entre semana", price: "19,90", description: "Buffet comida", detail: "Lunes a viernes no festivos", number: "01" },
+  { title: "Cuando cae el sol", price: "24,90", description: "Buffet noche y fin de semana", detail: "Noches, fines de semana y festivos", number: "02" },
+  { title: "Pequeños comensales", price: "12,50", description: "Menú infantil", detail: "Consulta las condiciones con nuestro equipo", number: "03" },
 ];
 const questions = [
-  { question: "¿Cómo puedo reservar una mesa?", answer: <>Puedes <Link href="/reservas">reservar online</Link> o llamarnos al <a href="tel:+34676706776">{RESTAURANT.phone}</a>.</> },
-  { question: "¿Las bebidas están incluidas?", answer: <>Las bebidas no están incluidas en el precio del buffet. Puedes consultar nuestra selección con el equipo del restaurante.</> },
-  { question: "¿Dónde está Karuma?", answer: <>{RESTAURANT.address}. <a href={RESTAURANT.maps}>Ver cómo llegar</a>.</> },
-  { question: "¿Dónde puedo consultar los alérgenos?", answer: <>Consulta con nuestro equipo sobre alérgenos y disponibilidad antes de pedir.</> },
+  { title: "¿Cómo reservo una mesa?", content: <>Elige día, hora y número de personas en <Link href="/reservas">nuestra página de reservas</Link>. También puedes llamarnos al <a href="tel:+34676706776">{RESTAURANT.phone}</a>.</> },
+  { title: "¿Las bebidas están incluidas?", content: <>Las bebidas no están incluidas en el precio del buffet. Consulta la carta para elegir qué te apetece tomar.</> },
+  { title: "¿Tenéis opciones para niños?", content: <>Tenemos menú infantil de 12,50 €. Consulta con el equipo las condiciones antes de reservar.</> },
+  { title: "¿Y si tengo alguna alergia?", content: <>Habla con nuestro equipo antes de pedir. Te ayudaremos a consultar los alérgenos y la disponibilidad de los platos.</> },
 ];
 
 export default function HomePage() {
   return (
     <PublicShell>
       <main id="inicio" className="public-page home-page">
-        <section className="home-hero" aria-label="Karuma Sushi y Grill">
+        <section className="home-hero" aria-labelledby="hero-title">
+          <Image className="hero-photo" src="/images/karuma/charcoal-atmosphere-v2.webp" alt="" fill priority sizes="100vw" />
+          <div className="hero-shade" />
+          <div className="hero-topline"><span>Sushi &amp; grill</span><span>Valencia, España</span></div>
           <div className="hero-content">
-            <p className="eyebrow">Valencia · Sushi &amp; grill</p>
-            <div className="hero-bottom"><h1>Karuma<br className="hero-break" /> sushi &amp; brasa</h1><Link href="/carta" className="button button-light">Ver la carta <ArrowRight size={18} /></Link></div>
+            <p className="eyebrow">Dos mundos. Una misma mesa.</p>
+            <h1 id="hero-title">Sushi.<br />Brasa.<br /><em>Sin prisa.</em></h1>
+            <div className="hero-bottom"><p>El encuentro entre Japón y el fuego.<br />Ven con hambre. Quédate a disfrutar.</p><Link href="/reservas" className="button button-light">Reserva tu mesa <ArrowRight size={18} /></Link></div>
           </div>
+          <a href="#buffet" className="hero-scroll" aria-label="Descubre nuestro buffet"><ArrowDown size={17} /><span>Descubre Karuma</span></a>
         </section>
-        <section className="buffet-section section-space">
-          <div className="section-top"><div><p className="eyebrow">Para probar y repetir</p><h2>Nuestro buffet</h2></div><Link href="/carta" className="button button-outline">Descubre la carta <ArrowRight size={17} /></Link></div>
-          <div className="category-grid">{categories.map((category) => <Link key={category.name} href="/carta" className={`category-card ${category.className}`} style={{ backgroundImage: `url(${category.image})` }}><div><h3>{category.name}</h3><p>{category.description}</p></div><ArrowRight size={21} aria-hidden="true" /></Link>)}</div>
+
+        <div className="brand-strip" aria-label="Sushi, brasa y buffet a la carta"><span>Sushi al momento</span><span aria-hidden="true">✳</span><span>El sabor de la brasa</span><span aria-hidden="true">✳</span><span>Buffet a la carta</span><span aria-hidden="true">✳</span><span>En el corazón de Valencia</span></div>
+
+        <section id="buffet" className="buffet-section section-space">
+          <div className="section-top"><div><p className="eyebrow">01 / A tu gusto</p><h2>Un poco de todo.<br /><em>Mucho que disfrutar.</em></h2></div><div className="section-intro"><p>Empieza por tus favoritos. Sigue por lo que te sorprenda. Nuestra carta está hecha para compartir y volver a pedir.</p><Link href="/carta" className="text-link">Explora la carta <MoveUpRight size={18} /></Link></div></div>
+          <div className="food-grid">{dishes.map(dish => <Link key={dish.name} href="/carta" className={`food-card ${dish.className}`}><div className="food-image"><Image src={`/images/karuma/restosuite/${dish.image}`} alt={dish.name === "Brasa" ? "Entrecot de Karuma" : dish.name === "Sushi" ? "Crazy salmon de Karuma" : dish.name === "Para compartir" ? "Takoyaki de Karuma" : "Coulant de chocolate"} fill sizes="(max-width: 700px) 90vw, 45vw" /></div><div className="food-caption"><div><span className="food-number">{dish.number}</span><h3>{dish.name}</h3><p>{dish.note}</p></div><span className="round-arrow"><ArrowRight size={21} /></span></div></Link>)}</div>
         </section>
-        <section className="signature-section">
-          <div className="signature-copy"><p className="eyebrow">El fuego de Karuma</p><h2>De la parrilla.<br /><em>Al centro de la mesa.</em></h2><p>El sushi pone el comienzo. La brasa, el siguiente plato. Descubre una carta pensada para compartir y encontrar nuevos favoritos.</p><Link href="/carta" className="button button-outline">Prueba nuestra brasa <ArrowRight size={17} /></Link></div>
-          <div className="signature-image" role="img" aria-label="Especialidades a la parrilla" />
+
+        <section className="fire-story">
+          <div className="fire-photo"><Image src="/images/karuma/restosuite/029-entrecort.jpeg" alt="Entrecot a la brasa servido en Karuma" fill sizes="(max-width: 700px) 100vw, 50vw" /><span className="photo-caption">De nuestra cocina, a tu mesa.</span></div>
+          <div className="fire-copy"><p className="eyebrow">02 / El encuentro</p><h2>La delicadeza<br />del sushi.<br /><em>El carácter<br />de la brasa.</em></h2><p>Dos maneras de entender el sabor, unidas en una carta. Nigiris, rolls, cocina asiática y platos a la parrilla para que cada mesa encuentre su mezcla perfecta.</p><Link href="/restaurante" className="text-link">Así es Karuma <MoveUpRight size={18} /></Link></div>
         </section>
+
         <section className="menus-section section-space">
-          <div className="section-top"><div><p className="eyebrow">Cada momento tiene su mesa</p><h2>Nuestros menús</h2><p className="section-description">Elige tu momento y disfruta de tus favoritos. Bebidas no incluidas.</p></div><Link href="/carta" className="button button-outline">Ver la carta completa <ArrowRight size={17} /></Link></div>
-          <div className="menu-summary">{menus.map(menu => <div className="menu-summary-item" key={menu.name}><Clock3 size={21} aria-hidden="true" /><div><h3>{menu.name} <span>· {menu.price}</span></h3><p>{menu.detail}</p></div></div>)}<a className="menu-summary-item" href={RESTAURANT.maps}><MapPin size={21} aria-hidden="true" /><div><h3>Dónde estamos</h3><p>{RESTAURANT.address}</p></div></a></div>
+          <div className="section-top"><div><p className="eyebrow">03 / Elige tu momento</p><h2>Buenos planes.<br /><em>Mejor compañía.</em></h2></div><Link href="/carta" className="button button-outline">Ver carta completa <ArrowRight size={18} /></Link></div>
+          <div className="price-grid">{menus.map(menu => <article className="price-column" key={menu.number}><span className="price-number">/ {menu.number}</span><h3>{menu.title}</h3><p className="price"><span>{menu.price}</span><sup>€</sup></p><p className="price-description">{menu.description}</p><p className="price-detail">{menu.detail}</p><Link href="/reservas" className="text-link">Reservar <ArrowRight size={16} /></Link></article>)}</div><p className="menu-footnote">Bebidas no incluidas. Consulta al equipo sobre alérgenos y condiciones del menú infantil.</p>
         </section>
-        <section className="editorial-section" aria-label="La experiencia Karuma"><p>Sushi al momento.<br />El fuego de la <span className="inline-food inline-grill" role="img" aria-label="Plato a la brasa" /> brasa.<br />Una mesa para <span className="inline-food inline-sushi" role="img" aria-label="Sushi para compartir" /><br /><em>compartir sin prisa.</em></p><Link href="/restaurante" className="text-link">Así es Karuma <ArrowRight size={18} /></Link></section>
-        <section className="about-banner"><div><p className="eyebrow">Nosotros</p><h2>Japón, brasa<br />y Valencia.</h2><p>Una carta para descubrir nuevos sabores y volver a los de siempre. Te esperamos en el centro de la ciudad.</p><Link href="/restaurante" className="button button-light">Conócenos <ArrowRight size={17} /></Link></div></section>
-        <section className="faq-section section-space"><div className="section-top"><div><p className="eyebrow">Antes de venir</p><h2>Preguntas frecuentes</h2><p className="section-description">Lo que necesitas saber antes de sentarte a la mesa.</p></div></div><div className="faq-layout"><div className="faq-list">{questions.map(item => <details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div><aside className="faq-contact"><p className="eyebrow">¿Nos vemos en Karuma?</p><h3>Tu próxima mesa<br />empieza aquí.</h3><ReservationCta /><a className="text-link" href="tel:+34676706776">{RESTAURANT.phone} <ArrowRight size={16} /></a></aside></div></section>
+
+        <section className="table-invitation"><p className="eyebrow">La mejor parte es compartirlo</p><h2>Una mesa.<br />Mil maneras de<br /><em>pasarlo bien.</em></h2><Link href="/reservas" className="button button-primary">Nos vemos en Karuma <ArrowRight size={18} /></Link><span className="invitation-flower" aria-hidden="true">✳</span></section>
+
+        <section className="faq-section section-space"><div><p className="eyebrow">04 / Antes de venir</p><h2>Por si te<br /><em>lo preguntabas.</em></h2><p className="faq-help">¿Algo más? Estamos al otro lado.<br /><a href="tel:+34676706776">{RESTAURANT.phone}</a></p></div><div className="faq-list">{questions.map(item => <details key={item.title}><summary>{item.title}<span aria-hidden="true">+</span></summary><p>{item.content}</p></details>)}</div></section>
+
+        <section className="visit-banner"><div><p className="eyebrow">Aquí empieza tu próximo plan</p><h2>Nos vemos<br /><em>en el centro.</em></h2></div><div><p>{RESTAURANT.address}</p><a href={RESTAURANT.maps} className="text-link">Cómo llegar <MoveUpRight size={18} /></a><Link href="/contacto" className="text-link">Contacto <ArrowRight size={18} /></Link></div></section>
       </main>
     </PublicShell>
   );
