@@ -15,7 +15,7 @@
 .public-site .nav-booking { display:flex; align-items:center; gap:14px; border:1px solid #b8a3a0; border-radius:50px; padding:12px 22px; }
 .public-site .public-menu { display:none; }
 .public-site .public-page { overflow:clip; }
-.public-site .home-hero { position:relative; display:flex; align-items:flex-end; min-height:620px; height:calc(100svh - 86px); max-height:1020px; background:linear-gradient(0deg,rgba(12,10,9,.7),rgba(12,10,9,.05) 65%),url("/images/karuma/restosuite/029-entrecort.jpeg") center/cover; color:#fff; padding:48px clamp(20px,3.4vw,64px); }
+.public-site .home-hero { position:relative; display:flex; align-items:flex-end; min-height:620px; height:calc(100svh - 86px); max-height:1020px; background:linear-gradient(0deg,rgba(12,10,9,.7),rgba(12,10,9,.05) 65%),url("/images/karuma/restosuite/046-crazy-salmon.jpg") center/cover; color:#fff; padding:48px clamp(20px,3.4vw,64px); }
 .public-site .hero-content { width:100%; }
 .public-site .eyebrow { font-size:14px; line-height:1.5; margin:0 0 14px; font-weight:400; letter-spacing:.01em; }
 .public-site .hero-content .eyebrow { color:#f0e6e1; }
