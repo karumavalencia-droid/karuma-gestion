@@ -42,7 +42,7 @@ export default function CartaPage() {
                 <button type="button" aria-expanded={isOpen} onClick={() => setAbierta(isOpen ? null : grupo.cat)} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left">
                   <span className="font-semibold text-stone-900">{grupo.cat}</span><span className="flex items-center gap-2 text-xs text-stone-400"><span>{grupo.items.length}</span><ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} /></span>
                 </button>
-                {isOpen && <div className="border-t border-[#e8e1d2] px-4 pb-3">{grupo.items.map((item) => <div key={item.n} className="border-b border-[#eee8dc] py-3 last:border-0"><div className="flex items-start justify-between gap-4"><span className="font-medium text-stone-900">{item.n}</span><span className="shrink-0 text-sm text-stone-500">{item.p}</span></div>{item.d && <p className="mt-1 text-xs leading-5 text-stone-500">{item.d}</p>}</div>)}</div>}
+                {isOpen && <div className="border-t border-[#e8e1d2] px-4 pb-3">{grupo.items.map((item) => <div key={item.n} className="border-b border-[#eee8dc] py-3 last:border-0"><div className="font-medium text-stone-900">{item.n}</div>{item.d && <p className="mt-1 text-xs leading-5 text-stone-500">{item.d}</p>}</div>)}</div>}
               </div>;
             })}
           </div>
