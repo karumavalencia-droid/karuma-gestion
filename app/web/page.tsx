@@ -27,6 +27,7 @@ export default function HomePage() {
     <PublicShell>
       <main id="inicio" className="public-page home-page">
         <section className="home-hero" aria-label="Karuma Sushi y Grill">
+          <video className="hero-video" autoPlay muted loop playsInline preload="metadata" poster="/images/karuma/restosuite/046-crazy-salmon.jpg" aria-hidden="true"><source src="/videos/home-hero.mp4" type="video/mp4" /></video>
           <div className="hero-content">
             <p className="eyebrow">Valencia · Sushi &amp; grill</p>
             <div className="hero-bottom"><h1>Karuma<br className="hero-break" /> sushi &amp; brasa</h1><Link href="/carta" className="button button-light">Ver la carta <ArrowRight size={18} /></Link></div>
