@@ -257,6 +257,7 @@ export default function ReservasPage() {
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [hora, setHora] = useState("");
   const [slots, setSlots] = useState<{ hora: string; disponible: boolean }[]>([]);
+  const [slotsPorServicio, setSlotsPorServicio] = useState<Record<Servicio, { hora: string; disponible: boolean }[]>>({ comida: [], cena: [] });
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -370,6 +371,26 @@ export default function ReservasPage() {
     }
   }
 
+  async function cargarSlotsDelDia(f: string, p: number) {
+    setLoadingSlots(true);
+    setSlotsPorServicio({ comida: [], cena: [] });
+    setEsperaForm(false);
+    setEsperaOk(false);
+    setEsperaError("");
+    try {
+      const results = await Promise.all((["comida", "cena"] as Servicio[]).map(async (s) => {
+        const response = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
+        const data = await response.json();
+        return data.slots ?? [];
+      }));
+      setSlotsPorServicio({ comida: results[0], cena: results[1] });
+    } catch {
+      setSlotsPorServicio({ comida: [], cena: [] });
+    } finally {
+      setLoadingSlots(false);
+    }
+  }
+
   async function confirmarReserva() {
     if (!telefono.trim()) {
       setError("El teléfono es obligatorio");
@@ -422,6 +443,8 @@ export default function ReservasPage() {
 
   const slotsVisibles = slots.filter((s) => s.disponible);
   const hayAlgunSlot = slotsVisibles.length > 0;
+  const slotsComida = slotsPorServicio.comida.filter((slot) => slot.disponible);
+  const slotsCena = slotsPorServicio.cena.filter((slot) => slot.disponible);
 
   const formatFecha = (f: string) => {
     if (!f) return "";
@@ -791,7 +814,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────── FLUJO DE RESERVA (pasos intermedios) ─────────────────────
-  const stepIndex = ["fecha", "servicio", "hora", "datos"].indexOf(step);
+  const stepIndex = ["fecha", "hora", "datos"].indexOf(step);
 
   return (
     <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
@@ -802,7 +825,7 @@ export default function ReservasPage() {
         </button>
         {/* Progreso */}
         <div className="mx-auto mt-4 flex max-w-[200px] gap-1.5">
-          {(["fecha", "servicio", "hora", "datos"] as Step[]).map((s, i) => (
+          {(["fecha", "hora", "datos"] as Step[]).map((s, i) => (
             <div key={s} className={`h-0.5 flex-1 rounded-full transition-colors ${stepIndex >= i ? "bg-karuma-700" : "bg-[#ddd4c1]"}`} />
           ))}
         </div>
@@ -823,7 +846,15 @@ export default function ReservasPage() {
               {diasValidos.map(({ valor, etiqueta }) => (
                 <button
                   key={valor}
-                  onClick={() => { setFecha(valor); setError(""); setStep("servicio"); }}
+                  onClick={() => {
+                    setFecha(valor);
+                    setError("");
+                    setServicio(null);
+                    setSlots([]);
+                    setHora("");
+                    void cargarSlotsDelDia(valor, personas);
+                    setStep("hora");
+                  }}
                   className={`group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left transition-colors last:border-b ${
                     fecha === valor ? "text-karuma-700" : "text-stone-800 hover:text-karuma-700"
                   }`}
@@ -871,20 +902,18 @@ export default function ReservasPage() {
         {/* PASO 4: hora */}
         {step === "hora" && (
           <section>
-            <BotonVolver onClick={() => setStep("servicio")} />
+            <BotonVolver onClick={() => setStep("fecha")} />
             <Kicker jp="お時間" es="Hora" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿A qué hora?
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">
-              {formatFecha(fecha)} · {servicio === "comida" ? "Comida" : "Cena"} · {personas} {personas === 1 ? "persona" : "personas"}
-            </p>
+            <p className="mb-6 mt-1 text-sm text-stone-500">{formatFecha(fecha)} · {personas} {personas === 1 ? "persona" : "personas"}</p>
             {loadingSlots ? (
               <div className="py-12 text-center">
                 <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-stone-200 border-t-karuma-700" />
                 <p className="mt-3 text-sm text-stone-500">Comprobando disponibilidad…</p>
               </div>
-            ) : !hayAlgunSlot ? (
+            ) : !slotsComida.length && !slotsCena.length ? (
               <div className="border-y border-[#e2dac9] py-10 text-center">
                 {esperaOk ? (
                   <>
@@ -901,6 +930,7 @@ export default function ReservasPage() {
                       Déjanos tu contacto y te avisamos si queda mesa libre.
                     </p>
                     <div className="mt-5 space-y-4">
+                      {!servicio && <select value="" onChange={(e) => setServicio(e.target.value as Servicio)} className="w-full rounded-lg border border-stone-200 bg-white px-3 py-3 text-sm"><option value="" disabled>Elige comida o cena *</option><option value="comida">Comida</option><option value="cena">Cena</option></select>}
                       <input
                         type="text"
                         value={nombre}
@@ -923,7 +953,7 @@ export default function ReservasPage() {
                     )}
                     <button
                       onClick={() => void apuntarseEspera()}
-                      disabled={esperaEnviando}
+                      disabled={esperaEnviando || !servicio}
                       className="mt-5 w-full rounded-xl bg-karuma-700 py-3 text-sm font-semibold text-[#f6f3ec] hover:bg-karuma-800 disabled:opacity-40"
                     >
                       {esperaEnviando ? "Apuntando…" : "Apuntarme"}
@@ -967,23 +997,26 @@ export default function ReservasPage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2.5">
-                {slots.map((s) =>
-                  s.disponible ? (
-                    <button
-                      key={s.hora}
-                      onClick={() => { setHora(s.hora); setStep("datos"); }}
-                      className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${
-                        hora === s.hora
-                          ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
-                          : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
-                      }`}
-                      style={{ fontFamily: SERIF }}
-                    >
-                      {s.hora}
-                    </button>
-                  ) : null,
-                )}
+              <div className="space-y-8">
+                {([
+                  { key: "comida" as Servicio, title: "Comida", range: horarioComida, available: slotsComida },
+                  { key: "cena" as Servicio, title: "Cena", range: horarioCena, available: slotsCena },
+                ]).map(({ key, title, range, available }) => (
+                  <div key={key}>
+                    <h3 className="mb-1 text-lg font-semibold text-stone-900">{title}</h3>
+                    <p className="mb-3 text-xs text-stone-500">{range}</p>
+                    {available.length ? <div className="grid grid-cols-3 gap-2.5">
+                      {available.map((slot) => (
+                        <button
+                          key={slot.hora + key}
+                          onClick={() => { setServicio(key); setHora(slot.hora); setStep("datos"); }}
+                          className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${hora === slot.hora && servicio === key ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]" : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"}`}
+                          style={{ fontFamily: SERIF }}
+                        >{slot.hora}</button>
+                      ))}
+                    </div> : <p className="rounded-lg bg-white/50 px-3 py-2 text-sm text-stone-400">No hay horas disponibles</p>}
+                  </div>
+                ))}
               </div>
             )}
           </section>
