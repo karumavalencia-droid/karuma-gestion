@@ -61,6 +61,10 @@ const INTENTIONALLY_UNLINKED = {
   "/my-schedule": "portal empleado (redirección por rol)",
   "/my-payroll": "portal empleado de nóminas privadas (acceso por sesión de empleado)",
   "/reservas": "reserva pública (cliente, sin sidebar)",
+  "/web": "web pública del restaurante en karuma.es (sin sidebar)",
+  "/restaurante": "web pública del restaurante (sin sidebar)",
+  "/contacto": "web pública del restaurante (sin sidebar)",
+  "/carta": "carta pública del restaurante (sin sidebar)",
   "/reservas/gestionar/:id":
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 
@@ -70,6 +74,7 @@ const INTENTIONALLY_UNLINKED = {
   "/dashboard/jet-extramar": "redirección a /compras/jet-extramar",
   "/dashboard/kankyo": "redirección a /compras/kanyo",
   "/dashboard/yongxing": "redirección a /compras/yongxing",
+  "/dashboard/hoy": "subnav Reservas",
   "/dashboard/mesa-view": "subnav Reservas",
   "/dashboard/clientes": "subnav Reservas",
   "/dashboard/config": "subnav Reservas",

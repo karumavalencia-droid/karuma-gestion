@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, LayoutGrid, Users, Settings } from "lucide-react";
+import { CalendarCheck, LayoutDashboard, LayoutGrid, Users, Settings } from "lucide-react";
 
 const TABS = [
+  { href: "/dashboard/hoy", label: "Hoy", icon: LayoutDashboard },
   { href: "/dashboard/reservas", label: "Lista", icon: CalendarCheck },
   { href: "/dashboard/mesa-view", label: "Mesas", icon: LayoutGrid },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
