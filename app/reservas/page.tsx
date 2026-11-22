@@ -5,7 +5,7 @@ import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, Ch
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
 type Servicio = "comida" | "cena";
-type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
+type Step = "portada" | "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
 
 const DIRECCION = "C/ de Roger de Llòria, 2 · Valencia";
 const MAPS_QUERY = "Karuma Sushi & Grill, Carrer de Roger de Llòria, 2, Valencia";
@@ -251,7 +251,7 @@ export const CARTA: { cat: string; items: PlatoCarta[] }[] = [
 
 export default function ReservasPage() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
-  const [step, setStep] = useState<Step>("personas");
+  const [step, setStep] = useState<Step>("portada");
   const [personas, setPersonas] = useState(0);
   const [fecha, setFecha] = useState("");
   const [servicio, setServicio] = useState<Servicio | null>(null);
@@ -426,7 +426,7 @@ export default function ReservasPage() {
   }
 
   function reiniciar() {
-    setStep("personas");
+    setStep("portada");
     setPersonas(0);
     setFecha("");
     setServicio(null);
@@ -515,7 +515,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────────────── LANDING / PORTADA ─────────────────────────────
-  if (step === "personas") {
+  if (step === "portada") {
     return (
       <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
         {/* HERO */}
@@ -561,31 +561,26 @@ export default function ReservasPage() {
               Reserva tu mesa
             </h2>
             <p className="mb-6 mt-1 text-sm text-stone-500">
-              En menos de un minuto · hasta {MAX_ONLINE_PARTY_SIZE} personas online
+              Elige primero el día; después seleccionarás cuántas personas sois.
             </p>
 
-            <div className="grid grid-cols-3 gap-3">
-              {Array.from(
-                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
-                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
-              ).map((n) => (
+            <div className="grid grid-cols-2 gap-2">
+              {diasValidos.map(({ valor, etiqueta }) => (
                 <button
-                  key={n}
+                  key={valor}
                   onClick={() => {
-                    setPersonas(n);
-                    setStep("fecha");
+                    setFecha(valor);
+                    setServicio(null);
+                    setSlots([]);
+                    setSlotsPorServicio({ comida: [], cena: [] });
+                    setHora("");
+                    setError("");
+                    setStep("personas");
                   }}
-                  className="group flex flex-col items-center justify-center rounded-xl border border-[#ddd4c1] bg-white/60 py-5 transition-colors hover:border-karuma-700 hover:bg-white"
+                  className="flex min-h-14 items-center justify-between rounded-xl border border-[#ddd4c1] bg-white/60 px-3 py-3 text-left text-sm font-medium text-stone-800 transition-colors hover:border-karuma-700"
                 >
-                  <span
-                    className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700"
-                    style={{ fontFamily: SERIF }}
-                  >
-                    {n}
-                  </span>
-                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">
-                    {n === 1 ? "persona" : "personas"}
-                  </span>
+                  <span>{etiqueta}</span>
+                  <ChevronRight className="ml-2 h-4 w-4 shrink-0 text-stone-400" />
                 </button>
               ))}
             </div>
@@ -814,7 +809,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────── FLUJO DE RESERVA (pasos intermedios) ─────────────────────
-  const stepIndex = ["fecha", "hora", "datos"].indexOf(step);
+  const stepIndex = ["personas", "hora", "datos"].indexOf(step);
 
   return (
     <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
@@ -825,44 +820,53 @@ export default function ReservasPage() {
         </button>
         {/* Progreso */}
         <div className="mx-auto mt-4 flex max-w-[200px] gap-1.5">
-          {(["fecha", "hora", "datos"] as Step[]).map((s, i) => (
+          {(["personas", "hora", "datos"] as Step[]).map((s, i) => (
             <div key={s} className={`h-0.5 flex-1 rounded-full transition-colors ${stepIndex >= i ? "bg-karuma-700" : "bg-[#ddd4c1]"}`} />
           ))}
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-6 py-9">
-        {/* PASO 2: fecha */}
-        {step === "fecha" && (
+        {/* PASO 2: número de personas */}
+        {step === "personas" && (
           <section>
-            <BotonVolver onClick={() => setStep("personas")} />
-            <Kicker jp="日にち" es="Fecha" />
+            <BotonVolver onClick={() => setStep("portada")} />
+            <Kicker jp="人数" es="Personas" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              ¿Qué día reservas?
+              ¿Cuántas personas?
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">Hasta 7 días de antelación</p>
+            <p className="mb-6 mt-1 text-sm text-stone-500">{formatFecha(fecha)} · máximo {MAX_ONLINE_PARTY_SIZE} personas online</p>
 
-            <div>
-              {diasValidos.map(({ valor, etiqueta }) => (
+            <div className="grid grid-cols-3 gap-3">
+              {Array.from(
+                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
+                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
+              ).map((n) => (
                 <button
-                  key={valor}
+                  key={n}
                   onClick={() => {
-                    setFecha(valor);
-                    setError("");
+                    setPersonas(n);
                     setServicio(null);
-                    setSlots([]);
                     setHora("");
-                    void cargarSlotsDelDia(valor, personas);
+                    setError("");
+                    void cargarSlotsDelDia(fecha, n);
                     setStep("hora");
                   }}
-                  className={`group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left transition-colors last:border-b ${
-                    fecha === valor ? "text-karuma-700" : "text-stone-800 hover:text-karuma-700"
-                  }`}
+                  className="group flex flex-col items-center justify-center rounded-xl border border-[#ddd4c1] bg-white/60 py-5 transition-colors hover:border-karuma-700 hover:bg-white"
                 >
-                  <span className="text-base font-medium" style={{ fontFamily: SERIF }}>{etiqueta}</span>
-                  <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-karuma-700" />
+                  <span className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700" style={{ fontFamily: SERIF }}>{n}</span>
+                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">{n === 1 ? "persona" : "personas"}</span>
                 </button>
               ))}
+            </div>
+            <div className="mt-5 rounded-xl border border-[#e2dac9] bg-white/40 p-4">
+              <p className="text-sm text-stone-600">
+                ¿Sois más de {MAX_ONLINE_PARTY_SIZE}? Para grupos grandes, llámanos o escríbenos por WhatsApp.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <a href={"tel:" + TELEFONO} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-stone-900 px-3 py-2.5 text-sm font-medium text-[#f6f3ec] hover:bg-stone-800"><Phone className="h-4 w-4" /> Llamar</a>
+                <a href={"https://wa.me/" + WHATSAPP.replace(/\D/g, "")} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2.5 text-sm font-medium text-stone-700 hover:border-stone-900"><MessageCircle className="h-4 w-4" /> WhatsApp</a>
+              </div>
             </div>
           </section>
         )}
@@ -902,7 +906,7 @@ export default function ReservasPage() {
         {/* PASO 4: hora */}
         {step === "hora" && (
           <section>
-            <BotonVolver onClick={() => setStep("fecha")} />
+            <BotonVolver onClick={() => setStep("personas")} />
             <Kicker jp="お時間" es="Hora" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿A qué hora?
