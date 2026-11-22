@@ -344,6 +344,16 @@ export default function MesaViewPage() {
     return () => { void ch.unsubscribe(); };
   }, [reload]);
 
+  // /tablet no tiene selector de fecha: si queda abierta de un día para otro (o el
+  // dispositivo vuelve de reposo), pasa sola al día actual.
+  useEffect(() => {
+    if (!isTablet) return;
+    const alDiaActual = () => setFecha((f) => (f === hoy() ? f : hoy()));
+    const id = setInterval(alDiaActual, 60_000);
+    document.addEventListener("visibilitychange", alDiaActual);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", alDiaActual); };
+  }, [isTablet]);
+
   // Auto-refresh 60s
   useEffect(() => {
     const id = setInterval(() => { setTick((t) => t + 1); reload(); }, 60_000);
