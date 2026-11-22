@@ -320,7 +320,7 @@ export default function ReservasPage() {
   const comidaInicio = hhmm(config?.comida_inicio) || "13:00";
   const comidaFin = "15:30";
   const cenaInicio = "19:00";
-  const cenaFin = hhmm(config?.cena_fin) || "22:00";
+  const cenaFin = hhmm(config?.cena_fin) || "22:15";
   const horarioComida = `${comidaInicio} – ${comidaFin}`;
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
 
