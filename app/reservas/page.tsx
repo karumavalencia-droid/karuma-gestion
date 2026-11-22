@@ -913,7 +913,7 @@ export default function ReservasPage() {
                 <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-stone-200 border-t-karuma-700" />
                 <p className="mt-3 text-sm text-stone-500">Comprobando disponibilidad…</p>
               </div>
-            ) : !slotsComida.length && !slotsCena.length ? (
+            ) : esperaForm || (!slotsComida.length && !slotsCena.length) ? (
               <div className="border-y border-[#e2dac9] py-10 text-center">
                 {esperaOk ? (
                   <>
@@ -930,7 +930,7 @@ export default function ReservasPage() {
                       Déjanos tu contacto y te avisamos si queda mesa libre.
                     </p>
                     <div className="mt-5 space-y-4">
-                      {!servicio && <select value="" onChange={(e) => setServicio(e.target.value as Servicio)} className="w-full rounded-lg border border-stone-200 bg-white px-3 py-3 text-sm"><option value="" disabled>Elige comida o cena *</option><option value="comida">Comida</option><option value="cena">Cena</option></select>}
+                      <select value={servicio ?? ""} onChange={(e) => setServicio(e.target.value as Servicio)} className="w-full rounded-lg border border-stone-200 bg-white px-3 py-3 text-sm"><option value="" disabled>Elige comida o cena *</option><option value="comida">Comida</option><option value="cena">Cena</option></select>
                       <input
                         type="text"
                         value={nombre}
@@ -1014,7 +1014,7 @@ export default function ReservasPage() {
                           style={{ fontFamily: SERIF }}
                         >{slot.hora}</button>
                       ))}
-                    </div> : <p className="rounded-lg bg-white/50 px-3 py-2 text-sm text-stone-400">No hay horas disponibles</p>}
+                    </div> : <div><p className="rounded-lg bg-white/50 px-3 py-2 text-sm text-stone-400">No hay horas disponibles</p><button onClick={() => { setServicio(key); setEsperaForm(true); }} className="mt-2 text-sm font-semibold text-karuma-700">Lista de espera para {title}</button></div>}
                   </div>
                 ))}
               </div>
