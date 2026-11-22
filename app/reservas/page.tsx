@@ -835,7 +835,7 @@ export default function ReservasPage() {
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿Cuántas personas?
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">{formatFecha(fecha)} · máximo {MAX_ONLINE_PARTY_SIZE} personas online</p>
+            <p className="text-sm text-stone-500">{formatFecha(fecha)}</p><p className="mb-6 mt-1 text-sm text-stone-500">Selecciona el número de personas para la reserva</p>
 
             <div className="grid grid-cols-3 gap-3">
               {Array.from(
