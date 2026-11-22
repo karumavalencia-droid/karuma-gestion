@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock } from "lucide-react";
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
+import { precioBuffet, BUFFET_MENUS } from "@/lib/reservas/pricing";
+
 type Servicio = "comida" | "cena";
 type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
 
@@ -25,16 +27,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // "13:00:00" → "13:00" (quita los segundos para mostrar la hora limpia)
 const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
 
-// Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
-// Mediodía = lunes a viernes de 13:00 a 16:30 → 19,90 €. Resto (tardes, noches,
-// fines de semana y festivos) → 24,90 €. No detecta festivos puntuales (esos son 24,90 €).
-function precioBuffet(fecha: string, hora: string): string {
-  if (!fecha || !hora) return "24,90 €";
-  const dow = new Date(fecha + "T12:00:00").getDay(); // 0=Dom … 6=Sáb
-  const [h, m] = hora.split(":").map(Number);
-  const esMediodiaLaborable = dow >= 1 && dow <= 5 && h * 60 + m < 16 * 60 + 30;
-  return esMediodiaLaborable ? "19,90 €" : "24,90 €";
-}
 
 interface PublicConfig {
   reservas_online_activas: boolean;
@@ -608,11 +600,7 @@ export default function ReservasPage() {
                 <p className="mt-2 text-xs text-stone-500">Última reserva de comida: 15:30</p>
               </div>
               <div className="px-5 py-1">
-                {[
-                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
-                  { t: "Noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
-                  { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
-                ].map((p) => (
+                {BUFFET_MENUS.map((menu) => ({ t: menu.name, sub: menu.detail, precio: menu.price })).map((p) => (
                   <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
                     <div className="min-w-0">
                       <p className="text-[0.95rem] font-semibold text-stone-900">{p.t}</p>
@@ -625,7 +613,7 @@ export default function ReservasPage() {
                 ))}
               </div>
             </div>
-            <p className="mt-3 text-center text-xs text-stone-400">Buffet libre · bebidas no incluidas.</p>
+            <p className="mt-3 text-center text-xs text-stone-400">Tarifas desde el 23/11/2026. Buffet libre · bebidas no incluidas.</p>
           </section>
 
           {/* SOBRE NOSOTROS */}

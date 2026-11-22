@@ -7,6 +7,14 @@ type Locale = "es" | "en";
 const STORAGE_KEY = "karuma-reservation-language";
 
 const TEXT_EN: Record<string, string> = {
+  "Buffet comida": "Lunch buffet",
+  "Buffet noche": "Dinner buffet",
+  "Buffet fin de semana y festivos": "Weekend & holiday buffet",
+  "Para los más pequeños": "For children",
+  "Lunes a viernes al mediodía, excepto festivos": "Monday–Friday lunch, excluding public holidays",
+  "Lunes a jueves por la noche, excepto festivos": "Monday–Thursday dinner, excluding public holidays",
+  "Viernes noche, sábados, domingos y festivos todo el día": "Friday dinner, all day weekends & public holidays",
+  "Tarifas desde el 23/11/2026. Buffet libre · bebidas no incluidas.": "Prices from 23/11/2026. All-you-can-eat buffet · drinks not included.",
   "Cocina japonesa, brasa y buffet libre en el corazón de Valencia.": "Japanese cuisine, charcoal grill and all-you-can-eat buffet in the heart of Valencia.",
   "Todos los días · 13:00–23:30": "Every day · 13:00–23:30",
   "Reserva": "Booking",
