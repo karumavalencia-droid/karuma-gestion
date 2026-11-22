@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronDown, ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { BUFFET_MENUS } from "@/lib/reservas/pricing";
 import { CARTA } from "@/app/reservas/page";
 
 export default function CartaPage() {
@@ -33,7 +34,7 @@ export default function CartaPage() {
         <section className="rounded-3xl border border-[#ddd4c1] bg-white/70 p-5 shadow-sm sm:p-8">
           <div className="flex flex-col gap-6 border-b border-[#e8e1d2] pb-6 sm:flex-row sm:items-start sm:justify-between">
             <div><p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7d5d38]">Karuma Sushi &amp; Grill</p><h2 className="mt-2 font-serif text-2xl sm:text-3xl">Carta completa</h2></div>
-            <div className="text-left text-sm leading-6 text-stone-600 sm:text-right">Buffet comida · L–V no festivo <strong className="text-stone-900">19,90 €</strong><br />Buffet noche · fines de semana y festivos <strong className="text-stone-900">24,90 €</strong><br />Menú infantil · <strong className="text-stone-900">12,50 €</strong></div>
+            <div className="text-left text-sm leading-6 text-stone-600 sm:text-right">{BUFFET_MENUS.map(menu => <div key={menu.name}>{menu.name} · {menu.detail} <strong className="text-stone-900">{menu.price}</strong></div>)}<p>Tarifas desde el 23/11/2026.</p></div>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {CARTA.map((grupo) => {

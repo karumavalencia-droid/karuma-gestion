@@ -61,6 +61,10 @@ const INTENTIONALLY_UNLINKED = {
   "/my-schedule": "portal empleado (redirección por rol)",
   "/my-payroll": "portal empleado de nóminas privadas (acceso por sesión de empleado)",
   "/reservas": "reserva pública (cliente, sin sidebar)",
+  "/web": "inicio público del restaurante (navegación PublicNav, sin sidebar ERP)",
+  "/carta": "carta pública (enlazada desde PublicNav y reservas)",
+  "/restaurante": "presentación pública (enlazada desde PublicNav)",
+  "/contacto": "contacto público (enlazado desde PublicNav)",
   "/reservas/gestionar/:id":
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 

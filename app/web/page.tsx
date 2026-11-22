@@ -1,3 +1,4 @@
+import { BUFFET_MENUS } from "@/lib/reservas/pricing";
 import Link from "next/link";
 import { ArrowRight, Clock3, MapPin } from "lucide-react";
 import { PublicShell, ReservationCta, RESTAURANT } from "@/components/public/PublicSite";
@@ -10,11 +11,7 @@ const categories = [
   { name: "Para compartir", description: "Un poco de todo, al centro", image: "/images/karuma/restosuite/079-takoyaki.jpeg", className: "category-share" },
   { name: "Postres", description: "Un final para disfrutar", image: "/images/karuma/restosuite/126-couran-de-chocolate.jpeg", className: "category-dessert" },
 ];
-const menus = [
-  { name: "Buffet comida", price: "19,90 €", detail: "Lunes a viernes no festivos" },
-  { name: "Buffet noche", price: "24,90 €", detail: "Noches, fines de semana y festivos" },
-  { name: "Menú infantil", price: "12,50 €", detail: "Para los más pequeños" },
-];
+const menus = BUFFET_MENUS;
 const questions = [
   { question: "¿Cómo puedo reservar una mesa?", answer: <>Puedes <Link href="/reservas">reservar online</Link> o llamarnos al <a href="tel:+34676706776">{RESTAURANT.phone}</a>.</> },
   { question: "¿Las bebidas están incluidas?", answer: <>Las bebidas no están incluidas en el precio del buffet. Puedes consultar nuestra selección con el equipo del restaurante.</> },
@@ -42,7 +39,7 @@ export default function HomePage() {
           <div className="signature-image" role="img" aria-label="Especialidades a la parrilla" />
         </section>
         <section className="menus-section section-space">
-          <div className="section-top"><div><p className="eyebrow">Cada momento tiene su mesa</p><h2>Nuestros menús</h2><p className="section-description">Elige tu momento y disfruta de tus favoritos. Bebidas no incluidas.</p></div><Link href="/carta" className="button button-outline">Ver la carta completa <ArrowRight size={17} /></Link></div>
+          <div className="section-top"><div><p className="eyebrow">Cada momento tiene su mesa</p><h2>Nuestros menús</h2><p className="section-description">Tarifas desde el 23/11/2026. Bebidas no incluidas.</p></div><Link href="/carta" className="button button-outline">Ver la carta completa <ArrowRight size={17} /></Link></div>
           <div className="menu-summary">{menus.map(menu => <div className="menu-summary-item" key={menu.name}><Clock3 size={21} aria-hidden="true" /><div><h3>{menu.name} <span>· {menu.price}</span></h3><p>{menu.detail}</p></div></div>)}<a className="menu-summary-item" href={RESTAURANT.maps}><MapPin size={21} aria-hidden="true" /><div><h3>Dónde estamos</h3><p>{RESTAURANT.address}</p></div></a></div>
         </section>
         <section className="editorial-section" aria-label="La experiencia Karuma"><p>Sushi al momento.<br />El fuego de la <span className="inline-food inline-grill" role="img" aria-label="Plato a la brasa" /> brasa.<br />Una mesa para <span className="inline-food inline-sushi" role="img" aria-label="Sushi para compartir" /><br /><em>compartir sin prisa.</em></p><Link href="/restaurante" className="text-link">Así es Karuma <ArrowRight size={18} /></Link></section>
