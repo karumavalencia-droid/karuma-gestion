@@ -874,7 +874,7 @@ export default function ReservasPage() {
         {/* PASO 3: servicio */}
         {step === "servicio" && (
           <section>
-            <BotonVolver onClick={() => setStep("fecha")} />
+            <BotonVolver onClick={() => setStep("portada")} />
             <Kicker jp="昼か夜" es="Servicio" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿Comida o cena?
