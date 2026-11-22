@@ -113,19 +113,28 @@ export default function HoyPage() {
   const totalMesas = useMemo(() => loadMesas().length, []);
 
   const datos = useMemo(() => {
-    const del = reservas.filter((r) => r.servicio === servicio && !isTableBlockReservation(r));
+    const delServicio = reservas.filter((r) => r.servicio === servicio);
+    const del = delServicio.filter((r) => !isTableBlockReservation(r));
     const activas = del.filter((r) => isActiveReservation(r.estado));
     const enMesa = activas.filter(esEnMesa);
-    const porLlegar = activas.filter((r) => !esEnMesa(r));
+    // "llegada" = ya están en el local esperando mesa: no cuentan como retraso ni como posible no-show.
+    const esperando = activas.filter((r) => r.estado === "llegada");
+    const porLlegar = activas.filter((r) => !esEnMesa(r) && r.estado !== "llegada");
     const terminadas = del.filter((r) => r.estado === "finished");
     const sinLlegar = porLlegar.filter((r) => ahora - aMinutos(r.hora) > MINUTOS_TOLERANCIA);
     const pax = (l: ReservaLocal[]) => l.reduce((s, r) => s + getReservationGuests(r), 0);
     const mesasOcupadas = new Set(enMesa.flatMap((r) => r.mesaIds));
+    // Una mesa bloqueada ahora mismo tampoco está libre (los bloqueos no cuentan como clientes).
+    for (const b of delServicio) {
+      if (!isTableBlockReservation(b) || !isActiveReservation(b.estado)) continue;
+      const inicio = aMinutos(b.hora);
+      if (ahora >= inicio && ahora < inicio + (b.duracionMin ?? 90)) b.mesaIds.forEach((id) => mesasOcupadas.add(id));
+    }
     return {
       enMesa, porLlegar, terminadas, sinLlegar,
       paxEnMesa: pax(enMesa), paxPorLlegar: pax(porLlegar), paxTerminadas: pax(terminadas),
       mesasLibres: Math.max(0, totalMesas - mesasOcupadas.size),
-      proximas: [...porLlegar].sort((a, b) => a.hora.localeCompare(b.hora)),
+      proximas: [...porLlegar, ...esperando].sort((a, b) => a.hora.localeCompare(b.hora)),
       enUso: [...enMesa]
         .map((r) => {
           const inicio = r.seatedAt ? Math.floor((Date.now() - new Date(r.seatedAt).getTime()) / 60_000) : 0;
@@ -181,7 +190,8 @@ export default function HoyPage() {
             <ul className="divide-y divide-gray-100">
               {datos.proximas.map((r) => {
                 const retraso = ahora - aMinutos(r.hora);
-                const tarde = retraso > MINUTOS_TOLERANCIA;
+                const yaLlego = r.estado === "llegada";
+                const tarde = !yaLlego && retraso > MINUTOS_TOLERANCIA;
                 return (
                   <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
@@ -201,9 +211,9 @@ export default function HoyPage() {
                         No vino
                       </button>
                     )}
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${tarde ? "bg-rose-100 text-rose-700" : retraso >= 0 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${yaLlego ? "bg-emerald-100 text-emerald-700" : tarde ? "bg-rose-100 text-rose-700" : retraso >= 0 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"}`}>
                       {tarde && <AlertTriangle className="mr-1 inline h-3 w-3" />}
-                      {retraso >= 0 ? `Hace ${formatoMin(retraso)}` : `En ${formatoMin(retraso)}`}
+                      {yaLlego ? "Esperando mesa" : retraso >= 0 ? `Hace ${formatoMin(retraso)}` : `En ${formatoMin(retraso)}`}
                     </span>
                     </div>
                   </li>
