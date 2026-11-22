@@ -2,6 +2,7 @@
 
 import { restaurantDate } from "@/lib/reservas/view-time";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { X, Users, Clock, Plus, ArrowRightLeft, Lock } from "lucide-react";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { ResumenServicios } from "@/components/reservas/ResumenServicios";
@@ -169,8 +170,75 @@ const inp = "w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 tex
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// Reglas del plano compacto para tablet. Se aplican por tamaño de pantalla (p = "")
+// y de forma forzada en /tablet (p = ".mesa-force-tablet"), sin duplicar el CSS.
+function tabletRules(p: string): string {
+  return `
+          ${p}.mesa-page {
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+            padding: 0.75rem;
+          }
+          ${p} .mesa-page-inner {
+            display: flex;
+            height: 100%;
+            max-width: none;
+            flex-direction: column;
+          }
+          ${p} .mesa-tablet-hide {
+            display: none !important;
+          }
+          ${p} .mesa-tablet-toolbar {
+            display: flex !important;
+          }
+          ${p} .mesa-grid {
+            min-height: 0;
+            flex: 1 1 0%;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-rows: repeat(5, minmax(0, 1fr));
+            gap: 0.5rem;
+          }
+          ${p} .mesa-card {
+            min-height: 0;
+            overflow: hidden;
+            border-radius: 0.9rem;
+            padding: 0.65rem;
+          }
+          ${p} .mesa-card-status {
+            right: 0.4rem;
+            top: 0.4rem;
+            padding: 0.1rem 0.35rem;
+            font-size: 0.625rem;
+          }
+          ${p} .mesa-card-number {
+            font-size: 1.35rem;
+            line-height: 1.3;
+          }
+          ${p} .mesa-card-detail {
+            margin-top: 0.3rem;
+          }
+          ${p} .mesa-card-detail-name {
+            font-size: 0.82rem;
+            line-height: 1.15rem;
+          }
+          ${p} .mesa-card-detail-meta {
+            font-size: 0.72rem;
+            line-height: 1rem;
+          }
+          ${p} .mesa-status-full {
+            display: none;
+          }
+          ${p} .mesa-status-compact {
+            display: inline;
+          }
+`;
+}
+
 export default function MesaViewPage() {
-  const [fecha, setFecha]       = useState(getSharedFecha);
+  // /tablet: plano a pantalla completa del día de hoy, sin menús (para la tablet del local).
+  const isTablet = usePathname() === "/tablet";
+  const [fecha, setFecha]       = useState(() => (isTablet ? hoy() : getSharedFecha()));
   const [servicio, setServicio] = useState<ServicioLocal>(autoServicio);
   const [horaPlano, setHoraPlano] = useState(() => defaultHoraPlano(getSharedFecha(), autoServicio()));
   const [reservas, setReservas]   = useState<ReservaLocal[]>([]);
@@ -698,67 +766,10 @@ export default function MesaViewPage() {
   const wiShowPicker = wiGeneral || wiPersonas > wiPlazas || wiMesaIds.length > 1;
 
   return (
-    <div className="mesa-page min-h-full bg-[#f7f3ec] p-4 text-gray-900 md:p-6">
+    <div className={`mesa-page min-h-full bg-[#f7f3ec] p-4 text-gray-900 md:p-6${isTablet ? " mesa-force-tablet" : ""}`}>
       <style>{`
         @media (min-width: 768px) and (max-width: 1535px) {
-          .mesa-page {
-            height: 100%;
-            min-height: 0;
-            overflow: hidden;
-            padding: 0.75rem;
-          }
-          .mesa-page-inner {
-            display: flex;
-            height: 100%;
-            max-width: none;
-            flex-direction: column;
-          }
-          .mesa-tablet-hide {
-            display: none !important;
-          }
-          .mesa-tablet-toolbar {
-            display: flex !important;
-          }
-          .mesa-grid {
-            min-height: 0;
-            flex: 1 1 0%;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            grid-template-rows: repeat(5, minmax(0, 1fr));
-            gap: 0.5rem;
-          }
-          .mesa-card {
-            min-height: 0;
-            overflow: hidden;
-            border-radius: 0.9rem;
-            padding: 0.65rem;
-          }
-          .mesa-card-status {
-            right: 0.4rem;
-            top: 0.4rem;
-            padding: 0.1rem 0.35rem;
-            font-size: 0.625rem;
-          }
-          .mesa-card-number {
-            font-size: 1.35rem;
-            line-height: 1.3;
-          }
-          .mesa-card-detail {
-            margin-top: 0.3rem;
-          }
-          .mesa-card-detail-name {
-            font-size: 0.82rem;
-            line-height: 1.15rem;
-          }
-          .mesa-card-detail-meta {
-            font-size: 0.72rem;
-            line-height: 1rem;
-          }
-          .mesa-status-full {
-            display: none;
-          }
-          .mesa-status-compact {
-            display: inline;
-          }
+${tabletRules("")}
         }
         @media (min-width: 768px) and (max-width: 1535px) and (orientation: landscape) {
           .mesa-grid {
@@ -766,6 +777,13 @@ export default function MesaViewPage() {
             grid-template-rows: repeat(3, minmax(0, 1fr));
           }
         }
+        ${isTablet ? `${tabletRules(".mesa-force-tablet")}
+        @media (orientation: landscape) {
+          .mesa-force-tablet .mesa-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            grid-template-rows: repeat(3, minmax(0, 1fr));
+          }
+        }` : ""}
       `}</style>
       <div className="mesa-page-inner mx-auto max-w-5xl">
         <div className="mesa-tablet-hide">
@@ -778,9 +796,13 @@ export default function MesaViewPage() {
             <p className="text-base font-black leading-tight text-gray-900">Plano de mesas</p>
             <p className="truncate text-[11px] font-medium text-gray-500">{fechaLarga(fecha)} · Vista a las {horaPlano}</p>
           </div>
-          <button onClick={() => { setFecha(hoy()); setSharedFecha(hoy()); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold">Hoy</button>
-          <input aria-label="Fecha del plano" type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
-            className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold text-gray-700 focus:border-karuma-500 focus:outline-none" />
+          {!isTablet && (
+            <>
+              <button onClick={() => { setFecha(hoy()); setSharedFecha(hoy()); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold">Hoy</button>
+              <input aria-label="Fecha del plano" type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setSharedFecha(e.target.value); }}
+                className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold text-gray-700 focus:border-karuma-500 focus:outline-none" />
+            </>
+          )}
           <div className="flex overflow-hidden rounded-lg border border-gray-300">
             {(["comida", "cena"] as const).map((s) => (
               <button key={s} onClick={() => selectServicio(s)}
