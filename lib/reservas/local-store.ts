@@ -15,7 +15,7 @@ export const TABLES_KEY   = "karuma_tables_v4"; // v4: 21 mesas (vuelve T28), zo
 export const HORARIO_KEY  = "karuma_horario_v1";
 export const ESPERA_KEY   = "karuma_espera_v1";
 export const RESERVAS_CONFIG_KEY = "karuma_reservas_config_v1";
-export const MAX_DIAS     = 7;
+export const MAX_DIAS     = 30;
 export const SLOT_INTERVAL_MIN = 15;
 
 export type CanalLocal = "google" | "instagram" | "telefono" | "web" | "presencial" | "otro";

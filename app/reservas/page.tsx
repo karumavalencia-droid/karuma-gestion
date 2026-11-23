@@ -320,7 +320,7 @@ export default function ReservasPage() {
 
   const TELEFONO = config?.telefono?.replace(/\s/g, "") || FALLBACK_TEL;
   const WHATSAPP = config?.whatsapp?.replace(/\s/g, "") || FALLBACK_TEL;
-  const MAX_DIAS = 7; // máximo permitido por política del restaurante
+  const MAX_DIAS = 30; // se puede reservar hasta un mes antes
 
   const comidaInicio = hhmm(config?.comida_inicio) || "13:00";
   const comidaFin = "15:30";
@@ -329,9 +329,9 @@ export default function ReservasPage() {
   const horarioComida = `${comidaInicio} – ${comidaFin}`;
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
 
-  // Genera los días válidos (hoy + 7) para el selector visual, filtrados por días de apertura
+  // Genera los días válidos (hoy + 30) para el selector visual, filtrados por días de apertura
   const diasValidos = useMemo(() => {
-    const lista: { valor: string; etiqueta: string }[] = [];
+    const lista: { valor: string; etiqueta: string; arriba: string; num: number; mes: string }[] = [];
     const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     const DIAS_ES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 
@@ -354,7 +354,9 @@ export default function ReservasPage() {
         : i === 1
         ? `Mañana, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
         : `${DIAS_ES[d.getDay()].charAt(0).toUpperCase() + DIAS_ES[d.getDay()].slice(1)}, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`;
-      lista.push({ valor, etiqueta });
+      const DIAS_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const arriba = i === 0 ? "Hoy" : i === 1 ? "Mañana" : DIAS_CORTO[d.getDay()];
+      lista.push({ valor, etiqueta, arriba, num: d.getDate(), mes: MESES_ES[d.getMonth()].slice(0, 3) });
     }
     return lista;
   }, []);
@@ -552,17 +554,22 @@ export default function ReservasPage() {
             </p>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">¿Qué día?</p>
-            <div>
-              {diasValidos.map(({ valor, etiqueta }) => (
-                <button
-                  key={valor}
-                  onClick={() => { setFecha(valor); setHora(""); setServicio(null); setError(""); setStep("personas"); }}
-                  className="group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left text-stone-800 transition-colors last:border-b hover:text-karuma-700"
-                >
-                  <span className="text-base font-medium" style={{ fontFamily: SERIF }}>{etiqueta}</span>
-                  <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-karuma-700" />
-                </button>
-              ))}
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+              {diasValidos.map(({ valor, etiqueta, arriba, num, mes }) => {
+                const finde = ["Vie", "Sáb", "Dom"].includes(arriba) || esFestivo(valor);
+                return (
+                  <button
+                    key={valor}
+                    title={etiqueta}
+                    onClick={() => { setFecha(valor); setHora(""); setServicio(null); setError(""); setStep("personas"); }}
+                    className="flex flex-col items-center rounded-xl border border-[#ddd4c1] bg-white/60 py-2.5 transition-colors hover:border-karuma-700 hover:bg-white"
+                  >
+                    <span className={`text-[11px] uppercase tracking-wide ${finde ? "text-karuma-700" : "text-stone-400"}`}>{arriba}</span>
+                    <span className="text-2xl leading-tight text-stone-900" style={{ fontFamily: SERIF }}>{num}</span>
+                    <span className="text-[11px] text-stone-400">{mes}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="mt-5 rounded-xl border border-[#e2dac9] bg-white/40 p-4">

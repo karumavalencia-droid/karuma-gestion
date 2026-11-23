@@ -74,6 +74,8 @@ const TEXT_EN: Record<string, string> = {
   "Fecha": "Date",
   "¿Qué día reservas?": "Which day would you like to book?",
   "Hasta 7 días de antelación": "Book up to 7 days in advance",
+  "Mañana": "Tomorrow",
+  "Lun": "Mon", "Mar": "Tue", "Mié": "Wed", "Jue": "Thu", "Vie": "Fri", "Sáb": "Sat", "Dom": "Sun",
   "Servicio": "Service",
   "¿Comida o cena?": "Lunch or dinner?",
   "Comida": "Lunch",
