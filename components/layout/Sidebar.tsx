@@ -98,7 +98,7 @@ const NAV_ICONS: Record<ErpNavRoute, LucideIcon> = {
   "/configuracion": Settings,
 };
 
-const RESERVAS_ROUTES = ["/dashboard/hoy", "/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
+const RESERVAS_ROUTES = ["/dashboard/sala", "/dashboard/hoy", "/dashboard/reservas", "/dashboard/mesa-view", "/dashboard/clientes", "/dashboard/config"];
 
 // Cada proveedor tiene su ficha propia en /compras/<slug>. El slug sale del
 // registro de lib/compras/suppliers.ts, así que el menú no puede volver a
