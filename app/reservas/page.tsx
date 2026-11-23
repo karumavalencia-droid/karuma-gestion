@@ -330,7 +330,10 @@ export default function ReservasPage() {
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
 
   // Genera los días válidos (hoy + 30) para el selector visual, filtrados por días de apertura
-  const diasValidos = useMemo(() => {
+  // Se calcula solo en el navegador y con la fecha de Madrid: si se calcula en el servidor
+  // (UTC) cerca de medianoche saldría el día anterior.
+  const [diasValidos, setDiasValidos] = useState<{ valor: string; etiqueta: string; arriba: string; num: number; mes: string }[]>([]);
+  useEffect(() => { setDiasValidos((() => {
     const lista: { valor: string; etiqueta: string; arriba: string; num: number; mes: string }[] = [];
     const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     const DIAS_ES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
@@ -343,7 +346,8 @@ export default function ReservasPage() {
     } catch { /* usa default */ }
 
     for (let i = 0; i <= MAX_DIAS; i++) {
-      const d = new Date(); d.setDate(d.getDate() + i);
+      const hoyMadrid = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+      const d = new Date(`${hoyMadrid}T12:00:00`); d.setDate(d.getDate() + i);
       if (!diasAbiertos.includes(d.getDay())) continue; // día cerrado, omitir
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -359,7 +363,7 @@ export default function ReservasPage() {
       lista.push({ valor, etiqueta, arriba, num: d.getDate(), mes: MESES_ES[d.getMonth()].slice(0, 3) });
     }
     return lista;
-  }, []);
+  })()); }, []);
 
   // Carga las horas de comida y de cena a la vez: el cliente elige directamente la hora.
   async function cargarSlots(f: string, p: number) {
@@ -1152,6 +1156,7 @@ function Calendario({ validos, seleccion, onPick }: { validos: Set<string>; sele
   const primero = ordenados[0] ?? new Date().toISOString().slice(0, 10);
   const ultimo = ordenados[ordenados.length - 1] ?? primero;
   const [mes, setMes] = useState(() => (seleccion || primero).slice(0, 7)); // "YYYY-MM"
+  useEffect(() => { if (!seleccion && ordenados.length) setMes(primero.slice(0, 7)); }, [primero]); // eslint-disable-line react-hooks/exhaustive-deps
   const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const [y, m] = mes.split("-").map(Number);
   const diasMes = new Date(y, m, 0).getDate();
@@ -1159,6 +1164,7 @@ function Calendario({ validos, seleccion, onPick }: { validos: Set<string>; sele
   const mover = (n: number) => { const d = new Date(y, m - 1 + n, 1); setMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
   const puedeAtras = mes > primero.slice(0, 7);
   const puedeAdelante = mes < ultimo.slice(0, 7);
+  if (!validos.size) return <div className="h-72" aria-busy="true" />;
   const celdas: (string | null)[] = [...Array(offset).fill(null), ...Array.from({ length: diasMes }, (_, i) => `${mes}-${String(i + 1).padStart(2, "0")}`)];
   return (
     <div>
