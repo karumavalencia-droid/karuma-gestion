@@ -26,7 +26,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
 
 // Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
-// Mediodía = lunes a viernes de 13:00 a 16:30 → 19,90 €. Resto (tardes, noches,
+// Mediodía = lunes a viernes de 13:00 a 17:00 → 19,90 €. Resto (tardes, noches,
 // fines de semana y festivos) → 24,90 €. No detecta festivos puntuales (esos son 24,90 €).
 function precioBuffet(fecha: string, hora: string): string {
   if (!fecha || !hora) return "24,90 €";
@@ -525,7 +525,7 @@ export default function ReservasPage() {
               <MapPin className="h-3.5 w-3.5 text-karuma-700" /> {DIRECCION}
             </p>
             <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-karuma-700/30 bg-karuma-50/70 px-3 py-1 text-xs font-semibold text-karuma-700">
-              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–23:30
+              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–17:00 · 19:00–23:30
             </p>
           </div>
         </header>
@@ -603,13 +603,16 @@ export default function ReservasPage() {
                   <Clock className="h-3.5 w-3.5" /> Abierto todos los días
                 </p>
                 <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
-                  13:00 – 23:30
+                  13:00 – 17:00
+                </p>
+                <p className="mt-1 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
+                  19:00 – 23:30
                 </p>
                 <p className="mt-2 text-xs text-stone-500">Última reserva de comida: 15:30</p>
               </div>
               <div className="px-5 py-1">
                 {[
-                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
+                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 17:00", precio: "19,90 €" },
                   { t: "Noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
                   { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
                 ].map((p) => (
