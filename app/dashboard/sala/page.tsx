@@ -204,7 +204,7 @@ export default function SalaPage() {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(320px,420px)_1fr]">
+        <div className="mt-3 grid gap-3 md:grid-cols-[minmax(250px,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
           {/* Lista */}
           <div className="min-w-0 space-y-2 rounded-2xl bg-gray-50 p-2">
             {filtro === "espera"
