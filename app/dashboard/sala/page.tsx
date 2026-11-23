@@ -38,7 +38,6 @@ type Evento = { id: number; reserva_id: string; accion: string; detalle: string 
 type Espera = { id: string; nombre: string; telefono: string; personas: number; servicio: string; estado: string; created_at: string };
 
 const FECHA_KEY = "karuma_shared_fecha";
-const ZONAS = ["Interior", "Terraza", "Privado"];
 // Ventanas del cronograma (minutos desde medianoche)
 const VENTANA: Record<Vista, [number, number]> = { comida: [12 * 60, 17 * 60 + 30], cena: [19 * 60, 24 * 60 + 30], dia: [12 * 60, 24 * 60 + 30] };
 
@@ -207,7 +206,7 @@ export default function SalaPage() {
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(320px,420px)_1fr]">
           {/* Lista */}
-          <div className="space-y-2 rounded-2xl bg-gray-50 p-2">
+          <div className="min-w-0 space-y-2 rounded-2xl bg-gray-50 p-2">
             {filtro === "espera"
               ? (esperaVista.length ? esperaVista.map((e) => (
                   <div key={e.id} className="flex items-center gap-3 rounded-xl border-l-4 border-violet-400 bg-white p-3">
@@ -221,7 +220,7 @@ export default function SalaPage() {
           </div>
 
           {/* Plano o cronograma */}
-          <div className="rounded-2xl bg-gray-50 p-2">
+          <div className="min-w-0 rounded-2xl bg-gray-50 p-1.5 sm:p-2">
             {modo === "plano"
               ? <Plano mesas={mesas} delDia={delDia} vista={vista} hoy={fecha === restaurantDate()} onLibre={walkInEn} onSentar={sentar} onLiberar={liberar} />
               : <Cronograma mesas={loadMesas()} delDia={delDia} vista={vista} hoy={fecha === restaurantDate()} />}
@@ -279,47 +278,40 @@ function Fila({ r, eventos, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLo
 }
 const ACCION_TXT: Record<string, string> = { creada: "Creada", cambiada: "Cambiada", cancelada: "Cancelada", estado: "Estado", mesa: "Mesa" };
 
-// ── Plano: mesas por zonas ───────────────────────────────────────────────────
+// ── Plano: 21 mesas del salón, 3 filas de 7 ───────────────────────────────────────────────────
 function Plano({ mesas, delDia, vista, hoy, onLibre, onSentar, onLiberar }: {
   mesas: MesaConEstado[]; delDia: ReservaLocal[]; vista: Vista; hoy: boolean;
   onLibre: (m: MesaLocal) => void; onSentar: (r: ReservaLocal) => void; onLiberar: (r: ReservaLocal) => void;
 }) {
-  const zonas = useMemo(() => {
-    const z = [...ZONAS, ...mesas.map((m) => m.zona).filter((x) => !ZONAS.includes(x))];
-    return [...new Set(z)].map((n) => ({ n, l: mesas.filter((m) => m.zona === n).sort((a, b) => a.numero - b.numero) })).filter((x) => x.l.length);
-  }, [mesas]);
+  // Todas las mesas están en el salón: 3 filas de 7, en orden de número.
+  const ordenadas = useMemo(() => [...mesas].sort((a, b) => a.numero - b.numero), [mesas]);
   const ahora = nowMin();
   function siguiente(m: MesaConEstado): ReservaLocal | undefined {
     return delDia.filter((r) => r.mesaIds.includes(m.id) && (r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "llegada") && (vista === "dia" || r.servicio === vista) && r.id !== m.reserva?.id && (!hoy || toMin(r.hora) >= ahora - 15))
       .sort((a, b) => toMin(a.hora) - toMin(b.hora))[0];
   }
   return (
-    <div>
-      {zonas.map((z) => (
-        <div key={z.n} className="mb-3">
-          <div className="mb-1 px-1 text-xs uppercase tracking-wide text-gray-500">{z.n}</div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
-            {z.l.map((m) => {
-              const r = m.reserva;
-              const st = m.status;
-              const sig = siguiente(m);
-              const cls = st === "occupied" ? "border-emerald-800 bg-emerald-700 text-white" : st === "reserved" ? "border-emerald-300 bg-emerald-100 text-emerald-950" : "border-gray-200 bg-white text-gray-900";
-              const desde = st === "occupied" && r?.seatedAt ? Math.max(0, Math.round((Date.now() - Date.parse(r.seatedAt)) / 60000)) : null;
-              return (
-                <button key={m.id} onClick={() => (r ? (st === "occupied" ? (window.confirm(`¿${m.id}: ${r.nombre} se ha ido?`) && onLiberar(r)) : onSentar(r)) : hoy && onLibre(m))}
-                  className={`min-h-[96px] rounded-xl border p-2 text-left shadow-sm ${cls}`} title={r ? r.nombre : hoy ? "Libre — tocar para walk-in" : "Libre"}>
-                  <div className="text-xl font-extrabold leading-none">{m.id}</div>
-                  <div className="text-xs opacity-90">{r ? `${getReservationGuests(r)}/${m.capacidad}` : `${m.capacidad} plazas`}</div>
-                  {r && <div className="mt-1 text-xs font-semibold">{r.hora}</div>}
-                  {r && <div className="truncate text-xs">{r.nombre}</div>}
-                  {desde != null && <div className="text-[10px] opacity-90">en mesa {durTxt(desde)}</div>}
-                  {sig && <div className="mt-1 truncate rounded bg-black/10 px-1 text-[10px]">Luego: {sig.hora} {sig.nombre.split(" ")[0]}</div>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+    <div className="min-w-0">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        {ordenadas.map((m) => {
+          const r = m.reserva;
+          const st = m.status;
+          const sig = siguiente(m);
+          const cls = st === "occupied" ? "border-emerald-800 bg-emerald-700 text-white" : st === "reserved" ? "border-emerald-300 bg-emerald-100 text-emerald-950" : "border-gray-200 bg-white text-gray-900";
+          const desde = st === "occupied" && r?.seatedAt ? Math.max(0, Math.round((Date.now() - Date.parse(r.seatedAt)) / 60000)) : null;
+          return (
+            <button key={m.id} onClick={() => (r ? (st === "occupied" ? (window.confirm(`¿${m.id}: ${r.nombre} se ha ido?`) && onLiberar(r)) : onSentar(r)) : hoy && onLibre(m))}
+              className={`min-h-[72px] min-w-0 overflow-hidden rounded-lg border p-1 text-left shadow-sm sm:min-h-[96px] sm:rounded-xl sm:p-2 ${cls}`} title={r ? `${r.hora} ${r.nombre}` : hoy ? "Libre — tocar para walk-in" : "Libre"}>
+              <div className="text-sm font-extrabold leading-none sm:text-xl">{m.numero}</div>
+              <div className="text-[10px] opacity-80 sm:text-xs">{r ? `${getReservationGuests(r)}/${m.capacidad}` : <>{m.capacidad}<span className="hidden sm:inline"> plazas</span></>}</div>
+              {r && <div className="mt-0.5 text-[10px] font-semibold sm:text-xs">{r.hora}</div>}
+              {r && <div className="truncate text-[10px] sm:text-xs">{r.nombre}</div>}
+              {desde != null && <div className="hidden text-[10px] opacity-90 sm:block">en mesa {durTxt(desde)}</div>}
+              {sig && <div className="mt-0.5 truncate rounded bg-black/10 px-0.5 text-[9px] sm:px-1 sm:text-[10px]"><span className="hidden sm:inline">Luego: </span>{sig.hora}<span className="hidden sm:inline"> {sig.nombre.split(" ")[0]}</span></div>}
+            </button>
+          );
+        })}
+      </div>
       <div className="mt-2 flex flex-wrap gap-3 px-1 text-xs text-gray-500">
         <span><i className="mr-1 inline-block h-3 w-3 rounded border border-gray-300 bg-white align-middle" />Libre{hoy ? " (tocar = walk-in)" : ""}</span>
         <span><i className="mr-1 inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300 align-middle" />Reservada (tocar = sentar)</span>
@@ -337,7 +329,7 @@ function Cronograma({ mesas, delDia, vista, hoy }: { mesas: MesaLocal[]; delDia:
   const horas: number[] = [];
   for (let h = Math.ceil(a / 60); h * 60 <= b; h++) horas.push(h);
   const ahora = nowMin();
-  const ordenadas = [...mesas].sort((x, y) => ZONAS.indexOf(x.zona) - ZONAS.indexOf(y.zona) || x.numero - y.numero);
+  const ordenadas = [...mesas].sort((x, y) => x.numero - y.numero);
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[720px]">
@@ -348,7 +340,7 @@ function Cronograma({ mesas, delDia, vista, hoy }: { mesas: MesaLocal[]; delDia:
           const rs = delDia.filter((r) => r.mesaIds.includes(m.id) && isActiveOrDone(r) && (vista === "dia" || r.servicio === vista));
           return (
             <div key={m.id} className="flex items-center border-t border-gray-200">
-              <div className="w-14 py-2 text-sm font-bold">{m.id}<span className="ml-1 text-[10px] font-normal text-gray-500">{m.capacidad}</span></div>
+              <div className="w-14 py-2 text-sm font-bold">T{m.numero}<span className="ml-1 text-[10px] font-normal text-gray-500">{m.capacidad}</span></div>
               <div className="relative h-9 flex-1">
                 {horas.map((h) => <span key={h} className="absolute top-0 h-full border-l border-gray-200" style={{ left: pct(h * 60) }} />)}
                 {rs.map((r) => {
