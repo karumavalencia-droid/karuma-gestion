@@ -65,6 +65,9 @@ const INTENTIONALLY_UNLINKED = {
   "/restaurante": "web pública del restaurante (sin sidebar)",
   "/contacto": "web pública del restaurante (sin sidebar)",
   "/carta": "carta pública del restaurante (sin sidebar)",
+  "/reservas/gestionar":
+    "autogestión del cliente (sin id, sin sidebar)",
+  "/dashboard/sala": "subnav de Reservas (pestaña Sala)",
   "/reservas/gestionar/:id":
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 
