@@ -6,7 +6,7 @@ import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, Ch
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
 type Servicio = "comida" | "cena";
-type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
+type Step = "inicio" | "personas" | "hora" | "datos" | "confirmado";
 
 const DIRECCION = "C/ de Roger de Llòria, 2 · Valencia";
 const MAPS_QUERY = "Karuma Sushi & Grill, Carrer de Roger de Llòria, 2, Valencia";
@@ -253,12 +253,12 @@ export const CARTA: { cat: string; items: PlatoCarta[] }[] = [
 
 export default function ReservasPage() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
-  const [step, setStep] = useState<Step>("personas");
+  const [step, setStep] = useState<Step>("inicio");
   const [personas, setPersonas] = useState(0);
   const [fecha, setFecha] = useState("");
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [hora, setHora] = useState("");
-  const [slots, setSlots] = useState<{ hora: string; disponible: boolean }[]>([]);
+  const [slots, setSlots] = useState<{ hora: string; disponible: boolean; servicio: Servicio }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -278,6 +278,10 @@ export default function ReservasPage() {
   const [esperaError, setEsperaError] = useState("");
 
   async function apuntarseEspera() {
+    if (!servicio) {
+      setEsperaError("Elige comida o cena.");
+      return;
+    }
     if (!nombre.trim() || !telefono.trim()) {
       setEsperaError("Necesitamos tu nombre y teléfono para avisarte.");
       return;
@@ -355,16 +359,20 @@ export default function ReservasPage() {
     return lista;
   }, []);
 
-  async function cargarSlots(f: string, s: Servicio, p: number) {
+  // Carga las horas de comida y de cena a la vez: el cliente elige directamente la hora.
+  async function cargarSlots(f: string, p: number) {
     setLoadingSlots(true);
     setSlots([]);
     setEsperaForm(false);
     setEsperaOk(false);
     setEsperaError("");
     try {
-      const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
-      const data = await res.json();
-      setSlots(data.slots ?? []);
+      const partes = await Promise.all((["comida", "cena"] as Servicio[]).map(async (s) => {
+        const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        return ((data.slots ?? []) as { hora: string; disponible: boolean }[]).map((x) => ({ ...x, servicio: s }));
+      }));
+      setSlots(partes.flat());
     } catch {
       setSlots([]);
     } finally {
@@ -407,7 +415,7 @@ export default function ReservasPage() {
   }
 
   function reiniciar() {
-    setStep("personas");
+    setStep("inicio");
     setPersonas(0);
     setFecha("");
     setServicio(null);
@@ -494,7 +502,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────────────── LANDING / PORTADA ─────────────────────────────
-  if (step === "personas") {
+  if (step === "inicio") {
     return (
       <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
         {/* HERO */}
@@ -543,28 +551,16 @@ export default function ReservasPage() {
               En menos de un minuto · hasta {MAX_ONLINE_PARTY_SIZE} personas online
             </p>
 
-            <div className="grid grid-cols-3 gap-3">
-              {Array.from(
-                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
-                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
-              ).map((n) => (
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">¿Qué día?</p>
+            <div>
+              {diasValidos.map(({ valor, etiqueta }) => (
                 <button
-                  key={n}
-                  onClick={() => {
-                    setPersonas(n);
-                    setStep("fecha");
-                  }}
-                  className="group flex flex-col items-center justify-center rounded-xl border border-[#ddd4c1] bg-white/60 py-5 transition-colors hover:border-karuma-700 hover:bg-white"
+                  key={valor}
+                  onClick={() => { setFecha(valor); setHora(""); setServicio(null); setError(""); setStep("personas"); }}
+                  className="group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left text-stone-800 transition-colors last:border-b hover:text-karuma-700"
                 >
-                  <span
-                    className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700"
-                    style={{ fontFamily: SERIF }}
-                  >
-                    {n}
-                  </span>
-                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">
-                    {n === 1 ? "persona" : "personas"}
-                  </span>
+                  <span className="text-base font-medium" style={{ fontFamily: SERIF }}>{etiqueta}</span>
+                  <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-karuma-700" />
                 </button>
               ))}
             </div>
@@ -797,7 +793,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────── FLUJO DE RESERVA (pasos intermedios) ─────────────────────
-  const stepIndex = ["fecha", "servicio", "hora", "datos"].indexOf(step);
+  const stepIndex = ["fecha", "personas", "hora", "datos"].indexOf(step);
 
   return (
     <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
@@ -808,82 +804,59 @@ export default function ReservasPage() {
         </button>
         {/* Progreso */}
         <div className="mx-auto mt-4 flex max-w-[200px] gap-1.5">
-          {(["fecha", "servicio", "hora", "datos"] as Step[]).map((s, i) => (
+          {(["fecha", "personas", "hora", "datos"]).map((s, i) => (
             <div key={s} className={`h-0.5 flex-1 rounded-full transition-colors ${stepIndex >= i ? "bg-karuma-700" : "bg-[#ddd4c1]"}`} />
           ))}
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-6 py-9">
-        {/* PASO 2: fecha */}
-        {step === "fecha" && (
+        {/* PASO 2: personas */}
+        {step === "personas" && (
           <section>
-            <BotonVolver onClick={() => setStep("personas")} />
-            <Kicker jp="日にち" es="Fecha" />
+            <BotonVolver onClick={() => setStep("inicio")} />
+            <Kicker jp="人数" es="Personas" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              ¿Qué día reservas?
+              ¿Cuántos sois?
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">Hasta 7 días de antelación</p>
-
-            <div>
-              {diasValidos.map(({ valor, etiqueta }) => (
+            <p className="mb-6 mt-1 text-sm text-stone-500">{diasValidos.find((d) => d.valor === fecha)?.etiqueta ?? formatFecha(fecha)}</p>
+            <div className="grid grid-cols-3 gap-3">
+              {Array.from(
+                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
+                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
+              ).map((n) => (
                 <button
-                  key={valor}
-                  onClick={() => { setFecha(valor); setError(""); setStep("servicio"); }}
-                  className={`group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left transition-colors last:border-b ${
-                    fecha === valor ? "text-karuma-700" : "text-stone-800 hover:text-karuma-700"
-                  }`}
-                >
-                  <span className="text-base font-medium" style={{ fontFamily: SERIF }}>{etiqueta}</span>
-                  <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-karuma-700" />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* PASO 3: servicio */}
-        {step === "servicio" && (
-          <section>
-            <BotonVolver onClick={() => setStep("fecha")} />
-            <Kicker jp="昼か夜" es="Servicio" />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              ¿Comida o cena?
-            </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">{formatFecha(fecha)} · {personas} {personas === 1 ? "persona" : "personas"}</p>
-            <div className="grid grid-cols-2 gap-4">
-              {([
-                { s: "comida" as Servicio, jp: "昼", t: "Comida", h: horarioComida },
-                { s: "cena" as Servicio, jp: "夜", t: "Cena", h: horarioCena },
-              ]).map(({ s, jp, t, h }) => (
-                <button
-                  key={s}
-                  onClick={async () => {
-                    setServicio(s);
-                    await cargarSlots(fecha, s, personas);
+                  key={n}
+                  onClick={() => {
+                    setPersonas(n);
+                    setHora("");
+                    setServicio(null);
+                    void cargarSlots(fecha, n);
                     setStep("hora");
                   }}
-                  className="rounded-2xl border border-[#ddd4c1] bg-white/60 py-8 text-center transition-colors hover:border-karuma-700 hover:bg-white"
+                  className={`group flex flex-col items-center justify-center rounded-xl border py-5 transition-colors hover:border-karuma-700 hover:bg-white ${personas === n ? "border-karuma-700 bg-white" : "border-[#ddd4c1] bg-white/60"}`}
                 >
-                  <span className="text-sm text-stone-400" style={{ fontFamily: KANJI }} aria-hidden>{jp}</span>
-                  <p className="mt-2 text-2xl font-semibold text-stone-900" style={{ fontFamily: SERIF }}>{t}</p>
-                  <p className="mt-1.5 text-xs text-stone-500">{h}</p>
+                  <span className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700" style={{ fontFamily: SERIF }}>{n}</span>
+                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">{n === 1 ? "persona" : "personas"}</span>
                 </button>
               ))}
             </div>
+            <p className="mt-5 text-sm text-stone-500">
+              ¿Sois más de {MAX_ONLINE_PARTY_SIZE}? <a href={`tel:${TELEFONO}`} className="font-semibold text-karuma-700 underline">Llámanos</a> o escríbenos por <a href={`https://wa.me/${WHATSAPP.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-karuma-700 underline">WhatsApp</a>.
+            </p>
           </section>
         )}
 
         {/* PASO 4: hora */}
         {step === "hora" && (
           <section>
-            <BotonVolver onClick={() => setStep("servicio")} />
+            <BotonVolver onClick={() => setStep("personas")} />
             <Kicker jp="お時間" es="Hora" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿A qué hora?
             </h2>
             <p className="mb-6 mt-1 text-sm text-stone-500">
-              {formatFecha(fecha)} · {servicio === "comida" ? "Comida" : "Cena"} · {personas} {personas === 1 ? "persona" : "personas"}
+              {diasValidos.find((d) => d.valor === fecha)?.etiqueta ?? formatFecha(fecha)} · {personas} {personas === 1 ? "persona" : "personas"}
             </p>
             {loadingSlots ? (
               <div className="py-12 text-center">
@@ -906,6 +879,14 @@ export default function ReservasPage() {
                     <p className="mt-1 text-center text-sm text-stone-500">
                       Déjanos tu contacto y te avisamos si queda mesa libre.
                     </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {(["comida", "cena"] as Servicio[]).map((sv) => (
+                        <button key={sv} type="button" onClick={() => setServicio(sv)}
+                          className={`rounded-lg border py-2 text-sm font-semibold ${servicio === sv ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]" : "border-stone-300 text-stone-700"}`}>
+                          {sv === "comida" ? "Comida" : "Cena"}
+                        </button>
+                      ))}
+                    </div>
                     <div className="mt-5 space-y-4">
                       <input
                         type="text"
@@ -973,23 +954,35 @@ export default function ReservasPage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2.5">
-                {slots.map((s) =>
-                  s.disponible ? (
-                    <button
-                      key={s.hora}
-                      onClick={() => { setHora(s.hora); setStep("datos"); }}
-                      className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${
-                        hora === s.hora
-                          ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
-                          : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
-                      }`}
-                      style={{ fontFamily: SERIF }}
-                    >
-                      {s.hora}
-                    </button>
-                  ) : null,
-                )}
+              <div className="space-y-6">
+                {(["comida", "cena"] as Servicio[]).map((sv) => {
+                  const libres = slots.filter((x) => x.servicio === sv && x.disponible);
+                  if (!libres.length) return null;
+                  return (
+                    <div key={sv}>
+                      <p className="mb-2 flex items-baseline gap-2 text-sm font-semibold text-stone-700">
+                        <span className="text-stone-400" style={{ fontFamily: KANJI }} aria-hidden>{sv === "comida" ? "昼" : "夜"}</span>
+                        {sv === "comida" ? "Comida" : "Cena"}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {libres.map((x) => (
+                          <button
+                            key={`${sv}-${x.hora}`}
+                            onClick={() => { setServicio(sv); setHora(x.hora); setStep("datos"); }}
+                            className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${
+                              hora === x.hora && servicio === sv
+                                ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
+                                : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
+                            }`}
+                            style={{ fontFamily: SERIF }}
+                          >
+                            {x.hora}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
