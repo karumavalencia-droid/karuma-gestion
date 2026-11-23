@@ -5,6 +5,7 @@ import { mesasOcupadasEnSlot } from "@/lib/reservas/disponibilidad";
 import type { EstadoReserva, Reserva, ReservasConfig } from "@/lib/reservas/types";
 import type { DbReserva } from "@/lib/supabase/types";
 import { isReservationStaffRequest } from "@/lib/reservas/security";
+import { actorPersonal, estadoLegible, registrarEvento } from "@/lib/reservas/historial";
 
 const MESA_NO_DISPONIBLE_ERROR =
   "Esta mesa no está disponible: cada reserva bloquea la mesa al menos 1h30.";
@@ -181,6 +182,19 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  const partes: string[] = [];
+  if (update.fecha) partes.push(`día ${update.fecha}`);
+  if (update.hora_inicio) partes.push(`hora ${String(update.hora_inicio).slice(0, 5)}`);
+  if (update.personas) partes.push(`${update.personas} pers.`);
+  if (update.mesa_ids) partes.push(`mesa ${update.mesa_ids.join("+")}`);
+  if (update.estado) partes.push(estadoLegible(update.estado));
+  await registrarEvento(supabase, {
+    reservaId: id,
+    accion: action === "cambiar-mesa" ? "mesa" : action === "editar" ? "cambiada" : update.estado === "Cancelada" ? "cancelada" : "estado",
+    detalle: partes.join(" · "),
+    actor: await actorPersonal(req),
+  });
 
   return NextResponse.json({ ok: true });
 }

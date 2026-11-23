@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: ReservasConfig = {
   comida_inicio: "13:00",
   comida_fin: "15:30",
   cena_inicio: "19:00",
-  cena_fin: "22:00",
+  cena_fin: "22:15",
   telefono: "",
   whatsapp: "",
   google_review_link: null,
@@ -37,7 +37,7 @@ const DEFAULT_HORARIO: HorarioDia[] = [0, 1, 2, 3, 4, 5, 6].map((dia) => ({
   comida_fin:    "15:30",
   cena_activa: true,
   cena_inicio:   "19:00",
-  cena_fin:      "22:00",
+  cena_fin:      "22:15",
 }));
 
 interface CierreRow {

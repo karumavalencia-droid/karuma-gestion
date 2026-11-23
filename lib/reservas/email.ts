@@ -5,6 +5,7 @@ import {
   sendEmailViaResend,
   type EmailSendResult,
 } from "@/lib/email/send";
+import { enlaceGestionReserva, LIMITE_CAMBIO_CLIENTE_MIN } from "@/lib/reservas/cliente-token";
 
 // Se re-exporta porque las rutas de reservas y sus tests lo importan de aquí.
 export { gmailConfigurado };
@@ -60,9 +61,11 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
   const fecha = formatFecha(input.fecha);
   const servicio = input.servicio === "comida" ? "Comida" : "Cena";
   const mesa = input.mesaIds.length > 0 ? input.mesaIds.join(", ") : "Asignada";
+  const gestion = enlaceGestionReserva(input.reservaId);
+  const horasLimite = LIMITE_CAMBIO_CLIENTE_MIN / 60;
   const phoneLine = input.telefonoRestaurante
-    ? `Para cambiar o cancelar la reserva, llámanos al ${input.telefonoRestaurante}.`
-    : "Para cambiar o cancelar la reserva, contacta con el restaurante.";
+    ? `Puedes cambiar o cancelar tu reserva tú mismo hasta ${horasLimite} horas antes. Después, llámanos al ${input.telefonoRestaurante}.`
+    : `Puedes cambiar o cancelar tu reserva tú mismo hasta ${horasLimite} horas antes.`;
 
   const subject = `Confirmación de reserva - ${RESTAURANT_NAME}`;
   const text = [
@@ -80,6 +83,7 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
     RESTAURANT_ADDRESS,
     MAPS_URL,
     "",
+    `Cambiar o cancelar: ${gestion}`,
     phoneLine,
   ].join("\n");
 
@@ -102,6 +106,9 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
       <p style="font-weight:700;margin-bottom:4px">${escapeHtml(RESTAURANT_NAME)}</p>
       <p style="margin:0 0 8px;color:#4b5563">${escapeHtml(RESTAURANT_ADDRESS)}</p>
       <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicación en Google Maps</a></p>
+      <p style="margin:24px 0 8px">
+        <a href="${escapeHtml(gestion)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">Cambiar o cancelar mi reserva</a>
+      </p>
       <p style="font-size:13px;color:#6b7280">${escapeHtml(phoneLine)}</p>
     </div>
   `;
@@ -149,9 +156,10 @@ function buildReviewEmail(input: ReservationReviewInput) {
 function buildReminderEmail(input: ReservationReminderInput) {
   const nombre = input.nombre.trim() || "cliente";
   const fecha = formatFecha(input.fecha);
+  const gestion = enlaceGestionReserva(input.reservaId);
   const phoneLine = input.telefonoRestaurante
-    ? `Si no puedes venir, avísanos o cancela llamando al ${input.telefonoRestaurante}.`
-    : "Si no puedes venir, avísanos o cancela contactando con el restaurante.";
+    ? `Si no puedes venir, cancela o cambia la hora aquí: ${gestion} (o llámanos al ${input.telefonoRestaurante}).`
+    : `Si no puedes venir, cancela o cambia la hora aquí: ${gestion}`;
 
   const subject = `Recordatorio: tu reserva de mañana - ${RESTAURANT_NAME}`;
   const text = [
@@ -187,6 +195,9 @@ function buildReminderEmail(input: ReservationReminderInput) {
       <p style="font-weight:700;margin-bottom:4px">${escapeHtml(RESTAURANT_NAME)}</p>
       <p style="margin:0 0 8px;color:#4b5563">${escapeHtml(RESTAURANT_ADDRESS)}</p>
       <p style="margin:0 0 20px"><a href="${MAPS_URL}" style="color:#b42318">Ver ubicación en Google Maps</a></p>
+      <p style="margin:24px 0 8px">
+        <a href="${escapeHtml(gestion)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">Cambiar o cancelar</a>
+      </p>
       <p style="font-size:13px;color:#6b7280">${escapeHtml(phoneLine)}</p>
     </div>
   `;

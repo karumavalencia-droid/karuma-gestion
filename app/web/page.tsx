@@ -12,7 +12,8 @@ const categories = [
 ];
 const menus = [
   { name: "Buffet comida", price: "19,90 €", detail: "Lunes a viernes no festivos" },
-  { name: "Buffet noche", price: "24,90 €", detail: "Noches, fines de semana y festivos" },
+  { name: "Buffet noche", price: "24,90 €", detail: "Noches de lunes a jueves" },
+  { name: "Buffet fin de semana", price: "26,50 €", detail: "Viernes noche, sábado, domingo y festivos" },
   { name: "Menú infantil", price: "12,50 €", detail: "Para los más pequeños" },
 ];
 const questions = [

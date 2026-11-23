@@ -8,7 +8,7 @@ const STORAGE_KEY = "karuma-reservation-language";
 
 const TEXT_EN: Record<string, string> = {
   "Cocina japonesa, brasa y buffet libre en el corazón de Valencia.": "Japanese cuisine, charcoal grill and all-you-can-eat buffet in the heart of Valencia.",
-  "Todos los días · 13:00–23:30": "Every day · 13:00–23:30",
+  "Todos los días · 13:00–17:00 · 19:00–23:30": "Every day · 13:00–17:00 · 19:00–23:30",
   "Reserva": "Booking",
   "Reserva tu mesa": "Book your table",
   "persona": "guest",
@@ -19,8 +19,12 @@ const TEXT_EN: Record<string, string> = {
   "Abierto todos los días": "Open every day",
   "Última reserva de comida: 15:30": "Last lunch booking: 15:30",
   "Mediodía": "Lunch",
-  "Lunes a viernes · 13:00 – 16:30": "Monday to Friday · 13:00 – 16:30",
+  "Lunes a viernes · 13:00 – 17:00": "Monday to Friday · 13:00 – 17:00",
   "Noche, fines de semana y festivos": "Evening, weekends & public holidays",
+  "Noche": "Dinner",
+  "Lunes a jueves · 19:00 – 23:30": "Monday to Thursday · 19:00 – 23:30",
+  "Fin de semana y festivos": "Weekends & public holidays",
+  "Viernes noche, sábado, domingo y festivos": "Friday evening, Saturday, Sunday & public holidays",
   "Niños": "Children",
   "Menú infantil": "Kids menu",
   "Buffet libre · bebidas no incluidas.": "All-you-can-eat buffet · drinks not included.",
@@ -46,6 +50,23 @@ const TEXT_EN: Record<string, string> = {
   "Abrir en Google Maps": "Open in Google Maps",
   "Teléfono": "Phone",
   "Volver": "Back",
+  "Tu reserva": "Your booking",
+  "Cambiar fecha, hora o personas": "Change date, time or guests",
+  "Cancelar reserva": "Cancel booking",
+  "Reserva cancelada": "Booking cancelled",
+  "¿Seguro que quieres cancelar la reserva?": "Are you sure you want to cancel your booking?",
+  "Sí, cancelar": "Yes, cancel",
+  "Día": "Day",
+  "Hoy": "Today",
+  "Confirmar cambio": "Confirm change",
+  "Cargando…": "Loading…",
+  "Enlace no válido": "Invalid link",
+  "Ese servicio está cerrado.": "That service is closed.",
+  "No quedan horas libres. Prueba otro día o servicio.": "No times left. Try another day or service.",
+  "Tu reserva se ha cancelado. ¡Esperamos verte pronto!": "Your booking has been cancelled. We hope to see you soon!",
+  "¡Listo! Tu reserva se ha cambiado.": "Done! Your booking has been changed.",
+  "Esta reserva ya no se puede modificar.": "This booking can no longer be changed.",
+  "No encontramos esta reserva. Si necesitas ayuda, llama al restaurante.": "We couldn't find this booking. If you need help, call the restaurant.",
   "Fecha": "Date",
   "¿Qué día reservas?": "Which day would you like to book?",
   "Hasta 7 días de antelación": "Book up to 7 days in advance",
@@ -124,6 +145,8 @@ function englishText(value: string): string {
   text = text.replace(/^Si queda una mesa libre para (\d+) persona(s)? te\s*llamaremos o escribiremos por WhatsApp al (.+)\.$/, "If a table becomes available for $1 guest$2, we’ll call or message you on WhatsApp at $3.");
   text = text.replace(/(\d+) personas\b/g, "$1 guests").replace(/(\d+) persona\b/g, "$1 guest");
   text = text.replace(/\/ persona\b/g, "/ guest");
+  text = text.replace(/^Hola (.+)$/, "Hi $1");
+  text = text.replace(/^Puedes cambiarla o cancelarla hasta (\d+) horas antes\.$/, "You can change or cancel it up to $1 hours before.");
   text = text.replace(/^Hoy, /, "Today, ").replace(/^Mañana, /, "Tomorrow, ");
   for (const [es, en] of Object.entries(DAYS)) text = text.replace(new RegExp(`^${es}, `), `${en}, `);
   for (const [es, en] of Object.entries(MONTHS)) text = text.replace(new RegExp(` de ${es}\\b`, "g"), ` ${en}`);
