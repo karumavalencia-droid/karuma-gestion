@@ -3,7 +3,7 @@ import type { HorarioDia, ReservasConfig } from "./types";
 // Horario de apertura del local; ultimoPase es la última hora aceptada para reservar.
 export const APERTURA = {
   comida: { inicio: "13:00", ultimoPase: "15:30" },
-  cena: { inicio: "19:00", ultimoPase: "22:00", cierre: "23:30" },
+  cena: { inicio: "19:00", ultimoPase: "22:15", cierre: "23:30" },
 } as const;
 
 function minutos(hora: string): number {
@@ -32,7 +32,7 @@ export function reservaDentroDeHorario(
   const ultimoPaseConfig = servicio === "comida" ? config.comida_fin : config.cena_fin;
   const horaMin = minutos(hora);
   // El restaurante puede seguir abierto después del último pase de reservas.
-  // Comida: último pase 15:30. Cena: último pase 22:00.
+  // Comida: último pase 15:30. Cena: último pase 22:15.
   return Number.isFinite(horaMin) && Number.isFinite(duracionMin)
     && horaMin >= Math.max(minutos(apertura.inicio), minutos(inicio))
     && horaMin <= Math.min(minutos(ultimoPaseConfig), minutos(apertura.ultimoPase));

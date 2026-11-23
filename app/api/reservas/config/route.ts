@@ -19,7 +19,7 @@ export async function GET() {
       comida_inicio: "13:00",
       comida_fin: "15:30",
       cena_inicio: "19:00",
-      cena_fin: "22:00",
+      cena_fin: "22:15",
     });
   }
 
@@ -44,7 +44,7 @@ export async function GET() {
       comida_inicio: "13:00",
       comida_fin: "15:30",
       cena_inicio: "19:00",
-      cena_fin: "22:00",
+      cena_fin: "22:15",
     },
   );
 }

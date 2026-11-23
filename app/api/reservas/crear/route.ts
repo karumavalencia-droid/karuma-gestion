@@ -12,6 +12,7 @@ import {
   isReservationStaffRequest,
   reservationCreationNeedsStaff,
 } from "@/lib/reservas/security";
+import { actorPersonal, registrarEvento } from "@/lib/reservas/historial";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -267,6 +268,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Error al crear reserva" }, { status: 500 });
     }
     reservaId = reserva.id;
+  }
+
+  if (!reusedReserva) {
+    await registrarEvento(supabase, {
+      reservaId,
+      accion: "creada",
+      detalle: isTableBlock
+        ? `Bloqueo ${fecha} ${hora} · mesa ${mesaIds.join("+")}`
+        : `${fecha} ${hora} · ${personasReserva} pers.${mesaIds.length ? ` · mesa ${mesaIds.join("+")}` : ""} · ${origen === "online" ? "web" : origen === "walkin" ? "walk-in" : origen === "telefono" ? "teléfono" : "manual"}`,
+      actor: origen === "online" ? "cliente (web)" : await actorPersonal(req),
+    });
   }
 
   if (!isTableBlock && clienteId && !reusedReserva) {

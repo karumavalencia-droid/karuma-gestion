@@ -10,6 +10,9 @@ const PUBLIC_RESERVATION_API_REQUESTS = new Set([
   "GET /api/reservas/disponibilidad",
   "POST /api/reservas/crear",
   "POST /api/reservas/lista-espera",
+  // Enlace del cliente para cambiar o cancelar (protegido por la firma del enlace)
+  "GET /api/reservas/cliente",
+  "POST /api/reservas/cliente",
 ]);
 
 const RESERVATION_ORIGINS = new Set(["online", "telefono", "walkin", "manual"]);

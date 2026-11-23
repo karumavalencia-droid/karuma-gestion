@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { EstadoReserva } from "@/lib/reservas/types";
 import { isReservationStaffRequest } from "@/lib/reservas/security";
+import { actorPersonal, estadoLegible, registrarEvento } from "@/lib/reservas/historial";
 
 function mapLocalToSb(estado: string): EstadoReserva {
   switch (estado) {
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest) {
     .eq("id", id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message });
+  if (actual?.estado !== nuevoEstado) {
+    await registrarEvento(sb, {
+      reservaId: id,
+      accion: nuevoEstado === "Cancelada" ? "cancelada" : "estado",
+      detalle: `${estadoLegible(actual?.estado)} → ${estadoLegible(nuevoEstado)}`,
+      actor: await actorPersonal(req),
+    });
+  }
 
   // Mantener el contador de no-shows del cliente al entrar o salir del estado NoShow.
   const clienteId = actual?.cliente_id;

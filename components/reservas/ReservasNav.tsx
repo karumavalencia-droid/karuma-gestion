@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, LayoutDashboard, LayoutGrid, LogOut, Settings, Tablet, Users } from "lucide-react";
+import { CalendarCheck, LayoutDashboard, LayoutGrid, LogOut, Settings, Tablet, Users, Armchair } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 // Dentro del ERP: pestañas de Reservas con Hoy y Clientes.
 const TABS_ERP = [
+  { href: "/dashboard/sala", label: "Sala", icon: Armchair },
   { href: "/dashboard/hoy", label: "Hoy", icon: LayoutDashboard },
   { href: "/dashboard/reservas", label: "Lista", icon: CalendarCheck },
   { href: "/dashboard/mesa-view", label: "Mesas", icon: LayoutGrid },

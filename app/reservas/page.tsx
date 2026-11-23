@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { esFestivo } from "@/lib/reservas/festivos";
 import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock } from "lucide-react";
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
@@ -26,14 +27,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
 
 // Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
-// Mediodía = lunes a viernes de 13:00 a 16:30 → 19,90 €. Resto (tardes, noches,
-// fines de semana y festivos) → 24,90 €. No detecta festivos puntuales (esos son 24,90 €).
+// Mediodía de lunes a viernes (13:00–17:00) → 19,90 €. Noche de lunes a jueves → 24,90 €.
+// Viernes noche, sábado, domingo y festivos (nacionales, autonómicos y locales de València) → 26,50 €.
 function precioBuffet(fecha: string, hora: string): string {
   if (!fecha || !hora) return "24,90 €";
   const dow = new Date(fecha + "T12:00:00").getDay(); // 0=Dom … 6=Sáb
   const [h, m] = hora.split(":").map(Number);
-  const esMediodiaLaborable = dow >= 1 && dow <= 5 && h * 60 + m < 16 * 60 + 30;
-  return esMediodiaLaborable ? "19,90 €" : "24,90 €";
+  const mediodia = h * 60 + m < 17 * 60;
+  if (dow === 0 || dow === 6 || (dow === 5 && !mediodia) || esFestivo(fecha)) return "26,50 €";
+  return mediodia ? "19,90 €" : "24,90 €";
 }
 
 interface PublicConfig {
@@ -319,7 +321,7 @@ export default function ReservasPage() {
   const comidaInicio = hhmm(config?.comida_inicio) || "13:00";
   const comidaFin = "15:30";
   const cenaInicio = "19:00";
-  const cenaFin = hhmm(config?.cena_fin) || "22:00";
+  const cenaFin = hhmm(config?.cena_fin) || "22:15";
   const horarioComida = `${comidaInicio} – ${comidaFin}`;
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
 
@@ -525,7 +527,7 @@ export default function ReservasPage() {
               <MapPin className="h-3.5 w-3.5 text-karuma-700" /> {DIRECCION}
             </p>
             <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-karuma-700/30 bg-karuma-50/70 px-3 py-1 text-xs font-semibold text-karuma-700">
-              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–23:30
+              <Clock className="h-3.5 w-3.5" /> Todos los días · 13:00–17:00 · 19:00–23:30
             </p>
           </div>
         </header>
@@ -603,14 +605,18 @@ export default function ReservasPage() {
                   <Clock className="h-3.5 w-3.5" /> Abierto todos los días
                 </p>
                 <p className="mt-2 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
-                  13:00 – 23:30
+                  13:00 – 17:00
+                </p>
+                <p className="mt-1 text-[1.9rem] font-semibold leading-none text-stone-900" style={{ fontFamily: SERIF }}>
+                  19:00 – 23:30
                 </p>
                 <p className="mt-2 text-xs text-stone-500">Última reserva de comida: 15:30</p>
               </div>
               <div className="px-5 py-1">
                 {[
-                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 16:30", precio: "19,90 €" },
-                  { t: "Noche, fines de semana y festivos", sub: "", precio: "24,90 €" },
+                  { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 17:00", precio: "19,90 €" },
+                  { t: "Noche", sub: "Lunes a jueves · 19:00 – 23:30", precio: "24,90 €" },
+                  { t: "Fin de semana y festivos", sub: "Viernes noche, sábado, domingo y festivos", precio: "26,50 €" },
                   { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
                 ].map((p) => (
                   <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
