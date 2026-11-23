@@ -6,7 +6,7 @@
 // Todas las acciones usan las mismas APIs y el mismo almacén local que «Lista» y «Mesas».
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mic, Zap, Plus, ChevronLeft, ChevronRight, Footprints } from "lucide-react";
+import { Mic, Zap, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { ReservasNav } from "@/components/reservas/ReservasNav";
 import { restaurantDate } from "@/lib/reservas/view-time";
@@ -162,18 +162,18 @@ export default function SalaPage() {
   return (
     <div className="mx-auto max-w-[1500px] px-3 pb-10 sm:px-5">
       <ReservasNav />
-      <div className="rounded-3xl bg-[#1b1514] p-3 text-[#f3e9e1] sm:p-5">
+      <div className="rounded-[1.5rem] border border-white/70 bg-white p-3 text-gray-900 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-5">
         <QuickBar fecha={fecha} onDone={(d) => { if (d && d !== fecha) setFecha(d); else void reload(); }} aviso={aviso} />
 
         {/* Fecha */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar cliente o teléfono"
-            className="min-w-[200px] flex-1 rounded-full border border-[#3a2f2d] bg-[#241c1b] px-4 py-2 text-sm text-[#f3e9e1] placeholder:text-[#8a7a70]" />
-          <Link href="/dashboard/reservas" className="rounded-full bg-[#f5c518] px-4 py-2 text-sm font-semibold text-[#111]"><Plus className="mr-1 inline h-4 w-4" />Reserva completa</Link>
-          <div className="flex items-center gap-1 rounded-full border border-[#3a2f2d] bg-[#241c1b] px-2 py-1">
+            className="min-w-[200px] flex-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-900 placeholder:text-gray-400" />
+          <Link href="/dashboard/reservas" className="rounded-full bg-karuma-600 px-4 py-2 text-sm font-bold text-white hover:bg-karuma-700"><Plus className="mr-1 inline h-4 w-4" />Reserva completa</Link>
+          <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1">
             <button className="p-1" onClick={() => setFecha(addDays(fecha, -1))} aria-label="Día anterior"><ChevronLeft className="h-4 w-4" /></button>
-            <input type="date" value={fecha} onChange={(e) => e.target.value && setFecha(e.target.value)} className="bg-transparent text-sm font-semibold text-[#f3e9e1] [color-scheme:dark]" />
-            {fecha !== restaurantDate() && <button className="rounded-full bg-[#3a2f2d] px-2 text-xs" onClick={() => setFecha(restaurantDate())}>Hoy</button>}
+            <input type="date" value={fecha} onChange={(e) => e.target.value && setFecha(e.target.value)} className="bg-transparent text-sm font-semibold text-gray-900" />
+            {fecha !== restaurantDate() && <button className="rounded-full bg-gray-100 px-2 text-xs font-semibold" onClick={() => setFecha(restaurantDate())}>Hoy</button>}
             <button className="p-1" onClick={() => setFecha(addDays(fecha, 1))} aria-label="Día siguiente"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
@@ -183,9 +183,9 @@ export default function SalaPage() {
           {([["comida", "Mediodía"], ["cena", "Noche"], ["dia", "Día completo"]] as [Vista, string][]).map(([v, t]) => {
             const s = resumen(v === "dia" ? undefined : v);
             return (
-              <button key={v} onClick={() => setVista(v)} className={`rounded-2xl border p-3 text-left ${vista === v ? "border-[#f5c518] bg-[#3a2a1f]" : "border-[#3a2f2d] bg-[#241c1b]"}`}>
-                <div className={`font-bold ${vista === v ? "text-[#f5c518]" : ""}`}>{t}</div>
-                <div className="text-sm text-[#c8bcb4]">{s.n} reservas · {s.pax} pers.</div>
+              <button key={v} onClick={() => setVista(v)} className={`rounded-2xl border p-3 text-left ${vista === v ? "border-karuma-300 bg-karuma-50" : "border-gray-200 bg-white"}`}>
+                <div className={`font-bold ${vista === v ? "text-karuma-700" : "text-gray-900"}`}>{t}</div>
+                <div className="text-sm text-gray-500">{s.n} reservas · {s.pax} pers.</div>
               </button>
             );
           })}
@@ -194,34 +194,34 @@ export default function SalaPage() {
         {/* Filtros + Plano/Cronograma */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {([["todas", "Todas"], ["confirmada", "Reservada"], ["sentada", "En mesa"], ["pendiente", "Pendiente"], ["espera", "Lista de espera"], ["cancelada", "Canceladas"]] as [Filtro, string][]).map(([f, t]) => (
-            <button key={f} onClick={() => setFiltro(f)} className={`rounded-full border px-3 py-1 text-sm ${filtro === f ? "border-[#f3e9e1] bg-[#f3e9e1] text-[#111]" : "border-[#3a2f2d] text-[#e6dcd4]"}`}>
+            <button key={f} onClick={() => setFiltro(f)} className={`rounded-full border px-3 py-1 text-sm ${filtro === f ? "border-tinta bg-tinta text-white" : "border-gray-200 bg-white text-gray-700"}`}>
               {t}{count(f) ? <span className="ml-1 opacity-70">{count(f)}</span> : null}
             </button>
           ))}
-          <div className="ml-auto flex rounded-full border border-[#3a2f2d] bg-[#241c1b] p-1">
+          <div className="ml-auto flex rounded-full border border-gray-200 bg-white p-1">
             {([["plano", "Plano"], ["crono", "Cronograma"]] as ["plano" | "crono", string][]).map(([m, t]) => (
-              <button key={m} onClick={() => setModo(m)} className={`rounded-full px-4 py-1 text-sm font-semibold ${modo === m ? "bg-[#f5c518] text-[#111]" : "text-[#c8bcb4]"}`}>{t}</button>
+              <button key={m} onClick={() => setModo(m)} className={`rounded-full px-4 py-1 text-sm font-semibold ${modo === m ? "bg-tinta text-white" : "text-gray-500"}`}>{t}</button>
             ))}
           </div>
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(320px,420px)_1fr]">
           {/* Lista */}
-          <div className="space-y-2 rounded-2xl bg-[#241c1b] p-2">
+          <div className="space-y-2 rounded-2xl bg-gray-50 p-2">
             {filtro === "espera"
               ? (esperaVista.length ? esperaVista.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-xl border-l-4 border-[#7c6cf0] bg-[#2c2322] p-3">
-                    <div className="flex-1"><div className="font-semibold">{e.nombre}</div><div className="text-xs text-[#a89a92]">{e.telefono} · {e.servicio === "cena" ? "Cena" : "Comida"}</div></div>
+                  <div key={e.id} className="flex items-center gap-3 rounded-xl border-l-4 border-violet-400 bg-white p-3">
+                    <div className="flex-1"><div className="font-semibold">{e.nombre}</div><div className="text-xs text-gray-500">{e.telefono} · {e.servicio === "cena" ? "Cena" : "Comida"}</div></div>
                     <div className="font-semibold">{e.personas} pers.</div>
                   </div>
-                )) : <p className="p-4 text-sm text-[#a89a92]">Nadie en lista de espera.</p>)
+                )) : <p className="p-4 text-sm text-gray-500">Nadie en lista de espera.</p>)
               : (lista.length ? lista.map((r) => (
                   <Fila key={r.id} r={r} eventos={historial[r.id] ?? []} hoy={fecha === restaurantDate()} onSentar={() => sentar(r)} onLiberar={() => liberar(r)} onNoShow={() => noShow(r)} />
-                )) : <p className="p-4 text-sm text-[#a89a92]">No hay reservas para este filtro.</p>)}
+                )) : <p className="p-4 text-sm text-gray-500">No hay reservas para este filtro.</p>)}
           </div>
 
           {/* Plano o cronograma */}
-          <div className="rounded-2xl bg-[#241c1b] p-2">
+          <div className="rounded-2xl bg-gray-50 p-2">
             {modo === "plano"
               ? <Plano mesas={mesas} delDia={delDia} vista={vista} hoy={fecha === restaurantDate()} onLibre={walkInEn} onSentar={sentar} onLiberar={liberar} />
               : <Cronograma mesas={loadMesas()} delDia={delDia} vista={vista} hoy={fecha === restaurantDate()} />}
@@ -243,33 +243,33 @@ function Fila({ r, eventos, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLo
   const porCliente = eventos.filter((e) => e.actor === "cliente");
   const ultimoCliente = porCliente[porCliente.length - 1];
   return (
-    <div className="rounded-xl bg-[#2c2322]">
-    <div className={`flex items-center gap-3 rounded-xl border-l-4 bg-[#2c2322] p-3 ${enMesa ? "border-[#1fbf6a]" : hecho ? "border-[#5a4a44] opacity-60" : tarde ? "border-[#ff6b6b]" : "border-[#f5a623]"}`}>
+    <div className="rounded-xl bg-white shadow-sm">
+    <div className={`flex items-center gap-3 rounded-xl border-l-4 bg-white p-3 ${enMesa ? "border-emerald-600" : hecho ? "border-gray-300 opacity-60" : tarde ? "border-karuma-500" : "border-emerald-300"}`}>
       <div className="w-12 text-center text-lg font-bold">{r.mesaIds.length ? mesaLabel(r.mesaIds).replace(/T/g, "") : "—"}</div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-semibold">{r.hora} {r.nombre}</div>
-        <div className="truncate text-xs text-[#a89a92]">
+        <div className="truncate text-xs text-gray-500">
           {ESTADO_TXT[r.estado] ?? r.estado}{r.telefono ? ` · ${r.telefono}` : ""}{tarde ? " · ¡no ha llegado!" : ""}{desde != null ? ` · en mesa ${durTxt(desde)}` : ""}
         </div>
-        {r.notas ? <div className="truncate text-xs text-[#f5c518]">{r.notas}</div> : null}
-        {ultimoCliente && <div className="truncate text-xs font-semibold text-[#7cc4ff]">El cliente {ultimoCliente.accion === "cancelada" ? "canceló" : "cambió"}: {ultimoCliente.detalle}</div>}
-        {eventos.length > 0 && <button onClick={() => setAbierto(!abierto)} className="text-[11px] text-[#a89a92] underline">{abierto ? "Ocultar historial" : `Historial (${eventos.length})`}</button>}
+        {r.notas ? <div className="truncate text-xs text-amber-700">{r.notas}</div> : null}
+        {ultimoCliente && <div className="truncate text-xs font-semibold text-sky-700">El cliente {ultimoCliente.accion === "cancelada" ? "canceló" : "cambió"}: {ultimoCliente.detalle}</div>}
+        {eventos.length > 0 && <button onClick={() => setAbierto(!abierto)} className="text-[11px] text-gray-500 underline">{abierto ? "Ocultar historial" : `Historial (${eventos.length})`}</button>}
       </div>
       <div className="whitespace-nowrap font-semibold">{getReservationGuests(r)} pers.</div>
       {(r.estado === "confirmada" || r.estado === "llegada" || r.estado === "pendiente") && (
         <div className="flex flex-col gap-1">
-          <button onClick={onSentar} className="rounded-lg bg-[#1fbf6a] px-3 py-2 text-sm font-semibold text-white">Sentar</button>
-          {tarde && <button onClick={onNoShow} className="rounded-lg border border-[#5a4a44] px-2 py-0.5 text-xs">No show</button>}
+          <button onClick={onSentar} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">Sentar</button>
+          {tarde && <button onClick={onNoShow} className="rounded-lg border border-gray-300 px-2 py-0.5 text-xs">No show</button>}
         </div>
       )}
-      {enMesa && <button onClick={onLiberar} className="rounded-lg border border-[#5a4a44] px-3 py-2 text-sm">Se fue</button>}
+      {enMesa && <button onClick={onLiberar} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">Se fue</button>}
     </div>
     {abierto && (
-      <ul className="space-y-0.5 px-4 pb-3 text-xs text-[#c8bcb4]">
+      <ul className="space-y-0.5 px-4 pb-3 text-xs text-gray-500">
         {eventos.map((e) => (
           <li key={e.id}>
-            <span className="text-[#8a7a70]">{new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(e.created_at))}</span>
-            {" · "}<b>{ACCION_TXT[e.accion] ?? e.accion}</b>{e.detalle ? ` · ${e.detalle}` : ""}{" · "}<span className={e.actor === "cliente" ? "text-[#7cc4ff]" : ""}>{e.actor}</span>
+            <span className="text-gray-500">{new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(e.created_at))}</span>
+            {" · "}<b>{ACCION_TXT[e.accion] ?? e.accion}</b>{e.detalle ? ` · ${e.detalle}` : ""}{" · "}<span className={e.actor === "cliente" ? "text-sky-700" : ""}>{e.actor}</span>
           </li>
         ))}
       </ul>
@@ -297,33 +297,33 @@ function Plano({ mesas, delDia, vista, hoy, onLibre, onSentar, onLiberar }: {
     <div>
       {zonas.map((z) => (
         <div key={z.n} className="mb-3">
-          <div className="mb-1 px-1 text-xs uppercase tracking-wide text-[#a89a92]">{z.n}</div>
+          <div className="mb-1 px-1 text-xs uppercase tracking-wide text-gray-500">{z.n}</div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2">
             {z.l.map((m) => {
               const r = m.reserva;
               const st = m.status;
               const sig = siguiente(m);
-              const cls = st === "occupied" ? "bg-[#1f8f55]" : st === "reserved" ? "bg-[#d0821c]" : "bg-[#5b4639]";
+              const cls = st === "occupied" ? "border-emerald-800 bg-emerald-700 text-white" : st === "reserved" ? "border-emerald-300 bg-emerald-100 text-emerald-950" : "border-gray-200 bg-white text-gray-900";
               const desde = st === "occupied" && r?.seatedAt ? Math.max(0, Math.round((Date.now() - Date.parse(r.seatedAt)) / 60000)) : null;
               return (
                 <button key={m.id} onClick={() => (r ? (st === "occupied" ? (window.confirm(`¿${m.id}: ${r.nombre} se ha ido?`) && onLiberar(r)) : onSentar(r)) : hoy && onLibre(m))}
-                  className={`min-h-[96px] rounded-xl p-2 text-left text-white ${cls}`} title={r ? r.nombre : hoy ? "Libre — tocar para walk-in" : "Libre"}>
+                  className={`min-h-[96px] rounded-xl border p-2 text-left shadow-sm ${cls}`} title={r ? r.nombre : hoy ? "Libre — tocar para walk-in" : "Libre"}>
                   <div className="text-xl font-extrabold leading-none">{m.id}</div>
                   <div className="text-xs opacity-90">{r ? `${getReservationGuests(r)}/${m.capacidad}` : `${m.capacidad} plazas`}</div>
                   {r && <div className="mt-1 text-xs font-semibold">{r.hora}</div>}
                   {r && <div className="truncate text-xs">{r.nombre}</div>}
                   {desde != null && <div className="text-[10px] opacity-90">en mesa {durTxt(desde)}</div>}
-                  {sig && <div className="mt-1 truncate rounded bg-black/25 px-1 text-[10px]">Luego: {sig.hora} {sig.nombre.split(" ")[0]}</div>}
+                  {sig && <div className="mt-1 truncate rounded bg-black/10 px-1 text-[10px]">Luego: {sig.hora} {sig.nombre.split(" ")[0]}</div>}
                 </button>
               );
             })}
           </div>
         </div>
       ))}
-      <div className="mt-2 flex flex-wrap gap-3 px-1 text-xs text-[#c8bcb4]">
-        <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#5b4639] align-middle" />Libre{hoy ? " (tocar = walk-in)" : ""}</span>
-        <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#d0821c] align-middle" />Reservada (tocar = sentar)</span>
-        <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#1f8f55] align-middle" />En mesa</span>
+      <div className="mt-2 flex flex-wrap gap-3 px-1 text-xs text-gray-500">
+        <span><i className="mr-1 inline-block h-3 w-3 rounded border border-gray-300 bg-white align-middle" />Libre{hoy ? " (tocar = walk-in)" : ""}</span>
+        <span><i className="mr-1 inline-block h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300 align-middle" />Reservada (tocar = sentar)</span>
+        <span><i className="mr-1 inline-block h-3 w-3 rounded bg-emerald-700 align-middle" />En mesa</span>
       </div>
     </div>
   );
@@ -341,28 +341,28 @@ function Cronograma({ mesas, delDia, vista, hoy }: { mesas: MesaLocal[]; delDia:
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[720px]">
-        <div className="relative ml-14 h-6 text-[10px] text-[#a89a92]">
+        <div className="relative ml-14 h-6 text-[10px] text-gray-500">
           {horas.map((h) => <span key={h} className="absolute -translate-x-1/2" style={{ left: pct(h * 60) }}>{String(h % 24).padStart(2, "0")}:00</span>)}
         </div>
         {ordenadas.map((m) => {
           const rs = delDia.filter((r) => r.mesaIds.includes(m.id) && isActiveOrDone(r) && (vista === "dia" || r.servicio === vista));
           return (
-            <div key={m.id} className="flex items-center border-t border-[#3a2f2d]">
-              <div className="w-14 py-2 text-sm font-bold">{m.id}<span className="ml-1 text-[10px] font-normal text-[#a89a92]">{m.capacidad}</span></div>
+            <div key={m.id} className="flex items-center border-t border-gray-200">
+              <div className="w-14 py-2 text-sm font-bold">{m.id}<span className="ml-1 text-[10px] font-normal text-gray-500">{m.capacidad}</span></div>
               <div className="relative h-9 flex-1">
-                {horas.map((h) => <span key={h} className="absolute top-0 h-full border-l border-[#3a2f2d]/60" style={{ left: pct(h * 60) }} />)}
+                {horas.map((h) => <span key={h} className="absolute top-0 h-full border-l border-gray-200" style={{ left: pct(h * 60) }} />)}
                 {rs.map((r) => {
                   const ini = toMin(r.hora) < 6 * 60 ? toMin(r.hora) + 1440 : toMin(r.hora);
                   const fin = ini + (r.duracionMin ?? 90);
-                  const color = isTableBlockReservation(r) ? "bg-[#7a3b46]" : ocupada(r) ? "bg-[#1f8f55]" : r.estado === "finished" ? "bg-[#4a3f3b]" : "bg-[#d0821c]";
+                  const color = isTableBlockReservation(r) ? "bg-rose-200 text-rose-950" : ocupada(r) ? "bg-emerald-700 text-white" : r.estado === "finished" ? "bg-gray-200 text-gray-500" : "bg-emerald-200 text-emerald-950";
                   return (
-                    <div key={r.id} title={`${r.hora} ${r.nombre} · ${getReservationGuests(r)} pers.`} className={`absolute top-1 bottom-1 overflow-hidden rounded-md px-1 text-[11px] leading-7 text-white ${color}`}
+                    <div key={r.id} title={`${r.hora} ${r.nombre} · ${getReservationGuests(r)} pers.`} className={`absolute top-1 bottom-1 overflow-hidden rounded-md px-1 text-[11px] font-semibold leading-7 ${color}`}
                       style={{ left: pct(ini), width: `calc(${pct(Math.min(fin, b))} - ${pct(ini)})` }}>
                       {r.hora} {isTableBlockReservation(r) ? "Bloqueo" : `${r.nombre.split(" ")[0]} · ${getReservationGuests(r)}`}
                     </div>
                   );
                 })}
-                {hoy && ahora >= a && ahora <= b && <span className="absolute top-0 h-full w-0.5 bg-[#ff6b6b]" style={{ left: pct(ahora) }} />}
+                {hoy && ahora >= a && ahora <= b && <span className="absolute top-0 h-full w-0.5 bg-karuma-500" style={{ left: pct(ahora) }} />}
               </div>
             </div>
           );
@@ -457,19 +457,19 @@ function QuickBar({ fecha, onDone, aviso }: { fecha: string; onDone: (fecha?: st
     <form onSubmit={(e) => { e.preventDefault(); void enviar(); }}>
       <div className="flex flex-wrap gap-2">
         <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Reserva rápida: escribe todo seguido, en cualquier orden. Ej.: Ana 612345678 4 pers mañana 20:30"
-          className="min-w-[260px] flex-1 rounded-2xl border-2 border-[#f5c518] bg-white px-4 py-3 text-base text-[#111] placeholder:text-[#8a7a70]" />
+          className="w-full rounded-2xl border-2 sm:w-auto sm:min-w-[260px] sm:flex-1 border-gray-200 bg-white px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-karuma-400 focus:outline-none" />
         {micOk && <>
-          <button type="button" onClick={() => mic("zh-CN")} className={`rounded-2xl border-2 px-4 py-3 font-bold ${escuchando === "zh-CN" ? "border-red-500 bg-red-500 text-white" : "border-[#f5c518] text-[#f5c518]"}`}><Mic className="mr-1 inline h-4 w-4" />{escuchando === "zh-CN" ? "■" : "Chino"}</button>
-          <button type="button" onClick={() => mic("es-ES")} className={`rounded-2xl border-2 px-4 py-3 font-bold ${escuchando === "es-ES" ? "border-red-500 bg-red-500 text-white" : "border-[#f5c518] text-[#f5c518]"}`}><Mic className="mr-1 inline h-4 w-4" />{escuchando === "es-ES" ? "■" : "ES"}</button>
+          <button type="button" onClick={() => mic("zh-CN")} className={`flex-1 rounded-2xl border-2 px-3 py-3 font-bold sm:flex-none ${escuchando === "zh-CN" ? "border-karuma-600 bg-karuma-600 text-white" : "border-gray-200 bg-white text-gray-700"}`}><Mic className="mr-1 inline h-4 w-4" />{escuchando === "zh-CN" ? "■" : "Chino"}</button>
+          <button type="button" onClick={() => mic("es-ES")} className={`flex-1 rounded-2xl border-2 px-3 py-3 font-bold sm:flex-none ${escuchando === "es-ES" ? "border-karuma-600 bg-karuma-600 text-white" : "border-gray-200 bg-white text-gray-700"}`}><Mic className="mr-1 inline h-4 w-4" />{escuchando === "es-ES" ? "■" : "ES"}</button>
         </>}
-        <button type="submit" disabled={enviando} className="rounded-2xl bg-[#f5c518] px-5 py-3 font-bold text-[#111] disabled:opacity-60"><Zap className="mr-1 inline h-4 w-4" />Reservar</button>
+        <button type="submit" disabled={enviando} className="flex-1 rounded-2xl bg-karuma-600 px-5 py-3 font-bold sm:flex-none text-white hover:bg-karuma-700 disabled:opacity-60"><Zap className="mr-1 inline h-4 w-4" />Reservar</button>
       </div>
-      <div className="mt-1 px-1 text-xs text-[#a89a92]">nombre · teléfono · personas · hora (y día, si no es hoy) <Footprints className="ml-2 inline h-3 w-3" /> mesa libre en el plano = walk-in</div>
+      <div className="mt-1 px-1 text-xs text-gray-500">Nombre · teléfono · personas · hora (y día, si no es hoy). Mesa libre en el plano = walk-in.</div>
       {(msg || libres.length > 0) && (
-        <div className="mt-2 rounded-xl bg-[#3a2a1f] px-3 py-2 text-sm text-[#f5d76e]">
+        <div className="mt-2 rounded-xl bg-karuma-50 px-3 py-2 text-sm text-karuma-800">
           {msg}
           {libres.length > 0 && <span className="ml-2">Horas libres más cercanas:</span>}
-          {libres.map((h) => <button key={h} type="button" onClick={() => { const t = `${texto} ${h}`; setTexto(t); void enviar(t.replace(/\b\d{1,2}[:.h]\d{2}\b(?=.*\b\d{1,2}[:.h]\d{2}\b)/, "")); }} className="ml-2 rounded-full bg-[#f5c518] px-3 py-0.5 font-semibold text-[#111]">{h}</button>)}
+          {libres.map((h) => <button key={h} type="button" onClick={() => { const t = `${texto} ${h}`; setTexto(t); void enviar(t.replace(/\b\d{1,2}[:.h]\d{2}\b(?=.*\b\d{1,2}[:.h]\d{2}\b)/, "")); }} className="ml-2 rounded-full bg-karuma-600 px-3 py-0.5 font-semibold text-white">{h}</button>)}
         </div>
       )}
     </form>
