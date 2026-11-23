@@ -34,6 +34,7 @@ import {
 
 type Vista = ServicioLocal | "dia";
 type Filtro = "todas" | "confirmada" | "sentada" | "pendiente" | "espera" | "cancelada";
+type Evento = { id: number; reserva_id: string; accion: string; detalle: string | null; actor: string; created_at: string };
 type Espera = { id: string; nombre: string; telefono: string; personas: number; servicio: string; estado: string; created_at: string };
 
 const FECHA_KEY = "karuma_shared_fecha";
@@ -62,6 +63,7 @@ export default function SalaPage() {
   const [espera, setEspera] = useState<Espera[]>([]);
   const [mesas, setMesas] = useState<MesaConEstado[]>([]);
   const [toast, setToast] = useState("");
+  const [historial, setHistorial] = useState<Record<string, Evento[]>>({});
   const [, setTick] = useState(0);
 
   // ── Carga ──────────────────────────────────────────────────────────────────
@@ -79,6 +81,14 @@ export default function SalaPage() {
       .then((r) => (r.ok ? r.json() : { entradas: [] }))
       .then((d: { entradas?: Espera[] }) => setEspera(d.entradas ?? []))
       .catch(() => setEspera([]));
+    fetch(`/api/reservas/historial?fecha=${fecha}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { eventos: [] }))
+      .then((d: { eventos?: Evento[] }) => {
+        const m: Record<string, Evento[]> = {};
+        for (const e of d.eventos ?? []) (m[e.reserva_id] ??= []).push(e);
+        setHistorial(m);
+      })
+      .catch(() => setHistorial({}));
   }, [fecha, recalcMesas]);
 
   useEffect(() => { try { localStorage.setItem(FECHA_KEY, fecha); } catch { /* sin almacenamiento */ } }, [fecha]);
@@ -206,7 +216,7 @@ export default function SalaPage() {
                   </div>
                 )) : <p className="p-4 text-sm text-[#a89a92]">Nadie en lista de espera.</p>)
               : (lista.length ? lista.map((r) => (
-                  <Fila key={r.id} r={r} hoy={fecha === restaurantDate()} onSentar={() => sentar(r)} onLiberar={() => liberar(r)} onNoShow={() => noShow(r)} />
+                  <Fila key={r.id} r={r} eventos={historial[r.id] ?? []} hoy={fecha === restaurantDate()} onSentar={() => sentar(r)} onLiberar={() => liberar(r)} onNoShow={() => noShow(r)} />
                 )) : <p className="p-4 text-sm text-[#a89a92]">No hay reservas para este filtro.</p>)}
           </div>
 
@@ -224,12 +234,16 @@ export default function SalaPage() {
 }
 
 // ── Una fila de la lista ─────────────────────────────────────────────────────
-function Fila({ r, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLocal; hoy: boolean; onSentar: () => void; onLiberar: () => void; onNoShow: () => void }) {
+function Fila({ r, eventos, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLocal; eventos: Evento[]; hoy: boolean; onSentar: () => void; onLiberar: () => void; onNoShow: () => void }) {
   const tarde = hoy && (r.estado === "confirmada" || r.estado === "pendiente") && nowMin() - toMin(r.hora) > 15;
   const enMesa = ocupada(r);
   const hecho = r.estado === "finished" || r.estado === "no-show" || r.estado === "cancelada";
   const desde = enMesa && r.seatedAt ? Math.max(0, Math.round((Date.now() - Date.parse(r.seatedAt)) / 60000)) : null;
+  const [abierto, setAbierto] = useState(false);
+  const porCliente = eventos.filter((e) => e.actor === "cliente");
+  const ultimoCliente = porCliente[porCliente.length - 1];
   return (
+    <div className="rounded-xl bg-[#2c2322]">
     <div className={`flex items-center gap-3 rounded-xl border-l-4 bg-[#2c2322] p-3 ${enMesa ? "border-[#1fbf6a]" : hecho ? "border-[#5a4a44] opacity-60" : tarde ? "border-[#ff6b6b]" : "border-[#f5a623]"}`}>
       <div className="w-12 text-center text-lg font-bold">{r.mesaIds.length ? mesaLabel(r.mesaIds).replace(/T/g, "") : "—"}</div>
       <div className="min-w-0 flex-1">
@@ -238,6 +252,8 @@ function Fila({ r, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLocal; hoy:
           {ESTADO_TXT[r.estado] ?? r.estado}{r.telefono ? ` · ${r.telefono}` : ""}{tarde ? " · ¡no ha llegado!" : ""}{desde != null ? ` · en mesa ${durTxt(desde)}` : ""}
         </div>
         {r.notas ? <div className="truncate text-xs text-[#f5c518]">{r.notas}</div> : null}
+        {ultimoCliente && <div className="truncate text-xs font-semibold text-[#7cc4ff]">El cliente {ultimoCliente.accion === "cancelada" ? "canceló" : "cambió"}: {ultimoCliente.detalle}</div>}
+        {eventos.length > 0 && <button onClick={() => setAbierto(!abierto)} className="text-[11px] text-[#a89a92] underline">{abierto ? "Ocultar historial" : `Historial (${eventos.length})`}</button>}
       </div>
       <div className="whitespace-nowrap font-semibold">{getReservationGuests(r)} pers.</div>
       {(r.estado === "confirmada" || r.estado === "llegada" || r.estado === "pendiente") && (
@@ -248,8 +264,20 @@ function Fila({ r, hoy, onSentar, onLiberar, onNoShow }: { r: ReservaLocal; hoy:
       )}
       {enMesa && <button onClick={onLiberar} className="rounded-lg border border-[#5a4a44] px-3 py-2 text-sm">Se fue</button>}
     </div>
+    {abierto && (
+      <ul className="space-y-0.5 px-4 pb-3 text-xs text-[#c8bcb4]">
+        {eventos.map((e) => (
+          <li key={e.id}>
+            <span className="text-[#8a7a70]">{new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(e.created_at))}</span>
+            {" · "}<b>{ACCION_TXT[e.accion] ?? e.accion}</b>{e.detalle ? ` · ${e.detalle}` : ""}{" · "}<span className={e.actor === "cliente" ? "text-[#7cc4ff]" : ""}>{e.actor}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+    </div>
   );
 }
+const ACCION_TXT: Record<string, string> = { creada: "Creada", cambiada: "Cambiada", cancelada: "Cancelada", estado: "Estado", mesa: "Mesa" };
 
 // ── Plano: mesas por zonas ───────────────────────────────────────────────────
 function Plano({ mesas, delDia, vista, hoy, onLibre, onSentar, onLiberar }: {
