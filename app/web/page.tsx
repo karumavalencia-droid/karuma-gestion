@@ -4,6 +4,14 @@ import { PublicShell, ReservationCta, RESTAURANT } from "@/components/public/Pub
 
 export const metadata = { title: "Karuma Sushi & Grill · Valencia", description: "Sushi, brasa y una mesa para compartir en el centro de Valencia.", alternates: { canonical: "https://www.karuma.es" } };
 
+// Cartel de Navidad: visible hasta el 1 de enero de 2027 incluido (hora de Madrid).
+export const revalidate = 3600;
+const NAVIDAD_HASTA = "2027-01-01";
+function mostrarNavidad() {
+  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+  return hoy <= NAVIDAD_HASTA;
+}
+
 const categories = [
   { name: "Sushi", description: "Rolls, nigiris y tus favoritos", image: "/images/karuma/restosuite/046-crazy-salmon.jpg", className: "category-sushi" },
   { name: "Brasa", description: "El sabor de nuestra parrilla", image: "/images/karuma/restosuite/029-entrecort.jpeg", className: "category-grill" },
@@ -34,6 +42,24 @@ export default function HomePage() {
             <div className="hero-bottom"><h1>Karuma<br className="hero-break" /> sushi &amp; brasa</h1><Link href="/carta" className="button button-light">Ver la carta <ArrowRight size={18} /></Link></div>
           </div>
         </section>
+        {mostrarNavidad() && (
+          <section className="christmas-section section-space" aria-label="Menú especial de Navidad y Año Nuevo">
+            <Link href="/reservas" className="christmas-poster"><img src="/images/karuma/navidad-2026.jpg" alt="Menú especial Karuma: 24 de diciembre noche, 25 de diciembre, 31 de diciembre noche y 1 de enero, 29,90 € por persona" width={1122} height={1402} loading="lazy" /></Link>
+            <div className="christmas-copy">
+              <p className="eyebrow">Navidad y Año Nuevo</p>
+              <h2>Abrimos en las fiestas</h2>
+              <p>Celebra con nosotros Nochebuena, Navidad, Nochevieja y Año Nuevo con nuestro menú especial.</p>
+              <ul>
+                <li><span>24 de diciembre</span><span>Noche</span></li>
+                <li><span>25 de diciembre</span><span>Comida y cena</span></li>
+                <li><span>31 de diciembre</span><span>Noche</span></li>
+                <li><span>1 de enero</span><span>Comida y cena</span></li>
+              </ul>
+              <p className="christmas-price">29,90 € <small>/ persona · bebidas no incluidas</small></p>
+              <Link href="/reservas" className="button button-outline">Reserva tu mesa <ArrowRight size={17} /></Link>
+            </div>
+          </section>
+        )}
         <section className="buffet-section section-space">
           <div className="section-top"><div><p className="eyebrow">Para probar y repetir</p><h2>Nuestro buffet</h2></div><Link href="/carta" className="button button-outline">Descubre la carta <ArrowRight size={17} /></Link></div>
           <div className="category-grid">{categories.map((category) => <Link key={category.name} href="/carta" className={`category-card ${category.className}`} style={{ backgroundImage: `url(${category.image})` }}><div><h3>{category.name}</h3><p>{category.description}</p></div><ArrowRight size={21} aria-hidden="true" /></Link>)}</div>
