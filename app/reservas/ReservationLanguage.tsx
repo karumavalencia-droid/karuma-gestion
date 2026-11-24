@@ -50,6 +50,13 @@ const TEXT_EN: Record<string, string> = {
   "Abrir en Google Maps": "Open in Google Maps",
   "Teléfono": "Phone",
   "Volver": "Back",
+  "Fecha de reserva": "Booking date",
+  "Pers.": "Guests",
+  "Fin de semana y festivos · 26,50 €": "Weekends & public holidays · 26,50 €",
+  "¿Qué día?": "Which day?",
+  "¿Cuántos sois?": "How many guests?",
+  "Llámanos": "Call us",
+  "Elige comida o cena.": "Choose lunch or dinner.",
   "Tu reserva": "Your booking",
   "Cambiar fecha, hora o personas": "Change date, time or guests",
   "Cancelar reserva": "Cancel booking",
@@ -70,6 +77,8 @@ const TEXT_EN: Record<string, string> = {
   "Fecha": "Date",
   "¿Qué día reservas?": "Which day would you like to book?",
   "Hasta 7 días de antelación": "Book up to 7 days in advance",
+  "Mañana": "Tomorrow",
+  "Lun": "Mon", "Mar": "Tue", "Mié": "Wed", "Jue": "Thu", "Vie": "Fri", "Sáb": "Sat", "Dom": "Sun",
   "Servicio": "Service",
   "¿Comida o cena?": "Lunch or dinner?",
   "Comida": "Lunch",
@@ -146,6 +155,9 @@ function englishText(value: string): string {
   text = text.replace(/(\d+) personas\b/g, "$1 guests").replace(/(\d+) persona\b/g, "$1 guest");
   text = text.replace(/\/ persona\b/g, "/ guest");
   text = text.replace(/^Hola (.+)$/, "Hi $1");
+  text = text.replace(/^(\d+) pers\.$/, "$1 guests");
+  { const M: Record<string, string> = { Enero: "January", Febrero: "February", Marzo: "March", Abril: "April", Mayo: "May", Junio: "June", Julio: "July", Agosto: "August", Septiembre: "September", Octubre: "October", Noviembre: "November", Diciembre: "December" };
+    text = text.replace(/^(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre) (\d{4})$/, (_, a, b) => `${M[a]} ${b}`); }
   text = text.replace(/^Puedes cambiarla o cancelarla hasta (\d+) horas antes\.$/, "You can change or cancel it up to $1 hours before.");
   text = text.replace(/^Hoy, /, "Today, ").replace(/^Mañana, /, "Tomorrow, ");
   for (const [es, en] of Object.entries(DAYS)) text = text.replace(new RegExp(`^${es}, `), `${en}, `);

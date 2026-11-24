@@ -17,7 +17,7 @@ import type { HorarioDia, Mesa, Reserva, ReservasConfig } from "@/lib/reservas/t
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const MAX_DIAS = 7;
+const MAX_DIAS = 30;
 
 function madridAhora() {
   const s = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());

@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { esFestivo } from "@/lib/reservas/festivos";
-import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock, CalendarDays, Users } from "lucide-react";
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
 type Servicio = "comida" | "cena";
-type Step = "personas" | "fecha" | "servicio" | "hora" | "datos" | "confirmado";
+type Step = "inicio" | "personas" | "hora" | "datos" | "confirmado";
 
 const DIRECCION = "C/ de Roger de Llòria, 2 · Valencia";
 const MAPS_QUERY = "Karuma Sushi & Grill, Carrer de Roger de Llòria, 2, Valencia";
@@ -253,12 +253,12 @@ export const CARTA: { cat: string; items: PlatoCarta[] }[] = [
 
 export default function ReservasPage() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
-  const [step, setStep] = useState<Step>("personas");
+  const [step, setStep] = useState<Step>("inicio");
   const [personas, setPersonas] = useState(0);
   const [fecha, setFecha] = useState("");
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [hora, setHora] = useState("");
-  const [slots, setSlots] = useState<{ hora: string; disponible: boolean }[]>([]);
+  const [slots, setSlots] = useState<{ hora: string; disponible: boolean; servicio: Servicio }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -278,6 +278,10 @@ export default function ReservasPage() {
   const [esperaError, setEsperaError] = useState("");
 
   async function apuntarseEspera() {
+    if (!servicio) {
+      setEsperaError("Elige comida o cena.");
+      return;
+    }
     if (!nombre.trim() || !telefono.trim()) {
       setEsperaError("Necesitamos tu nombre y teléfono para avisarte.");
       return;
@@ -316,7 +320,7 @@ export default function ReservasPage() {
 
   const TELEFONO = config?.telefono?.replace(/\s/g, "") || FALLBACK_TEL;
   const WHATSAPP = config?.whatsapp?.replace(/\s/g, "") || FALLBACK_TEL;
-  const MAX_DIAS = 7; // máximo permitido por política del restaurante
+  const MAX_DIAS = 30; // se puede reservar hasta un mes antes
 
   const comidaInicio = hhmm(config?.comida_inicio) || "13:00";
   const comidaFin = "15:30";
@@ -325,9 +329,12 @@ export default function ReservasPage() {
   const horarioComida = `${comidaInicio} – ${comidaFin}`;
   const horarioCena = `${cenaInicio} – ${cenaFin}`;
 
-  // Genera los días válidos (hoy + 7) para el selector visual, filtrados por días de apertura
-  const diasValidos = useMemo(() => {
-    const lista: { valor: string; etiqueta: string }[] = [];
+  // Genera los días válidos (hoy + 30) para el selector visual, filtrados por días de apertura
+  // Se calcula solo en el navegador y con la fecha de Madrid: si se calcula en el servidor
+  // (UTC) cerca de medianoche saldría el día anterior.
+  const [diasValidos, setDiasValidos] = useState<{ valor: string; etiqueta: string; arriba: string; num: number; mes: string }[]>([]);
+  useEffect(() => { setDiasValidos((() => {
+    const lista: { valor: string; etiqueta: string; arriba: string; num: number; mes: string }[] = [];
     const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     const DIAS_ES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 
@@ -339,7 +346,8 @@ export default function ReservasPage() {
     } catch { /* usa default */ }
 
     for (let i = 0; i <= MAX_DIAS; i++) {
-      const d = new Date(); d.setDate(d.getDate() + i);
+      const hoyMadrid = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+      const d = new Date(`${hoyMadrid}T12:00:00`); d.setDate(d.getDate() + i);
       if (!diasAbiertos.includes(d.getDay())) continue; // día cerrado, omitir
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -350,21 +358,27 @@ export default function ReservasPage() {
         : i === 1
         ? `Mañana, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`
         : `${DIAS_ES[d.getDay()].charAt(0).toUpperCase() + DIAS_ES[d.getDay()].slice(1)}, ${d.getDate()} de ${MESES_ES[d.getMonth()]}`;
-      lista.push({ valor, etiqueta });
+      const DIAS_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const arriba = i === 0 ? "Hoy" : i === 1 ? "Mañana" : DIAS_CORTO[d.getDay()];
+      lista.push({ valor, etiqueta, arriba, num: d.getDate(), mes: MESES_ES[d.getMonth()].slice(0, 3) });
     }
     return lista;
-  }, []);
+  })()); }, []);
 
-  async function cargarSlots(f: string, s: Servicio, p: number) {
+  // Carga las horas de comida y de cena a la vez: el cliente elige directamente la hora.
+  async function cargarSlots(f: string, p: number) {
     setLoadingSlots(true);
     setSlots([]);
     setEsperaForm(false);
     setEsperaOk(false);
     setEsperaError("");
     try {
-      const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
-      const data = await res.json();
-      setSlots(data.slots ?? []);
+      const partes = await Promise.all((["comida", "cena"] as Servicio[]).map(async (s) => {
+        const res = await fetch(`/api/reservas/disponibilidad?fecha=${f}&servicio=${s}&personas=${p}`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        return ((data.slots ?? []) as { hora: string; disponible: boolean }[]).map((x) => ({ ...x, servicio: s }));
+      }));
+      setSlots(partes.flat());
     } catch {
       setSlots([]);
     } finally {
@@ -407,7 +421,7 @@ export default function ReservasPage() {
   }
 
   function reiniciar() {
-    setStep("personas");
+    setStep("inicio");
     setPersonas(0);
     setFecha("");
     setServicio(null);
@@ -494,7 +508,7 @@ export default function ReservasPage() {
   }
 
   // ───────────────────────────── LANDING / PORTADA ─────────────────────────────
-  if (step === "personas") {
+  if (step === "inicio") {
     return (
       <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
         {/* HERO */}
@@ -543,31 +557,12 @@ export default function ReservasPage() {
               En menos de un minuto · hasta {MAX_ONLINE_PARTY_SIZE} personas online
             </p>
 
-            <div className="grid grid-cols-3 gap-3">
-              {Array.from(
-                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
-                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
-              ).map((n) => (
-                <button
-                  key={n}
-                  onClick={() => {
-                    setPersonas(n);
-                    setStep("fecha");
-                  }}
-                  className="group flex flex-col items-center justify-center rounded-xl border border-[#ddd4c1] bg-white/60 py-5 transition-colors hover:border-karuma-700 hover:bg-white"
-                >
-                  <span
-                    className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700"
-                    style={{ fontFamily: SERIF }}
-                  >
-                    {n}
-                  </span>
-                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">
-                    {n === 1 ? "persona" : "personas"}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <Pasos actual="fecha" fecha="" personas={0} hora="" />
+            <Calendario
+              validos={new Set(diasValidos.map((d) => d.valor))}
+              seleccion={fecha}
+              onPick={(valor) => { setFecha(valor); setHora(""); setServicio(null); setError(""); setStep("personas"); }}
+            />
 
             <div className="mt-5 rounded-xl border border-[#e2dac9] bg-white/40 p-4">
               <p className="text-sm text-stone-600">
@@ -797,7 +792,6 @@ export default function ReservasPage() {
   }
 
   // ───────────────────── FLUJO DE RESERVA (pasos intermedios) ─────────────────────
-  const stepIndex = ["fecha", "servicio", "hora", "datos"].indexOf(step);
 
   return (
     <div className="min-h-[100dvh] bg-[#f6f3ec] text-stone-900">
@@ -806,84 +800,64 @@ export default function ReservasPage() {
         <button onClick={reiniciar} className="text-lg font-medium tracking-[0.2em] text-stone-900" style={{ fontFamily: WORDMARK }}>
           KARUMA
         </button>
-        {/* Progreso */}
-        <div className="mx-auto mt-4 flex max-w-[200px] gap-1.5">
-          {(["fecha", "servicio", "hora", "datos"] as Step[]).map((s, i) => (
-            <div key={s} className={`h-0.5 flex-1 rounded-full transition-colors ${stepIndex >= i ? "bg-karuma-700" : "bg-[#ddd4c1]"}`} />
-          ))}
+        <div className="mx-auto mt-4 max-w-md px-2">
+          <Pasos
+            actual={step === "personas" ? "personas" : "hora"}
+            fecha={fecha}
+            personas={personas}
+            hora={step === "datos" ? hora : ""}
+            onIr={(p) => { if (p === "fecha") setStep("inicio"); else if (p === "personas") setStep("personas"); else if (personas) setStep("hora"); }}
+          />
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-6 py-9">
-        {/* PASO 2: fecha */}
-        {step === "fecha" && (
+        {/* PASO 2: personas */}
+        {step === "personas" && (
           <section>
-            <BotonVolver onClick={() => setStep("personas")} />
-            <Kicker jp="日にち" es="Fecha" />
+            <BotonVolver onClick={() => setStep("inicio")} />
+            <Kicker jp="人数" es="Personas" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              ¿Qué día reservas?
+              ¿Cuántos sois?
             </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">Hasta 7 días de antelación</p>
-
-            <div>
-              {diasValidos.map(({ valor, etiqueta }) => (
+            <p className="mb-6 mt-1 text-sm text-stone-500">{diasValidos.find((d) => d.valor === fecha)?.etiqueta ?? formatFecha(fecha)}</p>
+            <div className="grid grid-cols-4 gap-2">
+              {Array.from(
+                { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
+                (_, index) => MIN_ONLINE_PARTY_SIZE + index,
+              ).map((n) => (
                 <button
-                  key={valor}
-                  onClick={() => { setFecha(valor); setError(""); setStep("servicio"); }}
-                  className={`group flex w-full items-center justify-between border-t border-[#e2dac9] py-4 text-left transition-colors last:border-b ${
-                    fecha === valor ? "text-karuma-700" : "text-stone-800 hover:text-karuma-700"
-                  }`}
-                >
-                  <span className="text-base font-medium" style={{ fontFamily: SERIF }}>{etiqueta}</span>
-                  <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-karuma-700" />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* PASO 3: servicio */}
-        {step === "servicio" && (
-          <section>
-            <BotonVolver onClick={() => setStep("fecha")} />
-            <Kicker jp="昼か夜" es="Servicio" />
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
-              ¿Comida o cena?
-            </h2>
-            <p className="mb-6 mt-1 text-sm text-stone-500">{formatFecha(fecha)} · {personas} {personas === 1 ? "persona" : "personas"}</p>
-            <div className="grid grid-cols-2 gap-4">
-              {([
-                { s: "comida" as Servicio, jp: "昼", t: "Comida", h: horarioComida },
-                { s: "cena" as Servicio, jp: "夜", t: "Cena", h: horarioCena },
-              ]).map(({ s, jp, t, h }) => (
-                <button
-                  key={s}
-                  onClick={async () => {
-                    setServicio(s);
-                    await cargarSlots(fecha, s, personas);
+                  key={n}
+                  onClick={() => {
+                    setPersonas(n);
+                    setHora("");
+                    setServicio(null);
+                    void cargarSlots(fecha, n);
                     setStep("hora");
                   }}
-                  className="rounded-2xl border border-[#ddd4c1] bg-white/60 py-8 text-center transition-colors hover:border-karuma-700 hover:bg-white"
+                  className={`group flex aspect-square flex-col items-center justify-center rounded-lg border transition-colors hover:border-karuma-700 hover:bg-white ${personas === n ? "border-karuma-700 bg-white" : "border-[#ddd4c1] bg-white/60"}`}
                 >
-                  <span className="text-sm text-stone-400" style={{ fontFamily: KANJI }} aria-hidden>{jp}</span>
-                  <p className="mt-2 text-2xl font-semibold text-stone-900" style={{ fontFamily: SERIF }}>{t}</p>
-                  <p className="mt-1.5 text-xs text-stone-500">{h}</p>
+                  <span className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700" style={{ fontFamily: SERIF }}>{n}</span>
+                  <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">{n === 1 ? "persona" : "personas"}</span>
                 </button>
               ))}
             </div>
+            <p className="mt-5 text-sm text-stone-500">
+              ¿Sois más de {MAX_ONLINE_PARTY_SIZE}? <a href={`tel:${TELEFONO}`} className="font-semibold text-karuma-700 underline">Llámanos</a> o escríbenos por <a href={`https://wa.me/${WHATSAPP.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-karuma-700 underline">WhatsApp</a>.
+            </p>
           </section>
         )}
 
         {/* PASO 4: hora */}
         {step === "hora" && (
           <section>
-            <BotonVolver onClick={() => setStep("servicio")} />
+            <BotonVolver onClick={() => setStep("personas")} />
             <Kicker jp="お時間" es="Hora" />
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-900" style={{ fontFamily: SERIF }}>
               ¿A qué hora?
             </h2>
             <p className="mb-6 mt-1 text-sm text-stone-500">
-              {formatFecha(fecha)} · {servicio === "comida" ? "Comida" : "Cena"} · {personas} {personas === 1 ? "persona" : "personas"}
+              {diasValidos.find((d) => d.valor === fecha)?.etiqueta ?? formatFecha(fecha)} · {personas} {personas === 1 ? "persona" : "personas"}
             </p>
             {loadingSlots ? (
               <div className="py-12 text-center">
@@ -906,6 +880,14 @@ export default function ReservasPage() {
                     <p className="mt-1 text-center text-sm text-stone-500">
                       Déjanos tu contacto y te avisamos si queda mesa libre.
                     </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {(["comida", "cena"] as Servicio[]).map((sv) => (
+                        <button key={sv} type="button" onClick={() => setServicio(sv)}
+                          className={`rounded-lg border py-2 text-sm font-semibold ${servicio === sv ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]" : "border-stone-300 text-stone-700"}`}>
+                          {sv === "comida" ? "Comida" : "Cena"}
+                        </button>
+                      ))}
+                    </div>
                     <div className="mt-5 space-y-4">
                       <input
                         type="text"
@@ -973,23 +955,35 @@ export default function ReservasPage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2.5">
-                {slots.map((s) =>
-                  s.disponible ? (
-                    <button
-                      key={s.hora}
-                      onClick={() => { setHora(s.hora); setStep("datos"); }}
-                      className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${
-                        hora === s.hora
-                          ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
-                          : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
-                      }`}
-                      style={{ fontFamily: SERIF }}
-                    >
-                      {s.hora}
-                    </button>
-                  ) : null,
-                )}
+              <div className="space-y-6">
+                {(["comida", "cena"] as Servicio[]).map((sv) => {
+                  const libres = slots.filter((x) => x.servicio === sv && x.disponible);
+                  if (!libres.length) return null;
+                  return (
+                    <div key={sv}>
+                      <p className="mb-2 flex items-baseline gap-2 text-sm font-semibold text-stone-700">
+                        <span className="text-stone-400" style={{ fontFamily: KANJI }} aria-hidden>{sv === "comida" ? "昼" : "夜"}</span>
+                        {sv === "comida" ? "Comida" : "Cena"}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {libres.map((x) => (
+                          <button
+                            key={`${sv}-${x.hora}`}
+                            onClick={() => { setServicio(sv); setHora(x.hora); setStep("datos"); }}
+                            className={`rounded-xl border py-3.5 text-base font-medium transition-colors ${
+                              hora === x.hora && servicio === sv
+                                ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
+                                : "border-[#ddd4c1] bg-white/60 text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
+                            }`}
+                            style={{ fontFamily: SERIF }}
+                          >
+                            {x.hora}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -1124,6 +1118,96 @@ function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }) {
     <div className="flex justify-between gap-3 py-1.5">
       <span className="shrink-0 text-stone-500">{etiqueta}</span>
       <span className="min-w-0 truncate text-right font-medium text-stone-900">{valor}</span>
+    </div>
+  );
+}
+
+// ── Pestañas Fecha · Pers. · Hora (como en las reservas de restaurantes grandes) ──
+type PasoId = "fecha" | "personas" | "hora";
+function Pasos({ actual, fecha, personas, hora, onIr }: { actual: PasoId; fecha: string; personas: number; hora: string; onIr?: (p: PasoId) => void }) {
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const fTxt = fecha ? `${Number(fecha.slice(8))} ${MES[Number(fecha.slice(5, 7)) - 1]}` : "Fecha";
+  const items: { id: PasoId; txt: string; Icon: typeof Clock }[] = [
+    { id: "fecha", txt: fTxt, Icon: CalendarDays },
+    { id: "personas", txt: personas ? `${personas} pers.` : "Pers.", Icon: Users },
+    { id: "hora", txt: hora || "Hora", Icon: Clock },
+  ];
+  return (
+    <div className="mb-5 grid grid-cols-3 overflow-hidden rounded-full border border-[#ddd4c1] bg-white/60">
+      {items.map(({ id, txt, Icon }, i) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onIr?.(id)}
+          className={`flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${i > 0 ? "border-l border-[#ddd4c1]" : ""} ${
+            actual === id ? "bg-karuma-100 text-karuma-800" : "text-stone-500 hover:text-karuma-700"
+          }`}
+        >
+          <Icon className="h-4 w-4" /> {txt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Calendario mensual: días disponibles en blanco, fin de semana y festivos con esquina roja ──
+function Calendario({ validos, seleccion, onPick }: { validos: Set<string>; seleccion: string; onPick: (fecha: string) => void }) {
+  const ordenados = [...validos].sort();
+  const primero = ordenados[0] ?? new Date().toISOString().slice(0, 10);
+  const ultimo = ordenados[ordenados.length - 1] ?? primero;
+  const [mes, setMes] = useState(() => (seleccion || primero).slice(0, 7)); // "YYYY-MM"
+  useEffect(() => { if (!seleccion && ordenados.length) setMes(primero.slice(0, 7)); }, [primero]); // eslint-disable-line react-hooks/exhaustive-deps
+  const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const [y, m] = mes.split("-").map(Number);
+  const diasMes = new Date(y, m, 0).getDate();
+  const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7; // lunes = 0
+  const mover = (n: number) => { const d = new Date(y, m - 1 + n, 1); setMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
+  const puedeAtras = mes > primero.slice(0, 7);
+  const puedeAdelante = mes < ultimo.slice(0, 7);
+  if (!validos.size) return <div className="h-72" aria-busy="true" />;
+  const celdas: (string | null)[] = [...Array(offset).fill(null), ...Array.from({ length: diasMes }, (_, i) => `${mes}-${String(i + 1).padStart(2, "0")}`)];
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <button type="button" aria-label="Mes anterior" disabled={!puedeAtras} onClick={() => mover(-1)}
+          className="rounded-lg p-2 text-karuma-700 disabled:text-stone-300"><ChevronLeft className="h-5 w-5" /></button>
+        <p className="text-lg font-semibold text-stone-900" style={{ fontFamily: SERIF }}>{MESES[m - 1]} {y}</p>
+        <button type="button" aria-label="Mes siguiente" disabled={!puedeAdelante} onClick={() => mover(1)}
+          className="rounded-lg border border-karuma-700/40 p-2 text-karuma-700 disabled:border-transparent disabled:text-stone-300"><ChevronRight className="h-5 w-5" /></button>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5 text-center">
+        {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
+          <div key={d} className="pb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{d}</div>
+        ))}
+        {celdas.map((f, i) => {
+          if (!f) return <div key={`v${i}`} />;
+          const ok = validos.has(f);
+          const dow = new Date(`${f}T12:00:00`).getDay();
+          const tarifaAlta = ok && (dow === 0 || dow === 5 || dow === 6 || esFestivo(f));
+          const sel = f === seleccion;
+          return (
+            <button
+              key={f}
+              type="button"
+              disabled={!ok}
+              onClick={() => onPick(f)}
+              className={`relative aspect-square overflow-hidden rounded-lg border text-base font-medium transition-colors ${
+                sel ? "border-karuma-700 bg-karuma-700 text-[#f6f3ec]"
+                  : ok ? "border-[#ddd4c1] bg-white text-stone-900 hover:border-karuma-700 hover:text-karuma-700"
+                  : "border-transparent bg-stone-200/50 text-stone-300"
+              }`}
+              style={{ fontFamily: SERIF }}
+            >
+              {Number(f.slice(8))}
+              {tarifaAlta && !sel && <span aria-hidden className="absolute right-0 top-0 h-0 w-0 border-l-[12px] border-t-[12px] border-l-transparent border-t-karuma-700" />}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3 flex items-center gap-2 text-xs text-stone-500">
+        <span aria-hidden className="inline-block h-0 w-0 border-l-[10px] border-t-[10px] border-l-transparent border-t-karuma-700" />
+        Fin de semana y festivos · 26,50 €
+      </p>
     </div>
   );
 }

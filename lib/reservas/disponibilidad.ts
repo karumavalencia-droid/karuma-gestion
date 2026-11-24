@@ -127,13 +127,14 @@ export function asignarMesa(
   if (libres.length > 0) return [libres[0].id];
 
   // Solo se combinan mesas con una relación de adyacencia explícita y mutua.
-  // Para 5–6 personas se prueban primero dos mesas (p. ej. 4+2) y después tres.
+  // Desde 5 personas se prueban primero dos mesas (p. ej. 4+2), después tres y, desde 7, cuatro.
   if (personas < 5) return null;
 
   const candidatas = mesas
     .filter((m) => m.activa && m.combinable && !ocupadas.has(m.id))
     .sort((a, b) => b.capacidad - a.capacidad || a.numero - b.numero);
-  for (const cantidad of [2, 3]) {
+  // 7–12 personas pueden necesitar 4 mesas seguidas (p. ej. T17–T20), igual que la función de la base de datos.
+  for (const cantidad of personas >= 7 ? [2, 3, 4] : [2, 3]) {
     const opciones = combinaciones(candidatas, cantidad)
       .filter(combinacionValida)
       .filter((opcion) => opcion.reduce((total, mesa) => total + mesa.capacidad, 0) >= personas)
