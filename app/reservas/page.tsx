@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { esFestivo, esDiaEspecial, esTarifaEspecial, PRECIO_ESPECIAL } from "@/lib/reservas/festivos";
+import { esFestivo, esDiaEspecial } from "@/lib/reservas/festivos";
+import { precioBuffet } from "@/lib/reservas/precio";
 import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock, CalendarDays, Users } from "lucide-react";
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
@@ -26,19 +27,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // "13:00:00" → "13:00" (quita los segundos para mostrar la hora limpia)
 const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
 
-// Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
-// Mediodía de lunes a viernes (13:00–17:00) → 19,90 €. Noche de lunes a jueves → 24,90 €.
-// Viernes noche, sábado, domingo y festivos (nacionales, autonómicos y locales de València) → 26,50 €.
-// Nochebuena y Nochevieja (cena), Navidad y Año Nuevo (todo el día) → 29,90 €.
-function precioBuffet(fecha: string, hora: string): string {
-  if (!fecha || !hora) return "24,90 €";
-  const dow = new Date(fecha + "T12:00:00").getDay(); // 0=Dom … 6=Sáb
-  const [h, m] = hora.split(":").map(Number);
-  const mediodia = h * 60 + m < 17 * 60;
-  if (esTarifaEspecial(fecha, mediodia)) return PRECIO_ESPECIAL;
-  if (dow === 0 || dow === 6 || (dow === 5 && !mediodia) || esFestivo(fecha)) return "26,50 €";
-  return mediodia ? "19,90 €" : "24,90 €";
-}
 
 interface PublicConfig {
   reservas_online_activas: boolean;

@@ -5,6 +5,7 @@ import {
   sendEmailViaResend,
   type EmailSendResult,
 } from "@/lib/email/send";
+import { precioBuffet } from "@/lib/reservas/precio";
 import { enlaceGestionReserva, LIMITE_CAMBIO_CLIENTE_MIN } from "@/lib/reservas/cliente-token";
 
 // Se re-exporta porque las rutas de reservas y sus tests lo importan de aquí.
@@ -20,6 +21,10 @@ type ReservationConfirmationInput = {
   reservaId: string;
   mesaIds: number[];
   telefonoRestaurante?: string | null;
+  /** Párrafo destacado opcional (p. ej. aviso de precio) que va antes del resumen. */
+  aviso?: string | null;
+  /** Asunto alternativo; por defecto "Confirmación de reserva - Karuma Sushi & Grill". */
+  asunto?: string | null;
 };
 
 type ReservationReviewInput = {
@@ -67,16 +72,20 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
     ? `Puedes cambiar o cancelar tu reserva tú mismo hasta ${horasLimite} horas antes. Después, llámanos al ${input.telefonoRestaurante}.`
     : `Puedes cambiar o cancelar tu reserva tú mismo hasta ${horasLimite} horas antes.`;
 
-  const subject = `Confirmación de reserva - ${RESTAURANT_NAME}`;
+  const precio = precioBuffet(input.fecha, input.hora);
+  const aviso = input.aviso?.trim() || "";
+  const subject = input.asunto?.trim() || `Confirmación de reserva - ${RESTAURANT_NAME}`;
   const text = [
     `Hola ${nombre},`,
     "",
+    ...(aviso ? [aviso, ""] : []),
     "Tu reserva está confirmada:",
     `Fecha: ${fecha}`,
     `Hora: ${input.hora}`,
     `Personas: ${input.personas}`,
     `Servicio: ${servicio}`,
     `Mesa: ${mesa}`,
+    `Precio buffet: ${precio} / persona (bebidas no incluidas)`,
     `Reserva: ${input.reservaId}`,
     "",
     RESTAURANT_NAME,
@@ -92,6 +101,7 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
       <h1 style="font-size:22px;margin:0 0 8px">${escapeHtml(RESTAURANT_NAME)}</h1>
       <p style="margin:0 0 20px;color:#4b5563">Reserva confirmada</p>
       <p>Hola ${escapeHtml(nombre)},</p>
+      ${aviso ? `<p style="background:#fef3c7;border-left:4px solid #b42318;padding:12px 14px;border-radius:8px;font-weight:600">${escapeHtml(aviso)}</p>` : ""}
       <p>Tu reserva está confirmada. Te esperamos en Karuma.</p>
       <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0">
         <tbody>
@@ -100,6 +110,7 @@ function buildConfirmationEmail(input: ReservationConfirmationInput) {
           <tr><td style="padding:10px 14px;color:#6b7280">Personas</td><td style="padding:10px 14px;font-weight:700;text-align:right">${input.personas}</td></tr>
           <tr><td style="padding:10px 14px;color:#6b7280">Servicio</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(servicio)}</td></tr>
           <tr><td style="padding:10px 14px;color:#6b7280">Mesa</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(mesa)}</td></tr>
+          <tr><td style="padding:10px 14px;color:#6b7280">Precio buffet</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(precio)} / persona</td></tr>
           <tr><td style="padding:10px 14px;color:#6b7280">Reserva</td><td style="padding:10px 14px;font-weight:700;text-align:right">${escapeHtml(input.reservaId)}</td></tr>
         </tbody>
       </table>

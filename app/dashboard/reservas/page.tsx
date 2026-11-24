@@ -328,6 +328,42 @@ export default function ReservasPage() {
   const [changeErr, setChangeErr] = useState("");
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  // Aviso a las reservas futuras de fin de semana/festivo: precio 26,50 €.
+  const [avisoPrecioEnviando, setAvisoPrecioEnviando] = useState(false);
+  async function enviarAvisoPrecioFinde() {
+    if (avisoPrecioEnviando) return;
+    setAvisoPrecioEnviando(true);
+    try {
+      const prev = await fetch("/api/reservas/aviso-precio-finde");
+      const lista = await prev.json() as { total?: number; error?: string; reservas?: { id: string; fecha: string; hora: string; personas: number; nombre: string; email: string }[] };
+      if (!prev.ok) { showToast(lista.error ?? "No se pudo cargar la lista."); return; }
+      const reservas = lista.reservas ?? [];
+      if (reservas.length === 0) { showToast("No hay reservas futuras de fin de semana con email."); return; }
+      const detalle = reservas.slice(0, 25).map((r) => `${r.fecha} ${r.hora} · ${r.personas}p · ${r.nombre || r.email}`).join("\n");
+      const resto = reservas.length > 25 ? `\n… y ${reservas.length - 25} más` : "";
+      const yaEnviado = (() => { try { return localStorage.getItem("karuma-aviso-precio-finde-2650"); } catch { return null; } })();
+      const ok = window.confirm(
+        `${yaEnviado ? `ATENCIÓN: ya se envió el ${yaEnviado}.\n\n` : ""}Se enviará la confirmación con el aviso de precio 26,50 €/persona a ${reservas.length} reservas:\n\n${detalle}${resto}\n\n¿Enviar ahora?`,
+      );
+      if (!ok) return;
+      const resp = await fetch("/api/reservas/aviso-precio-finde", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: reservas.map((r) => r.id) }),
+      });
+      const json = await resp.json() as { ok?: boolean; error?: string; enviadas?: number; fallidas?: { id: string; error: string }[] };
+      if (!resp.ok || !json.ok) { showToast(json.error ?? "No se pudo enviar."); return; }
+      try { localStorage.setItem("karuma-aviso-precio-finde-2650", new Date().toLocaleString("es-ES")); } catch { /* sin almacenamiento */ }
+      const fall = json.fallidas?.length ?? 0;
+      showToast(`Aviso enviado a ${json.enviadas ?? 0} reservas${fall ? ` · ${fall} fallidas` : ""}`);
+      void reload();
+    } catch {
+      showToast("No se pudo enviar el aviso.");
+    } finally {
+      setAvisoPrecioEnviando(false);
+    }
+  }
   const selectVistaServicio = (servicio: VistaServicio) => {
     setVistaServicio(servicio);
     if (servicio === "comida" || servicio === "cena") {
@@ -1003,6 +1039,13 @@ export default function ReservasPage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="no-print mb-3 flex justify-end">
+          <button type="button" onClick={enviarAvisoPrecioFinde} disabled={avisoPrecioEnviando}
+            className="rounded-xl border border-karuma-600 px-3 py-1.5 text-xs font-semibold text-karuma-700 hover:bg-karuma-50 disabled:opacity-50">
+            {avisoPrecioEnviando ? "Enviando…" : "✉️ Aviso precio fin de semana (26,50 €)"}
+          </button>
         </div>
 
         {/* ── Print header ────────────────────────────────────────────────── */}
