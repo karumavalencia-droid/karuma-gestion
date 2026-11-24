@@ -10,10 +10,11 @@ import { BotonTema } from "./BotonTema";
 
 interface HeaderProps {
   onMenuClick: () => void;
+  sidebarCollapsed?: boolean;
   title: string;
 }
 
-export function Header({ onMenuClick, title }: HeaderProps) {
+export function Header({ onMenuClick, sidebarCollapsed = false, title }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -33,8 +34,8 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <button
           onClick={onMenuClick}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 ${
-            isMesaView ? "2xl:hidden" : "lg:hidden"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 active:bg-gray-100 ${
+            sidebarCollapsed ? "" : isMesaView ? "2xl:hidden" : "lg:hidden"
           }`}
           aria-label={t("header.openMenu")}
         >

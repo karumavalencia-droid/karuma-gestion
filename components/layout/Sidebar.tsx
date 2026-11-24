@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Package,
   PackageSearch,
+  PanelLeftClose,
   PieChart,
   Settings,
   ShoppingBasket,
@@ -128,10 +129,13 @@ const SUPPLIER_LINKS = [
 
 interface SidebarProps {
   open: boolean;
+  /** Menú oculto en pantalla grande (se comporta como cajón, igual que en móvil). */
+  collapsed?: boolean;
   onClose: () => void;
+  onCollapse?: () => void;
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, collapsed = false, onClose, onCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -156,7 +160,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {open && (
         <div
           className={`tema-fijo-claro fixed inset-0 z-40 bg-tinta/60 backdrop-blur-sm ${
-            isMesaView ? "2xl:hidden" : "lg:hidden"
+            collapsed ? "" : isMesaView ? "2xl:hidden" : "lg:hidden"
           }`}
           onClick={onClose}
           aria-hidden="true"
@@ -165,9 +169,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={`tema-fijo-claro fixed inset-y-0 left-0 z-50 flex w-[min(100vw-3rem,16rem)] flex-col bg-gray-900 transition-transform duration-300 ease-in-out ${
-          isMesaView
-            ? "2xl:static 2xl:w-64 2xl:translate-x-0"
-            : "lg:static lg:w-64 lg:translate-x-0"
+          collapsed
+            ? ""
+            : isMesaView
+              ? "2xl:static 2xl:w-64 2xl:translate-x-0"
+              : "lg:static lg:w-64 lg:translate-x-0"
         } ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -180,12 +186,25 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             type="button"
             onClick={onClose}
             className={`rounded-lg p-2 text-gray-400 hover:bg-tinta-suave hover:text-white ${
-              isMesaView ? "2xl:hidden" : "lg:hidden"
+              collapsed ? "" : isMesaView ? "2xl:hidden" : "lg:hidden"
             }`}
             aria-label="Cerrar menú"
           >
             <X className="h-5 w-5" />
           </button>
+          {!collapsed && onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className={`hidden rounded-lg p-2 text-gray-400 hover:bg-tinta-suave hover:text-white ${
+                isMesaView ? "2xl:block" : "lg:block"
+              }`}
+              aria-label="Ocultar menú"
+              title="Ocultar menú"
+            >
+              <PanelLeftClose className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
