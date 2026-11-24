@@ -821,7 +821,7 @@ export default function ReservasPage() {
               ¿Cuántos sois?
             </h2>
             <p className="mb-6 mt-1 text-sm text-stone-500">{diasValidos.find((d) => d.valor === fecha)?.etiqueta ?? formatFecha(fecha)}</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {Array.from(
                 { length: MAX_ONLINE_PARTY_SIZE - MIN_ONLINE_PARTY_SIZE + 1 },
                 (_, index) => MIN_ONLINE_PARTY_SIZE + index,
@@ -835,7 +835,7 @@ export default function ReservasPage() {
                     void cargarSlots(fecha, n);
                     setStep("hora");
                   }}
-                  className={`group flex flex-col items-center justify-center rounded-xl border py-5 transition-colors hover:border-karuma-700 hover:bg-white ${personas === n ? "border-karuma-700 bg-white" : "border-[#ddd4c1] bg-white/60"}`}
+                  className={`group flex aspect-square flex-col items-center justify-center rounded-lg border transition-colors hover:border-karuma-700 hover:bg-white ${personas === n ? "border-karuma-700 bg-white" : "border-[#ddd4c1] bg-white/60"}`}
                 >
                   <span className="text-3xl text-stone-900 transition-colors group-hover:text-karuma-700" style={{ fontFamily: SERIF }}>{n}</span>
                   <span className="mt-1 text-[10px] uppercase tracking-wider text-stone-400">{n === 1 ? "persona" : "personas"}</span>
