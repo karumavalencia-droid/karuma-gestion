@@ -306,6 +306,14 @@ export function Sidebar({ open, collapsed = false, onClose, onCollapse }: Sideba
             <Timer className="h-5 w-5 shrink-0 opacity-80" />
             Modo fichaje
           </Link>
+          <Link
+            href="/panel/reservas"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-tinta-suave hover:text-white"
+          >
+            <CalendarCheck className="h-5 w-5 shrink-0 opacity-80" />
+            Panel de reservas
+          </Link>
         </div>
       </aside>
     </>

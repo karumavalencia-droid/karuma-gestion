@@ -65,6 +65,9 @@ const INTENTIONALLY_UNLINKED = {
   "/restaurante": "web pública del restaurante (sin sidebar)",
   "/contacto": "web pública del restaurante (sin sidebar)",
   "/carta": "carta pública del restaurante (sin sidebar)",
+  "/reservas/gestionar":
+    "autogestión del cliente (sin id, sin sidebar)",
+  "/dashboard/sala": "subnav de Reservas (pestaña Sala)",
   "/reservas/gestionar/:id":
     "autogestión del cliente (enlace del email de confirmación, sin sidebar)",
 
@@ -75,6 +78,11 @@ const INTENTIONALLY_UNLINKED = {
   "/dashboard/kankyo": "redirección a /compras/kanyo",
   "/dashboard/yongxing": "redirección a /compras/yongxing",
   "/dashboard/hoy": "subnav Reservas",
+  "/panel": "panel de reservas independiente (redirige a /panel/reservas)",
+  "/panel/reservas": "panel de reservas independiente (enlace desde el pie del sidebar)",
+  "/panel/mesas": "panel de reservas independiente",
+  "/panel/config": "panel de reservas independiente",
+  "/tablet": "plano de mesas a pantalla completa para la tablet del local",
   "/dashboard/mesa-view": "subnav Reservas",
   "/dashboard/clientes": "subnav Reservas",
   "/dashboard/config": "subnav Reservas",

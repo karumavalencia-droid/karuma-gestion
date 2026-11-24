@@ -11,7 +11,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // El kiosco es la tablet del local (sin sesión personal) y /reservas es
   // público: ni barra lateral ni pantalla de correo.
-  if (["/", "/web", "/carta", "/restaurante", "/contacto"].includes(pathname) || pathname.startsWith("/kiosk") || pathname.startsWith("/reservas")) {
+  // /panel trae su propio menú (panel de reservas) y /tablet va a pantalla completa.
+  if (["/", "/web", "/carta", "/restaurante", "/contacto", "/tablet"].includes(pathname) || pathname.startsWith("/kiosk") || pathname.startsWith("/reservas") || pathname.startsWith("/panel")) {
     return <>{children}</>;
   }
   return (
