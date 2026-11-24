@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { esFestivo } from "@/lib/reservas/festivos";
+import { esFestivo, esDiaEspecial, esTarifaEspecial, PRECIO_ESPECIAL } from "@/lib/reservas/festivos";
 import { Phone, MessageCircle, MapPin, Navigation, ChevronLeft, ChevronRight, ChevronDown, Clock, CalendarDays, Users } from "lucide-react";
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from "@/lib/reservas/config";
 
@@ -29,11 +29,13 @@ const hhmm = (t?: string | null) => (t ? t.slice(0, 5) : "");
 // Precio del buffet por persona según día y hora (regla de Karuma, calculada en cliente):
 // Mediodía de lunes a viernes (13:00–17:00) → 19,90 €. Noche de lunes a jueves → 24,90 €.
 // Viernes noche, sábado, domingo y festivos (nacionales, autonómicos y locales de València) → 26,50 €.
+// Nochebuena y Nochevieja (cena), Navidad y Año Nuevo (todo el día) → 29,90 €.
 function precioBuffet(fecha: string, hora: string): string {
   if (!fecha || !hora) return "24,90 €";
   const dow = new Date(fecha + "T12:00:00").getDay(); // 0=Dom … 6=Sáb
   const [h, m] = hora.split(":").map(Number);
   const mediodia = h * 60 + m < 17 * 60;
+  if (esTarifaEspecial(fecha, mediodia)) return PRECIO_ESPECIAL;
   if (dow === 0 || dow === 6 || (dow === 5 && !mediodia) || esFestivo(fecha)) return "26,50 €";
   return mediodia ? "19,90 €" : "24,90 €";
 }
@@ -612,6 +614,7 @@ export default function ReservasPage() {
                   { t: "Mediodía", sub: "Lunes a viernes · 13:00 – 17:00", precio: "19,90 €" },
                   { t: "Noche", sub: "Lunes a jueves · 19:00 – 23:30", precio: "24,90 €" },
                   { t: "Fin de semana y festivos", sub: "Viernes noche, sábado, domingo y festivos", precio: "26,50 €" },
+                  { t: "Navidad y Año Nuevo", sub: "Noche del 24 y 31 de dic. · 25 de dic. y 1 de ene. todo el día", precio: "29,90 €" },
                   { t: "Niños", sub: "Menú infantil", precio: "12,50 €" },
                 ].map((p) => (
                   <div key={p.t} className="flex items-start justify-between gap-4 border-t border-karuma-700/15 py-3.5 first:border-t-0">
@@ -1183,7 +1186,7 @@ function Calendario({ validos, seleccion, onPick }: { validos: Set<string>; sele
           if (!f) return <div key={`v${i}`} />;
           const ok = validos.has(f);
           const dow = new Date(`${f}T12:00:00`).getDay();
-          const tarifaAlta = ok && (dow === 0 || dow === 5 || dow === 6 || esFestivo(f));
+          const tarifaAlta = ok && (dow === 0 || dow === 5 || dow === 6 || esFestivo(f) || esDiaEspecial(f));
           const sel = f === seleccion;
           return (
             <button
@@ -1208,6 +1211,7 @@ function Calendario({ validos, seleccion, onPick }: { validos: Set<string>; sele
         <span aria-hidden className="inline-block h-0 w-0 border-l-[10px] border-t-[10px] border-l-transparent border-t-karuma-700" />
         Fin de semana y festivos · 26,50 €
       </p>
+      <p className="mt-1 pl-[18px] text-xs text-stone-500">Noche del 24 y 31 de dic., 25 de dic. y 1 de ene. · 29,90 €</p>
     </div>
   );
 }

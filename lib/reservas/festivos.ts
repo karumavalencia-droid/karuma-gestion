@@ -51,3 +51,16 @@ export function esFestivo(fecha: string): boolean {
   if (!set) { set = new Set(OFICIALES[y] ?? calculados(y)); cache.set(y, set); }
   return set.has(fecha.slice(0, 10));
 }
+
+// Tarifa especial de Navidad y Año Nuevo (todos los años): 29,90 €.
+// Nochebuena y Nochevieja solo en cena; Navidad y Año Nuevo todo el día.
+export const PRECIO_ESPECIAL = "29,90 €";
+export function esDiaEspecial(fecha: string): boolean {
+  const md = fecha.slice(5, 10);
+  return md === "12-24" || md === "12-25" || md === "12-31" || md === "01-01";
+}
+export function esTarifaEspecial(fecha: string, mediodia: boolean): boolean {
+  const md = fecha.slice(5, 10);
+  if (md === "12-25" || md === "01-01") return true;
+  return !mediodia && (md === "12-24" || md === "12-31");
+}
